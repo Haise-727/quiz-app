@@ -1,68 +1,123 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
+/* ── Design tokens (shadcn-compatible) ─────────────────────────────────── */
+@layer base {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    /* Semantic surface colors */
+    --background:      0 0% 100%;
+    --foreground:      222 47% 11%;
+    --card:            0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover:         0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --muted:           210 40% 96%;
+    --muted-foreground:215 16% 47%;
+    --border:          214 32% 91%;
+    --input:           214 32% 91%;
+    --ring:            263 70% 50%;
+
+    /* Brand: primary (indigo/quiz) */
+    --primary:         263 70% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Brand: student */
+    --student:         220 74% 60%;
+    --student-dark:    252 53% 34%;
+
+    /* Brand: teacher */
+    --teacher:         20 83% 50%;
+    --teacher-light:   44 90% 54%;
+
+    --secondary:       210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --accent:          210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive:     0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --radius: 0.75rem;
   }
-  a:hover {
-    color: #747bff;
+}
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: 'Montserrat', sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+    background-color: #f7f7f7;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
   }
   button {
-    background-color: #f9f9f9;
+    font-family: inherit;
   }
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* Custom keyframes used across pages */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(50px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+@keyframes bounce-in {
+  0%   { opacity: 0; transform: scale(0.3) translateY(30px); }
+  50%  { opacity: 1; transform: scale(1.05); }
+  70%  { transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes fade-in-item {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-opacity {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+@keyframes blink-anim {
+  0%, 50%   { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+@keyframes slide-in-up {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Auth panel sliding animation (StudentLogin / TeacherLogin — Phase 3 replaces these) */
+@keyframes show {
+  0%, 49.99% { opacity: 0; z-index: 1; }
+  50%, 100%  { opacity: 1; z-index: 5; }
+}
+
+@layer utilities {
+  .animate-fade-in       { animation: fade-in 0.5s ease-out; }
+  .animate-slide-up      { animation: slide-up 0.5s ease-out forwards; }
+  .animate-slide-in-right{ animation: slide-in-right 0.5s ease-out; }
+  .animate-float         { animation: float-y 3s ease-in-out infinite; }
+  .animate-bounce-in     { animation: bounce-in 0.6s ease-out forwards; }
+  .animate-fade-in-item  { animation: fade-in-item 0.5s ease-out both; }
+  .animate-pulse-opacity { animation: pulse-opacity 2s infinite; }
+  .animate-blink         { animation: blink-anim 1.5s infinite; }
+  .animate-slide-in-up   { animation: slide-in-up 0.6s ease-out forwards; }
 }

@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+    }
+    function hasRole(role) {
+      return isSignedIn() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    // ── users ─────────────────────────────────────────────────────────────────
+    // Any signed-in user can read other profiles (needed for teacher grading display names).
+    // Only the owner can write their own profile.
+    match /users/{userId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if false;
+    }
+
+    // ── quizzes ───────────────────────────────────────────────────────────────
+    // - Active quizzes are publicly readable (students/guests need to join by code).
+    // - Creator can always read their own (even inactive).
+    // - Only signed-in users (teachers) can create quizzes.
+    // - Only the creator can update or delete.
+    match /quizzes/{quizId} {
+      allow read:   if resource.data.active == true ||
+                       (isSignedIn() && isOwner(resource.data.createdBy));
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && isOwner(resource.data.createdBy);
+      allow delete: if isSignedIn() && isOwner(resource.data.createdBy);
+    }
+
+    // ── quiz_results ──────────────────────────────────────────────────────────
+    // - Anyone (including guests) can CREATE a result (guest submissions).
+    // - A signed-in student can read their own results.
+    // - The quiz's teacher can read all results for their quiz.
+    // - Only the teacher can UPDATE a result (for manual grading).
+    // - Nobody can delete results.
+    match /quiz_results/{resultId} {
+      allow create: if true;   // guests + students
+      allow read:   if isSignedIn() && (
+                       isOwner(resource.data.userId) ||
+                       isOwner(resource.data.teacherId)
+                    );
+      allow update: if isSignedIn() && isOwner(resource.data.teacherId);
+      allow delete: if false;
+    }
+  }
+}

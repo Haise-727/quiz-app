@@ -1,0 +1,409 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useAuth, handleAuthError } from '../contexts/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { FaGoogle } from 'react-icons/fa';
+import { Eye, EyeOff, GraduationCap, BookOpen, ArrowLeft, Loader2 } from 'lucide-react';
+
+// ── Role picker card ──────────────────────────────────────────────────────────
+const RoleCard = ({ role, icon: Icon, label, desc, selected, accentColor, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`
+      group flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all duration-200 text-left w-full
+      ${selected
+        ? `border-current bg-current/5`
+        : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] hover:border-current hover:bg-current/5'
+      }
+    `}
+    style={{ color: selected ? accentColor : undefined }}
+  >
+    <div
+      className="w-12 h-12 rounded-xl flex items-center justify-center text-white transition-all"
+      style={{ backgroundColor: accentColor }}
+    >
+      <Icon className="w-6 h-6" />
+    </div>
+    <div className="text-center">
+      <p className="font-bold text-[hsl(var(--foreground))]">{label}</p>
+      <p className="text-xs text-[hsl(var(--muted-foreground))] leading-snug mt-0.5">{desc}</p>
+    </div>
+    {selected && (
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs"
+        style={{ backgroundColor: accentColor }}
+      >
+        ✓
+      </motion.div>
+    )}
+  </button>
+);
+
+// ── Role selection modal (for new Google users) ────────────────────────────────
+const RoleSelectionModal = ({ user, onSelect, loading }) => (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+    <motion.div
+      initial={{ scale: 0.9, opacity: 0, y: 16 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+    >
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-[#0d0d20] text-white overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-20 -left-20 w-60 h-60 rounded-full bg-[#4776e6]/20 blur-3xl" />
+          <div className="absolute -bottom-20 -right-20 w-60 h-60 rounded-full bg-[#8b5cf6]/20 blur-3xl" />
+        </div>
+        <CardHeader className="relative text-center pb-2">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#4776e6] to-[#8b5cf6] mx-auto mb-3 flex items-center justify-center text-2xl">
+            👋
+          </div>
+          <CardTitle className="text-white text-2xl">One last step</CardTitle>
+          <CardDescription className="text-white/50 text-base">
+            How do you use Quizlike, {user?.displayName?.split(' ')[0] || 'friend'}?
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="relative flex flex-col gap-3 pb-6">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { role: 'student', icon: GraduationCap, label: 'Student', desc: 'Join & take quizzes', color: '#4776e6' },
+              { role: 'teacher', icon: BookOpen,      label: 'Teacher', desc: 'Create & host quizzes', color: '#e85a19' },
+            ].map(({ role, icon: Icon, label, desc, color }) => (
+              <button
+                key={role}
+                onClick={() => onSelect(role)}
+                disabled={loading}
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border-2 border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all disabled:opacity-50"
+              >
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: color }}>
+                  <Icon className="w-7 h-7" />
+                </div>
+                <div className="text-center">
+                  <p className="font-bold text-white">{label}</p>
+                  <p className="text-white/40 text-xs mt-0.5">{desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+          {loading && (
+            <div className="flex items-center justify-center gap-2 text-white/50 text-sm pt-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Setting up your account...
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  </div>
+);
+
+// ── Main Login page ────────────────────────────────────────────────────────────
+const Login = () => {
+  const [searchParams] = useSearchParams();
+  const defaultTab  = searchParams.get('tab') === 'signup' ? 'signup' : 'signin';
+  const defaultRole = searchParams.get('role') || '';
+
+  const [tab, setTab]                 = useState(defaultTab);
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [name, setName]               = useState('');
+  const [role, setRole]               = useState(defaultRole);
+  const [showPw, setShowPw]           = useState(false);
+  const [error, setError]             = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [pendingGoogleUser, setPending] = useState(null);
+  const [roleLoading, setRoleLoading] = useState(false);
+
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, createUserProfile, currentUser, userRole } = useAuth();
+  const navigate = useNavigate();
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (currentUser && userRole) {
+      navigate(userRole === 'teacher' ? '/teacher/home' : '/student/dashboard', { replace: true });
+    }
+  }, [currentUser, userRole]);
+
+  const goHome = (r) => navigate(r === 'teacher' ? '/teacher/home' : '/student/dashboard', { replace: true });
+
+  // ── Google ─────────────────────────────────────────────────────────────────
+  const handleGoogle = async () => {
+    setError(''); setLoading(true);
+    try {
+      const { user, isNewUser, existingRole } = await signInWithGoogle();
+      if (isNewUser) {
+        setPending(user);
+      } else {
+        toast.success(`Welcome back, ${user.displayName?.split(' ')[0] || 'there'}!`);
+        goHome(existingRole);
+      }
+    } catch (err) {
+      const msg = handleAuthError(err);
+      if (msg) setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRoleSelect = async (selectedRole) => {
+    if (!pendingGoogleUser) return;
+    setRoleLoading(true);
+    try {
+      await createUserProfile(
+        pendingGoogleUser.uid,
+        pendingGoogleUser.email,
+        selectedRole,
+        pendingGoogleUser.displayName || pendingGoogleUser.email.split('@')[0]
+      );
+      toast.success('Account created! Welcome to Quizlike 🎉');
+      goHome(selectedRole);
+    } catch {
+      setError('Failed to set up account. Please try again.');
+      setPending(null);
+    } finally {
+      setRoleLoading(false);
+    }
+  };
+
+  // ── Email sign-in ─────────────────────────────────────────────────────────
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    if (!email || !password) { setError('Please fill in all fields.'); return; }
+    setError(''); setLoading(true);
+    try {
+      await signInWithEmail(email, password);
+      // redirect handled by useEffect
+    } catch (err) {
+      setError(handleAuthError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Email sign-up ─────────────────────────────────────────────────────────
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    if (!email || !password || !name) { setError('Please fill in all fields.'); return; }
+    if (!role)  { setError('Please choose Student or Teacher.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    setError(''); setLoading(true);
+    try {
+      await signUpWithEmail(email, password, name, role);
+      toast.success('Account created! Welcome to Quizlike 🎉');
+      goHome(role);
+    } catch (err) {
+      setError(handleAuthError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      {pendingGoogleUser && (
+        <RoleSelectionModal user={pendingGoogleUser} onSelect={handleRoleSelect} loading={roleLoading} />
+      )}
+
+      <div className="relative min-h-screen w-screen flex items-center justify-center bg-[#0d0d20] overflow-hidden p-4">
+        {/* Background blobs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#4776e6]/10 blur-[120px]" />
+          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[#8b5cf6]/10 blur-[120px]" />
+        </div>
+
+        <div className="relative z-10 w-full max-w-md flex flex-col gap-6">
+
+          {/* Logo */}
+          <Link to="/" className="flex items-center justify-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4776e6] to-[#8b5cf6] flex items-center justify-center text-white font-black text-base shadow-lg">Q</div>
+            <span className="text-white font-bold text-2xl tracking-tight">Quizlike</span>
+          </Link>
+
+          {/* Card */}
+          <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl text-white">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-white text-2xl text-center">
+                {tab === 'signin' ? 'Welcome back 👋' : 'Join Quizlike ✨'}
+              </CardTitle>
+              <CardDescription className="text-white/40 text-center">
+                {tab === 'signin'
+                  ? 'Sign in to continue your journey'
+                  : 'Create your free account today'}
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="flex flex-col gap-4">
+              {/* Google */}
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleGoogle}
+                disabled={loading}
+                className="w-full bg-white text-gray-800 border-0 hover:bg-gray-50 hover:text-gray-900 font-semibold shadow-sm"
+              >
+                {loading
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <FaGoogle className="text-[#4285f4]" />
+                }
+                Continue with Google
+              </Button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <Separator className="flex-1 bg-white/10" />
+                <span className="text-white/30 text-xs font-medium">or continue with email</span>
+                <Separator className="flex-1 bg-white/10" />
+              </div>
+
+              {/* Form */}
+              <form onSubmit={tab === 'signin' ? handleSignIn : handleSignUp} className="flex flex-col gap-3">
+
+                {/* Sign-up extras */}
+                <AnimatePresence>
+                  {tab === 'signup' && (
+                    <motion.div
+                      key="signup-fields"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex flex-col gap-3 overflow-hidden"
+                    >
+                      {/* Name */}
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-white/70">Display name</Label>
+                        <Input
+                          placeholder="Your name"
+                          value={name}
+                          onChange={e => setName(e.target.value)}
+                          className="bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:border-[#6c63ff] focus-visible:ring-[#6c63ff]/30"
+                          autoComplete="name"
+                        />
+                      </div>
+
+                      {/* Role */}
+                      <div className="flex flex-col gap-1.5">
+                        <Label className="text-white/70">I am a...</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { r: 'student', icon: GraduationCap, label: 'Student', color: '#4776e6' },
+                            { r: 'teacher', icon: BookOpen,      label: 'Teacher', color: '#e85a19' },
+                          ].map(({ r, icon: Icon, label, color }) => (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => setRole(r)}
+                              className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                                role === r
+                                  ? 'text-white bg-white/10'
+                                  : 'border-white/10 text-white/40 hover:border-white/20 hover:text-white/70'
+                              }`}
+                              style={role === r ? { borderColor: color } : {}}
+                            >
+                              <Icon className="w-4 h-4" style={role === r ? { color } : {}} />
+                              {label}
+                              {role === r && <span className="ml-auto text-xs" style={{ color }}>✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Email */}
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-white/70">Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:border-[#6c63ff] focus-visible:ring-[#6c63ff]/30"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-white/70">Password</Label>
+                  <div className="relative">
+                    <Input
+                      type={showPw ? 'text' : 'password'}
+                      placeholder={tab === 'signup' ? 'Min. 6 characters' : 'Your password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      className="bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:border-[#6c63ff] focus-visible:ring-[#6c63ff]/30 pr-10"
+                      autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                    >
+                      {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error */}
+                <AnimatePresence>
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  variant="app"
+                  disabled={loading}
+                  className="w-full font-bold"
+                >
+                  {loading
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                    : tab === 'signin' ? 'Sign In' : 'Create Account'
+                  }
+                </Button>
+              </form>
+
+              {/* Tab toggle */}
+              <p className="text-center text-white/40 text-sm">
+                {tab === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
+                <button
+                  onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setError(''); }}
+                  className="text-[#8b5cf6] hover:text-[#a78bfa] font-semibold transition-colors"
+                >
+                  {tab === 'signin' ? 'Sign Up Free' : 'Sign In'}
+                </button>
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Back link */}
+          <Link to="/" className="flex items-center justify-center gap-1.5 text-white/30 hover:text-white/60 text-sm transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to home
+          </Link>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default Login;

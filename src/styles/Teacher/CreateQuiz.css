@@ -1,4 +1,10 @@
-/* === GENERAL BODY & CONTAINER (Restored Color Theme) === */
+/* =====================================================
+   CreateQuiz form styles
+   NOTE: TUI Image Editor overrides live in App.css
+   Keyframe animations (fadeIn, fadeInUp) live in index.css
+   ===================================================== */
+
+/* === PAGE CONTAINER === */
 .create-quiz-container {
   display: flex;
   justify-content: center;
@@ -7,7 +13,6 @@
   width: 100vw;
   padding: 6rem 2rem;
   background: linear-gradient(135deg, #f12711, #f5af19);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   color: #333;
   overflow-y: auto;
 }
@@ -20,7 +25,7 @@
   border-radius: 20px;
   padding: 2.5rem 3rem;
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
-  animation: fadeIn 0.5s ease-out;
+  animation: fade-in 0.5s ease-out;
 }
 
 /* === HEADER === */
@@ -32,227 +37,56 @@
   padding-bottom: 1.5rem;
   border-bottom: 1px solid #eee;
 }
-.create-quiz-header h2 {
-  font-size: 2.25rem;
-  font-weight: 700;
-  margin: 0;
-  color: #1a202c;
-}
+.create-quiz-header h2 { font-size: 2.25rem; font-weight: 700; margin: 0; color: #1a202c; }
 
 /* === SECTIONS === */
-.quiz-form-section, .quiz-questions-section {
-  margin-bottom: 3rem;
-}
-.quiz-form-section h3, .quiz-questions-section h3 {
-  font-size: 1.5rem;
-  color: #333;
-  margin-bottom: 1.5rem;
-  font-weight: 600;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid #f5af19;
-}
+.quiz-form-section, .quiz-questions-section { margin-bottom: 3rem; }
+.quiz-form-section h3, .quiz-questions-section h3 { font-size: 1.5rem; color: #333; margin-bottom: 1.5rem; font-weight: 600; padding-bottom: 0.75rem; border-bottom: 2px solid #f5af19; }
 
 /* === FORM ELEMENTS === */
-.form-group {
-  margin-bottom: 1.5rem;
-}
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #444;
-}
-.form-control {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 1rem;
-  color: #333;
-  background-color: #f9f9f9;
-  transition: all 0.2s ease;
-}
-.form-control::placeholder {
-  color: #999;
-}
-.form-control:focus {
-  outline: none;
-  border-color: #f12711;
-  box-shadow: 0 0 0 3px rgba(241, 39, 17, 0.15);
-  background-color: #fff;
-}
-textarea.form-control {
-  resize: vertical;
-  min-height: 90px;
-}
-.input-instruction {
-  font-size: 0.8rem;
-  color: #666;
-  margin-top: 0.5rem;
-}
+.form-group { margin-bottom: 1.5rem; }
+.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: #444; }
+.form-control { width: 100%; padding: 12px 16px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; color: #333; background-color: #f9f9f9; transition: all 0.2s ease; }
+.form-control::placeholder { color: #999; }
+.form-control:focus { outline: none; border-color: #f12711; box-shadow: 0 0 0 3px rgba(241, 39, 17, 0.15); background-color: #fff; }
+textarea.form-control { resize: vertical; min-height: 90px; }
+.input-instruction { font-size: 0.8rem; color: #666; margin-top: 0.5rem; }
 
 /* === QUESTION CARD === */
-.question-card {
-  background-color: #fff;
-  border: 1px solid #eee;
-  border-radius: 12px;
-  padding: 1.5rem 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
-  border-left: 5px solid #f5af19;
-  transition: all 0.3s ease;
-  overflow: hidden;
-}
-.question-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
-}
-.question-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-.question-header h4 {
-  color: #f12711;
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-.question-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
+.question-card { background-color: #fff; border: 1px solid #eee; border-radius: 12px; padding: 1.5rem 2rem; margin-bottom: 2rem; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05); border-left: 5px solid #f5af19; transition: all 0.3s ease; overflow: hidden; }
+.question-card:hover { transform: translateY(-5px); box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08); }
+.question-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.question-header h4 { color: #f12711; margin: 0; font-size: 1.25rem; font-weight: 600; }
+.question-controls { display: flex; align-items: center; gap: 0.75rem; }
+.question-type-select { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; background-color: #f8f9fa; font-weight: 500; color: #333; cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
+.question-type-select:focus { outline: none; border-color: #f12711; box-shadow: 0 0 0 3px rgba(241, 39, 17, 0.15); }
 
-.question-type-select {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  background-color: #f8f9fa;
-  font-weight: 500;
-  color: #333; 
-  cursor: pointer;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.5rem center;
-  background-repeat: no-repeat;
-  background-size: 1.5em 1.5em;
-  padding-right: 2.5rem;
-}
-.question-type-select:focus {
-  outline: none;
-  border-color: #f12711;
-  box-shadow: 0 0 0 3px rgba(241, 39, 17, 0.15);
-}
+.question-main-content { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; }
+.question-text-and-media { flex-grow: 1; display: flex; flex-direction: column; }
+.question-textarea { min-height: 100px; }
+.question-settings { flex: 0 0 120px; display: flex; flex-direction: column; gap: 1rem; }
+.points-input { font-weight: 600; text-align: center; padding: 12px 10px; }
+.question-body { padding-top: 1.5rem; border-top: 1px solid #f0f0f0; }
 
-.question-main-content {
-  display: flex;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-.question-text-and-media {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-}
-.question-textarea {
-  min-height: 100px;
-}
-.question-settings {
-  flex: 0 0 120px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.points-input {
-  font-weight: 600;
-  text-align: center;
-  padding: 12px 10px;
-}
-.question-body {
-  padding-top: 1.5rem;
-  border-top: 1px solid #f0f0f0;
-}
+/* === QUESTION TYPE LAYOUTS === */
+.options-container, .match-following-container, .categorize-container, .reorder-container { display: flex; flex-direction: column; gap: 1rem; }
+.options-container h4, .match-following-container h4, .categorize-container h4, .reorder-container h4 { font-size: 1rem; font-weight: 600; color: #555; margin: 0 0 0.5rem 0; }
 
-/* === SPECIFIC QUESTION TYPE LAYOUTS === */
-.options-container, .match-following-container, .categorize-container, .reorder-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.options-container h4, .match-following-container h4, .categorize-container h4, .reorder-container h4 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #555;
-  margin: 0 0 0.5rem 0;
-}
-.option-item, .match-pair-item, .categorize-item-row, .reorder-item-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  width: 100%;
-}
+.option-item { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 1rem; width: 100%; }
+.option-item .form-control { grid-column: 2 / 3; }
+.option-item .media-preview-wrapper, .option-item .add-media-btn-small { grid-column: 3 / 4; }
+.option-item .remove-item-btn { grid-column: 4 / 5; }
 
-/* === LAYOUT FIX FOR MCQ OPTIONS === */
-.option-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto auto; /* checkbox, text input, media, remove btn */
-  align-items: center;
-  gap: 1rem;
-}
-.option-item .form-control {
-  grid-column: 2 / 3;
-}
-.option-item .media-preview-wrapper, .option-item .add-media-btn-small {
-  grid-column: 3 / 4;
-}
-.option-item .remove-item-btn {
-  grid-column: 4 / 5;
-}
-
-.form-check-input {
-  width: 20px;
-  height: 20px;
-  accent-color: #f12711;
-  flex-shrink: 0;
-}
-.match-pair-item .fa-grip-lines {
-  color: #aaa;
-  cursor: grab;
-}
-.match-column {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  flex-grow: 1;
-}
-.reorder-number {
-  font-weight: 600;
-  color: #777;
-  width: 20px;
-  text-align: right;
-}
-.category-select {
-  max-width: 200px;
-}
+.form-check-input { width: 20px; height: 20px; accent-color: #f12711; flex-shrink: 0; }
+.match-pair-item { display: flex; align-items: center; gap: 1rem; width: 100%; }
+.match-column { display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1; }
+.reorder-number { font-weight: 600; color: #777; width: 20px; text-align: right; }
+.reorder-item-row { display: flex; align-items: center; gap: 1rem; width: 100%; }
+.categorize-item-row { display: flex; align-items: center; gap: 1rem; width: 100%; }
+.category-select { max-width: 200px; }
 
 /* === BUTTONS === */
-.back-btn, .publish-quiz-btn, .add-question-btn, .add-item-btn {
-  cursor: pointer;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
-  font-weight: 600;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-}
+.back-btn, .publish-quiz-btn, .add-question-btn, .add-item-btn { cursor: pointer; border: none; border-radius: 8px; padding: 12px 24px; font-weight: 600; font-size: 1rem; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 0.6rem; }
 .back-btn { background: #f1f1f1; border: 1px solid #ddd; color: #555; }
 .back-btn:hover { background-color: #e8e8e8; }
 .publish-quiz-btn { background-image: linear-gradient(to right, #f12711, #f5af19); color: white; box-shadow: 0 4px 15px rgba(232, 90, 25, 0.3); }
@@ -271,16 +105,12 @@ textarea.form-control {
 .add-media-btn:hover, .add-media-btn-small:hover { border-color: #f12711; color: #f12711; background-color: #fff8f5; }
 
 /* === ERROR & PUBLISHED STATE === */
-.error-message { display: flex; align-items: center; gap: 0.75rem; background-color: #fce8e6; color: #c51c1c; padding: 1rem; border-left: 4px solid #c51c1c; margin: 0 0 2rem 0; border-radius: 8px; font-weight: 500; animation: fadeIn 0.3s; }
-.quiz-published-section { text-align: center; padding: 4rem 1rem; animation: fadeInUp 0.6s ease-out; }
+.error-message { display: flex; align-items: center; gap: 0.75rem; background-color: #fce8e6; color: #c51c1c; padding: 1rem; border-left: 4px solid #c51c1c; margin: 0 0 2rem 0; border-radius: 8px; font-weight: 500; animation: fade-in 0.3s; }
+.quiz-published-section { text-align: center; padding: 4rem 1rem; animation: slide-up 0.6s ease-out; }
 .quiz-published-section h2 { font-size: 2.5rem; color: #28a745; margin-bottom: 1rem; }
 .quiz-code { font-size: 3.5rem; font-weight: 700; letter-spacing: 0.5rem; color: #e85a19; margin: 2rem 0; font-family: 'Courier New', Courier, monospace; background-color: #fff8f5; padding: 1.5rem 2rem; border-radius: 12px; border: 2px dashed #f5af19; display: inline-block; }
 .quiz-published-section button { margin: 0.5rem; }
 .loading-screen { display: flex; justify-content: center; align-items: center; height: 100vh; background: linear-gradient(135deg, #f12711, #f5af19); color: white; font-size: 2rem; font-weight: 600; }
-
-/* === ANIMATIONS === */
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
 /* === COMPREHENSION & SUB-QUESTION STYLES === */
 .comprehension-container { width: 100%; }
@@ -293,8 +123,8 @@ textarea.form-control {
 .sub-question-add-buttons { margin-top: 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap; }
 
 /* === UPLOAD CHOICE MODAL === */
-.upload-choice-modal-overlay { position: fixed; inset: 0; background-color: rgba(17, 24, 39, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fadeIn 0.2s ease-out; }
-.upload-choice-modal-content { background-color: white; padding: 2.5rem; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); text-align: center; position: relative; animation: fadeInUp 0.3s ease-out; }
+.upload-choice-modal-overlay { position: fixed; inset: 0; background-color: rgba(17, 24, 39, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fade-in 0.2s ease-out; }
+.upload-choice-modal-content { background-color: white; padding: 2.5rem; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); text-align: center; position: relative; animation: slide-up 0.3s ease-out; }
 .upload-choice-modal-content h3 { font-size: 1.75rem; margin: 0 0 0.5rem 0; color: #1a202c; }
 .upload-choice-modal-content p { color: #4a5568; margin-bottom: 2rem; }
 .upload-choices { display: flex; flex-direction: column; gap: 1rem; }
@@ -304,368 +134,17 @@ textarea.form-control {
 .close-modal-btn-simple { position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; color: #a0aec0; cursor: pointer; padding: 0.5rem; line-height: 1; }
 .close-modal-btn-simple:hover { color: #4a5568; }
 
-/* === IMAGE CROPPER MODAL === */
-.cropper-modal-overlay { position: fixed; inset: 0; background-color: rgba(10, 10, 20, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1001; animation: fadeIn 0.3s ease-out; }
-.cropper-modal-content { background-color: #2d3748; color: white; padding: 1.5rem; border-radius: 16px; width: 90vw; max-width: 800px; height: 80vh; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; gap: 1rem; }
-.cropper-container { position: relative; flex-grow: 1; background-color: #1a202c; border-radius: 8px; }
-.cropper-controls { display: flex; flex-direction: column; gap: 1rem; padding: 0 1rem; }
-.control-group { display: flex; flex-direction: column; gap: 0.75rem; }
-.control-group label { font-weight: 600; font-size: 0.9rem; color: #a0aec0; }
-.control-group input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; background: #4a5568; border-radius: 5px; outline: none; transition: opacity 0.2s; }
-.control-group input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #f5af19; cursor: pointer; border-radius: 50%; border: 3px solid white; }
-.control-group input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; background: #f5af19; cursor: pointer; border-radius: 50%; border: 3px solid white; }
-.cropper-actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 1rem 0 1rem; border-top: 1px solid #4a5568; }
-.cropper-actions-right { display: flex; gap: 1rem; }
-.cropper-btn-cancel, .cropper-btn-confirm, .cropper-btn-delete { padding: 10px 24px; font-size: 1rem; font-weight: 600; border-radius: 8px; border: none; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 0.5rem; }
-.cropper-btn-cancel { background-color: #4a5568; color: white; }
-.cropper-btn-cancel:hover { background-color: #718096; }
-.cropper-btn-confirm { background-image: linear-gradient(to right, #f12711, #f5af19); color: white; }
-.cropper-btn-confirm:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(245, 175, 25, 0.3); }
-.cropper-btn-delete { background-color: #c53030; color: white; }
-.cropper-btn-delete:hover { background-color: #e53e3e; }
+/* === IMAGE EDITOR MODAL STYLES === */
+.image-editor-modal-content { padding: 0; display: flex; flex-direction: column; height: 95vh; max-height: 900px; width: 90vw; max-width: 1200px; background-color: #1a202c; overflow: hidden; }
+.image-editor-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; background-color: #2d3748; border-bottom: 1px solid #4a5568; color: white; }
+.image-editor-header h3 { margin: 0; font-size: 1.5rem; color: white; }
+.editor-loading, .editor-error { display: flex; justify-content: center; align-items: center; flex-grow: 1; color: #a0aec0; font-size: 1.2rem; background-color: #1a202c; }
+.image-editor-actions { padding: 1rem 1.5rem; border-top: 1px solid #4a5568; background-color: #2d3748; }
 
-
-/* === NEW & IMPROVED MEDIA PREVIEW STYLES === */
-.media-preview-wrapper {
-  position: relative;
-  width: 160px;
-  height: 120px;
-  background-color: #f0f2f5;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  flex-shrink: 0; /* Prevent shrinking in flex layouts */
-}
-.media-preview-wrapper.editable {
-  cursor: pointer;
-}
-.media-preview-asset {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.media-preview-edit-overlay {
-  position: absolute;
-  inset: 0;
-  background-color: rgba(17, 24, 39, 0.6);
-  opacity: 0;
-  transition: opacity 0.2s ease-in-out;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  color: white;
-  font-size: 1rem;
-  font-weight: 600;
-}
-.media-preview-wrapper.editable:hover .media-preview-edit-overlay {
-  opacity: 1;
-}
-.media-preview-edit-overlay svg {
-  font-size: 1.5rem;
-}
-
-/* src/styles/Teacher/CreateQuiz.css */
-
-/* ... (existing CSS) ... */
-
-/* === IMAGE EDITOR MODAL SPECIFIC STYLES === */
-.image-editor-modal-content {
-  padding: 0; /* Remove padding from the main content as editor handles it */
-  display: flex;
-  flex-direction: column;
-  height: 95vh; /* Make it taller to accommodate the editor */
-  max-height: 900px; /* Max height for larger screens */
-  max-width: 1200px; /* Max width for larger screens */
-  background-color: #1a202c; /* Dark background for the modal itself */
-  overflow: hidden; /* Hide scrollbars if editor content overflows */
-}
-
-.image-editor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  background-color: #2d3748;
-  border-bottom: 1px solid #4a5568;
-  color: white;
-}
-
-.image-editor-header h3 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: white;
-}
-
-.editor-loading, .editor-error {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-grow: 1;
-  color: #a0aec0;
-  font-size: 1.2rem;
-  background-color: #1a202c;
-}
-
-.image-editor-actions {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #4a5568;
-  background-color: #2d3748;
-}
-
-/* Override TOAST UI default styles if necessary */
-/* You might need to inspect the TOAST UI elements and add more specific overrides here */
-.tui-image-editor-container .tui-image-editor-header-logo {
-    display: none !important; /* Hide the TOAST UI logo */
-}
-
-.tui-image-editor-container .tui-image-editor-main {
-    background-color: #1a202c; /* Match editor background */
-}
-
-.tui-image-editor-container .tui-image-editor-submenu {
-    background-color: #2d3748; /* Match submenu background */
-}
-
-/* Adjust button styles within the editor if they don't match */
-.tui-image-editor-container .tui-image-editor-menu button {
-    /* Example: adjust button padding, font, etc. */
-    font-family: 'Inter', sans-serif;
-}
-
-/* Ensure the editor itself takes up available space */
-.tui-image-editor-wrap {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-}
-.tui-image-editor-wrap .tui-image-editor-main {
-  flex-grow: 1;
-}
-.tui-image-editor-wrap .tui-image-editor-menu {
-  flex-shrink: 0; /* Prevent menu from shrinking */
-}
-
-/* Make sure the editor's canvas area fills its container */
-.tui-image-editor-main-container {
-  height: 100% !important;
-}
-
-/* src/styles/Teacher/CreateQuiz.css */
-
-/* ... (existing CSS) ... */
-
-/* === IMAGE EDITOR MODAL SPECIFIC STYLES === */
-.image-editor-modal-content {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  height: 95vh;
-  max-height: 900px;
-  max-width: 1200px;
-  background-color: #1a202c;
-  overflow: hidden;
-}
-
-.image-editor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  background-color: #2d3748;
-  border-bottom: 1px solid #4a5568;
-  color: white;
-}
-
-.image-editor-header h3 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: white;
-}
-
-.editor-loading, .editor-error {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-grow: 1;
-  color: #a0aec0;
-  font-size: 1.2rem;
-  background-color: #1a202c;
-}
-
-.image-editor-actions {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #4a5568;
-  background-color: #2d3748;
-}
-
-/* --- NEW CSS TO HIDE TOAST UI DEFAULT BUTTONS --- */
-.tui-image-editor-header-buttons .tui-image-editor-download-btn,
-.tui-image-editor-header-buttons .tui-image-editor-load-btn {
-    display: none !important;
-    visibility: hidden !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    background: none !important;
-}
-
-/* Override TOAST UI default styles if necessary */
-.tui-image-editor-container .tui-image-editor-header-logo {
-    display: none !important;
-}
-
-.tui-image-editor-container .tui-image-editor-main {
-    background-color: #1a202c;
-}
-
-.tui-image-editor-container .tui-image-editor-submenu {
-    background-color: #2d3748;
-}
-
-.tui-image-editor-wrap {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-}
-.tui-image-editor-wrap .tui-image-editor-main {
-  flex-grow: 1;
-}
-.tui-image-editor-wrap .tui-image-editor-menu {
-  flex-shrink: 0;
-}
-
-.tui-image-editor-main-container {
-  height: 100% !important;
-}
-
-/* src/styles/Teacher/CreateQuiz.css */
-
-/* ... (existing CSS) ... */
-
-/* === IMAGE EDITOR MODAL SPECIFIC STYLES === */
-.image-editor-modal-content {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  /* Use a fixed height or max-height for the modal itself */
-  height: 95vh; /* This makes the modal take up 95% of viewport height */
-  max-height: 900px; /* Max height for larger screens */
-  width: 90vw; /* Give it a defined width */
-  max-width: 1200px; /* Max width for larger screens */
-  background-color: #1a202c;
-  overflow: hidden; /* Important: Prevents modal content from scrolling independently if it's supposed to be handled by editor */
-}
-
-.image-editor-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  background-color: #2d3748;
-  border-bottom: 1px solid #4a5568;
-  color: white;
-}
-
-.image-editor-header h3 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: white;
-}
-
-.editor-loading, .editor-error {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-grow: 1;
-  color: #a0aec0;
-  font-size: 1.2rem;
-  background-color: #1a202c;
-}
-
-.image-editor-actions {
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #4a5568;
-  background-color: #2d3748;
-}
-
-/* --- NEW CSS TO HIDE TOAST UI DEFAULT BUTTONS AND ENSURE INTERACTIVITY --- */
-.tui-image-editor-header-buttons .tui-image-editor-download-btn,
-.tui-image-editor-header-buttons .tui-image-editor-load-btn {
-    display: none !important;
-    visibility: hidden !important;
-    width: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    background: none !important;
-}
-
-/* Override TOAST UI default styles if necessary */
-.tui-image-editor-container .tui-image-editor-header-logo {
-    display: none !important;
-}
-
-.tui-image-editor-container .tui-image-editor-main {
-    background-color: #1a202c;
-    /* Ensure flex properties for main content area */
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1; /* Allow it to take up remaining space */
-    overflow: hidden; /* Important for preventing internal scrollbars */
-}
-
-.tui-image-editor-container .tui-image-editor-submenu {
-    background-color: #2d3748;
-}
-
-/* Ensure the editor itself takes up available space */
-.tui-image-editor-wrap {
-  flex-grow: 1; /* Allows it to take up remaining vertical space */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* Crucial: Prevents internal scrollbars on the wrapper itself */
-}
-.tui-image-editor-wrap .tui-image-editor-main {
-  flex-grow: 1; /* Main editor area takes up remaining space */
-  overflow: hidden; /* Prevents scrollbars on the main area */
-}
-.tui-image-editor-wrap .tui-image-editor-menu {
-  flex-shrink: 0; /* Prevent menu from shrinking */
-}
-
-/* Make sure the editor's canvas area fills its container */
-/* This is often the culprit for non-interactive areas */
-.tui-image-editor-main-container {
-   height: 100% !important;
-   width: 100% !important;
-   display: flex; /* Use flex to center the canvas if needed */
-   justify-content: center;
-   align-items: center;
-   overflow: hidden; /* Hide scrollbars if canvas overflows its direct container */
-}
-
-/* Specific overrides for the canvas and its wrapper if still not interactive */
-.tui-image-editor-canvas-container {
-    height: 100% !important;
-    width: 100% !important;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-canvas.lower-canvas, canvas.upper-canvas {
-    /* Ensure canvas elements themselves are correctly sized and visible */
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain; /* Or 'scale-down' depending on desired behavior */
-}
+/* === MEDIA PREVIEW WRAPPER === */
+.media-preview-wrapper { position: relative; width: 160px; height: 120px; background-color: #f0f2f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #e2e8f0; flex-shrink: 0; }
+.media-preview-wrapper.editable { cursor: pointer; }
+.media-preview-asset { width: 100%; height: 100%; object-fit: cover; }
+.media-preview-edit-overlay { position: absolute; inset: 0; background-color: rgba(17, 24, 39, 0.6); opacity: 0; transition: opacity 0.2s ease-in-out; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; color: white; font-size: 1rem; font-weight: 600; }
+.media-preview-wrapper.editable:hover .media-preview-edit-overlay { opacity: 1; }
+.media-preview-edit-overlay svg { font-size: 1.5rem; }
