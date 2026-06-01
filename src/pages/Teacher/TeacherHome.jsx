@@ -17,7 +17,7 @@ import {
 import {
   Plus, LayoutDashboard, BookOpen, Upload, LogOut, Activity,
   CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown,
-  BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench,
+  BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench, User,
 } from 'lucide-react';
 import { clearInvalidQuizzes, seedTestQuiz } from '../../utils/devTools';
 
@@ -199,6 +199,10 @@ const TeacherHome = () => {
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">Teacher account</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
+                <User className="w-4 h-4" />
+                My Profile
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer">
                 <GraduationCap className="w-4 h-4 text-[#4776e6]" />
                 Switch to Student

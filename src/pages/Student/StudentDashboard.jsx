@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   PlayCircle, BookOpen, BarChart2, TrendingUp, LogOut,
-  Trophy, Clock, Target, ChevronRight, Star, School,
+  Trophy, Clock, Target, ChevronRight, Star, School, User,
 } from 'lucide-react';
 
 const StudentDashboard = () => {
@@ -130,6 +130,10 @@ const StudentDashboard = () => {
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">Student account</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
+                <User className="w-4 h-4" />
+                My Profile
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer">
                 <School className="w-4 h-4 text-[#e85a19]" />
                 Switch to Teacher
@@ -199,7 +203,7 @@ const StudentDashboard = () => {
                   {[
                     { icon: PlayCircle, label: 'Join a Quiz',   desc: 'Enter a code to start',        onClick: () => navigate('/student/attend-quiz'), color: '#4776e6', bg: 'from-[#3a1c71] to-[#4776e6]', white: true },
                     { icon: BookOpen,   label: 'Your Results',  desc: 'Review your scores',            onClick: () => navigate('/student/results'),     color: '#10b981', bg: 'from-[#10b981] to-[#059669]', white: true },
-                    { icon: BarChart2,  label: 'Analytics',     desc: 'Progress over time (soon)',     onClick: () => toast.info('Coming soon!'),       color: '#f59e0b', bg: 'from-[#f59e0b] to-[#d97706]', white: true },
+                    { icon: BarChart2,  label: 'Analytics',     desc: 'View your progress',            onClick: () => navigate('/student/results'),     color: '#f59e0b', bg: 'from-[#f59e0b] to-[#d97706]', white: true },
                   ].map(({ icon: Icon, label, desc, onClick, bg, white }) => (
                     <motion.button
                       key={label}

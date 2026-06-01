@@ -12,11 +12,18 @@ import CreateQuiz from './pages/Teacher/CreateQuiz';
 import YourQuizzes from './pages/Teacher/YourQuizzes';
 import MediaTest from './pages/Teacher/MediaTest';
 import Grading from './pages/Teacher/Grading';
+import Analytics from './pages/Teacher/Analytics';
 
 import StudentDashboard from './pages/Student/StudentDashboard';
 import AttendQuiz from './pages/Student/AttendQuiz';
 import TakeQuiz from './pages/Student/TakeQuiz';
 import YourResults from './pages/Student/YourResults';
+
+import Profile from './pages/Profile';
+import Browse from './pages/Browse';
+import Practice from './pages/Practice';
+import Flashcards from './pages/Flashcards';
+import NotFound from './pages/NotFound';
 
 import './App.css';
 import 'tui-image-editor/dist/tui-image-editor.css';
@@ -67,16 +74,23 @@ function App() {
     <div>
       <Routes>
         {/* ── Public ── */}
-        <Route path="/"              element={<Landing />} />
-        <Route path="/login"         element={<Login />} />
-        <Route path="/quiz/:quizId"  element={<GuestTakeQuiz />} />
+        <Route path="/"                    element={<Landing />} />
+        <Route path="/browse"              element={<Browse />} />
+        <Route path="/login"               element={<Login />} />
+        <Route path="/quiz/:quizId"        element={<GuestTakeQuiz />} />
+        <Route path="/practice/:quizId"    element={<Practice />} />
+        <Route path="/flashcards/:quizId"  element={<Flashcards />} />
 
         {/* ── Teacher (must be logged in as teacher) ── */}
         <Route path="/teacher/home"              element={<ProtectedRoute role="teacher"><TeacherHome /></ProtectedRoute>} />
         <Route path="/teacher/create-quiz"       element={<ProtectedRoute role="teacher"><CreateQuiz /></ProtectedRoute>} />
         <Route path="/teacher/your-quizzes"      element={<ProtectedRoute role="teacher"><YourQuizzes /></ProtectedRoute>} />
         <Route path="/teacher/media-test"        element={<ProtectedRoute role="teacher"><MediaTest /></ProtectedRoute>} />
-        <Route path="/teacher/grading/:quizId"   element={<ProtectedRoute role="teacher"><Grading /></ProtectedRoute>} />
+        <Route path="/teacher/grading/:quizId"    element={<ProtectedRoute role="teacher"><Grading /></ProtectedRoute>} />
+        <Route path="/teacher/analytics/:quizId" element={<ProtectedRoute role="teacher"><Analytics /></ProtectedRoute>} />
+
+        {/* ── Shared (any authenticated user) ── */}
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
         {/* ── Student (must be logged in as student) ── */}
         <Route path="/student/dashboard"         element={<ProtectedRoute role="student"><StudentDashboard /></ProtectedRoute>} />
@@ -90,8 +104,8 @@ function App() {
         <Route path="/guest/attend-quiz"      element={<Navigate to="/" replace />} />
         <Route path="/guest/quiz/:quizId"     element={<LegacyGuestQuizRedirect />} />
 
-        {/* ── Fallback ── */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* ── 404 ── */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
   );

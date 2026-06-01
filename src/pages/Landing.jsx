@@ -108,6 +108,7 @@ const Landing = () => {
             </button>
           ) : (
             <>
+              <Link to="/browse" className="text-white/70 hover:text-white text-sm font-medium transition-colors">Browse Quizzes</Link>
               <Link to="/login" className="text-white/70 hover:text-white text-sm font-medium transition-colors">Sign In</Link>
               <Link to="/login?tab=signup" className="bg-white text-[#0d0d20] text-sm font-bold px-4 py-2 rounded-full hover:bg-white/90 transition-all">
                 Sign Up Free

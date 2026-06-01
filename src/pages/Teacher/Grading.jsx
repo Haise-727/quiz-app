@@ -1,52 +1,134 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getAuth } from 'firebase/auth';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaArrowLeft, FaTimes, FaCheckCircle, FaHourglassHalf } from 'react-icons/fa';
+import { useAuth } from '../../contexts/AuthContext';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import MediaRenderer from '../../components/MediaRenderer';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  ArrowLeft, CheckCircle2, Clock, UserCircle, LogOut, GraduationCap,
+  Save, Loader2, ClipboardCheck, AlertCircle, User,
+} from 'lucide-react';
 
-const AnswerToGrade = ({ originalQuestion, answer, onPointsChange, isGraded }) => {
+// ── Single answer block inside grading modal ──────────────────────────────────
+const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => {
   const renderUserAnswer = () => {
     const ua = answer.userAnswer;
-    if ((!ua && typeof ua !== 'string') || (Array.isArray(ua) && ua.length === 0)) return <p><i>No answer provided.</i></p>;
+    if ((!ua && typeof ua !== 'string') || (Array.isArray(ua) && ua.length === 0))
+      return <span className="italic text-[hsl(var(--muted-foreground))]">No answer provided.</span>;
     switch (originalQuestion.type) {
-      case 'MCQ': return <ul className="list-none p-0 m-0 flex flex-col gap-1">{originalQuestion.mcqData.options.filter(o => ua.includes(o.id)).map(o => <li key={o.id} className="flex items-center gap-2"><MediaRenderer media={o.media} transform="thumbnail"/>{o.text || 'Media Answer'}</li>)}</ul>;
-      case 'FILL_IN_THE_BLANK': case 'PARAGRAPH': return <p className="whitespace-pre-wrap m-0">{ua}</p>;
-      case 'REORDER': return <ol className="list-none p-0 m-0 flex flex-col gap-1">{ua.map(i => <li key={i.id} className="flex items-center gap-2"><MediaRenderer media={i.media} transform="thumbnail"/>{i.text}</li>)}</ol>;
-      case 'CATEGORIZE': return <div>{originalQuestion.categorizeData.categories.map(cat => <div key={cat.id}><strong>{cat.name}:</strong><ul className="list-none p-0 pl-2 m-0">{(ua[cat.id] || []).map(i => <li key={i.id} className="flex items-center gap-2"><MediaRenderer media={i.media} transform="thumbnail"/>{i.text}</li>)}</ul></div>)}</div>;
-      case 'MATCH_THE_FOLLOWING': return <ul className="list-none p-0 m-0 flex flex-col gap-2">{originalQuestion.matchData.pairs.map(p => <li key={p.id}><div className="flex items-center gap-2"><div className="flex items-center gap-1 bg-[#f0f0f0] px-2 py-1 rounded"><MediaRenderer media={p.promptMedia} transform="thumbnail"/>{p.prompt}</div><span>→</span><div className="flex items-center gap-1 bg-[#f0f0f0] px-2 py-1 rounded">{ua.pairs?.[p.id] ? <><MediaRenderer media={ua.pairs[p.id].answerMedia} transform="thumbnail"/>{ua.pairs[p.id].answerText}</> : <i>(unmatched)</i>}</div></div></li>)}</ul>;
-      default: return <p><i>Review unavailable.</i></p>;
+      case 'MCQ':
+        return (
+          <ul className="flex flex-col gap-1">
+            {originalQuestion.mcqData.options.filter(o => ua.includes(o.id)).map(o => (
+              <li key={o.id} className="flex items-center gap-2 text-sm">
+                <MediaRenderer media={o.media} transform="thumbnail" />
+                {o.text || 'Media Answer'}
+              </li>
+            ))}
+          </ul>
+        );
+      case 'FILL_IN_THE_BLANK': case 'PARAGRAPH':
+        return <p className="whitespace-pre-wrap text-sm m-0">{ua}</p>;
+      case 'REORDER':
+        return (
+          <ol className="flex flex-col gap-1">
+            {ua.map((item, i) => (
+              <li key={item.id} className="flex items-center gap-2 text-sm">
+                <span className="text-[hsl(var(--muted-foreground))]">{i + 1}.</span>
+                <MediaRenderer media={item.media} transform="thumbnail" />{item.text}
+              </li>
+            ))}
+          </ol>
+        );
+      case 'CATEGORIZE':
+        return (
+          <div className="flex flex-col gap-2">
+            {originalQuestion.categorizeData.categories.map(cat => (
+              <div key={cat.id}>
+                <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] mb-1">{cat.name}:</p>
+                {(ua[cat.id] || []).map(i => (
+                  <div key={i.id} className="flex items-center gap-1 text-sm pl-2">
+                    <MediaRenderer media={i.media} transform="thumbnail" />{i.text}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        );
+      case 'MATCH_THE_FOLLOWING':
+        return (
+          <div className="flex flex-col gap-1">
+            {originalQuestion.matchData.pairs.map(p => (
+              <div key={p.id} className="flex items-center gap-2 text-sm flex-wrap">
+                <div className="flex items-center gap-1 bg-[hsl(var(--muted))] px-2 py-0.5 rounded">
+                  <MediaRenderer media={p.promptMedia} transform="thumbnail" />{p.prompt}
+                </div>
+                <span className="text-[hsl(var(--muted-foreground))]">→</span>
+                <div className="flex items-center gap-1 bg-[hsl(var(--muted))] px-2 py-0.5 rounded">
+                  {ua.pairs?.[p.id]
+                    ? <><MediaRenderer media={ua.pairs[p.id].answerMedia} transform="thumbnail" />{ua.pairs[p.id].answerText}</>
+                    : <span className="italic text-[hsl(var(--muted-foreground))]">unmatched</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      default: return <span className="italic text-[hsl(var(--muted-foreground))]">Review unavailable.</span>;
     }
   };
 
   return (
-    <div className="bg-[#fafafa] border border-[#eee] rounded-xl p-6 mb-6">
-      <h4 className="text-[#333] mt-0 mb-4 border-b border-[#ddd] pb-2">{answer.questionIndex + 1}. {originalQuestion.questionText}</h4>
-      <div className="flex gap-6">
-        <div className="flex-[2]">
-          <label className="block font-semibold text-[#555] mb-2 text-sm">Student's Answer</label>
-          <div className="bg-white border border-[#ddd] rounded-lg p-4 min-h-[80px] text-base text-[#333]">{renderUserAnswer()}</div>
+    <div className="border border-[hsl(var(--border))] rounded-xl p-4 bg-white">
+      <p className="font-semibold text-sm text-[hsl(var(--foreground))] mb-4 leading-relaxed">
+        {answer.questionIndex + 1}. {originalQuestion.questionText}
+      </p>
+
+      {originalQuestion.paragraphData?.keywords?.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-1.5">Grading Keywords</p>
+          <div className="flex flex-wrap gap-1.5">
+            {originalQuestion.paragraphData.keywords.map((kw, i) => (
+              <span key={i} className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] px-2 py-0.5 rounded-full text-xs">{kw.text}</span>
+            ))}
+          </div>
         </div>
-        <div className="flex-1 flex flex-col gap-4">
-          {originalQuestion.paragraphData?.keywords?.length > 0 && (
-            <div>
-              <label className="block font-semibold text-[#555] mb-2 text-sm">Grading Keywords</label>
-              <div className="flex flex-wrap gap-2">{originalQuestion.paragraphData.keywords.map((kw, i) => <span key={i} className="bg-[#e0e0e0] text-[#333] px-2 py-1 rounded-full text-sm">{kw.text}</span>)}</div>
-            </div>
-          )}
-          <div>
-            <label className="block font-semibold text-[#555] mb-2 text-sm text-center">Points Awarded</label>
-            <div className={`flex items-center bg-white border-2 rounded-xl transition-colors ${!isGraded ? 'focus-within:border-[#e85a19]' : 'border-[#ddd]'}`}>
-              <input
-                type="number"
-                value={answer.pointsAwarded === null || answer.pointsAwarded === undefined ? '' : answer.pointsAwarded}
-                onChange={(e) => onPointsChange(e.target.value)}
-                max={originalQuestion.points} min="0" disabled={isGraded}
-                className="border-none bg-transparent outline-none w-full p-3 text-[1.8rem] font-bold text-center text-[#e85a19] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              <span className="text-xl font-medium text-[#777] pr-4">/ {originalQuestion.points}</span>
-            </div>
+      )}
+
+      <div className="flex gap-4 flex-col sm:flex-row">
+        <div className="flex-1">
+          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-2">Student's Answer</p>
+          <div className="bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))] rounded-lg p-3 min-h-[60px] text-sm text-[hsl(var(--foreground))]">
+            {renderUserAnswer()}
+          </div>
+        </div>
+
+        <div className="sm:w-36 shrink-0">
+          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-2 text-center">Points</p>
+          <div className={`flex items-center border-2 rounded-xl overflow-hidden transition-colors ${!isGraded ? 'border-[#e85a19] focus-within:ring-2 focus-within:ring-[#e85a19]/20' : 'border-[hsl(var(--border))]'}`}>
+            <input
+              type="number"
+              value={answer.pointsAwarded === null || answer.pointsAwarded === undefined ? '' : answer.pointsAwarded}
+              onChange={e => onPointsChange(e.target.value)}
+              max={originalQuestion.points}
+              min="0"
+              disabled={isGraded}
+              className="w-full border-none bg-transparent outline-none p-2 text-2xl font-black text-center text-[#e85a19] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-[hsl(var(--muted-foreground))]"
+            />
+            <span className="text-sm font-medium text-[hsl(var(--muted-foreground))] pr-3 shrink-0">/{originalQuestion.points}</span>
           </div>
         </div>
       </div>
@@ -54,24 +136,25 @@ const AnswerToGrade = ({ originalQuestion, answer, onPointsChange, isGraded }) =
   );
 };
 
+// ── Main page ─────────────────────────────────────────────────────────────────
 const Grading = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
-  const auth = getAuth();
+  const { currentUser, displayName, signOut: ctxSignOut, switchRole } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [quizDetails, setQuizDetails] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [error, setError] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSubmission, setSelectedSubmission] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [selectedSub, setSelectedSub] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const fetchSubmissions = useCallback(async () => {
-    if (!auth.currentUser) return;
+  const fetchAll = useCallback(async () => {
+    if (!currentUser) return;
     setLoading(true); setError('');
     try {
       const quizSnap = await getDoc(doc(db, 'quizzes', quizId));
-      if (!quizSnap.exists() || quizSnap.data().createdBy !== auth.currentUser.uid) {
+      if (!quizSnap.exists() || quizSnap.data().createdBy !== currentUser.uid) {
         setError("Quiz not found or you don't have permission."); setLoading(false); return;
       }
       setQuizDetails(quizSnap.data());
@@ -79,126 +162,270 @@ const Grading = () => {
       const subsSnap = await getDocs(query(collection(db, 'quiz_results'), where('quizId', '==', quizId)));
       const subs = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      const userIds = [...new Set(subs.map(s => s.userId))];
+      const userIds = [...new Set(subs.map(s => s.userId).filter(id => !id.startsWith('guest_')))];
       const names = {};
       if (userIds.length) {
         const usersSnap = await getDocs(query(collection(db, 'users'), where('__name__', 'in', userIds)));
         usersSnap.forEach(d => { names[d.id] = d.data().displayName || d.data().email; });
       }
 
-      const withNames = subs.map(s => ({ ...s, userName: names[s.userId] || 'Unknown Student' }));
-      withNames.sort((a, b) => {
+      const enriched = subs.map(s => ({
+        ...s,
+        userName: s.userId.startsWith('guest_')
+          ? (s.username || 'Guest')
+          : (names[s.userId] || 'Unknown Student'),
+        isGuest: s.userId.startsWith('guest_'),
+      }));
+      enriched.sort((a, b) => {
         if (a.status === 'pending' && b.status !== 'pending') return -1;
-        if (a.status !== 'pending' && b.status === 'pending') return 1;
-        return new Date(b.completedAt?.toDate()) - new Date(a.completedAt?.toDate());
+        if (b.status === 'pending' && a.status !== 'pending') return 1;
+        return (b.completedAt?.toDate?.() || 0) - (a.completedAt?.toDate?.() || 0);
       });
-      setSubmissions(withNames);
+      setSubmissions(enriched);
     } catch (err) { setError('Failed to load submissions.'); console.error(err); }
     finally { setLoading(false); }
-  }, [quizId, auth.currentUser]);
+  }, [quizId, currentUser]);
 
-  useEffect(() => {
-    const unsub = auth.onAuthStateChanged(u => { if (u) fetchSubmissions(); else navigate('/login'); });
-    return () => unsub();
-  }, [fetchSubmissions, navigate]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const handleOpenModal = (sub) => {
-    setSelectedSubmission({ ...sub, answers: sub.answers.map((a, i) => ({ ...a, questionIndex: i })) });
-    setIsModalOpen(true);
+  const openModal = (sub) => {
+    setSelectedSub({ ...sub, answers: sub.answers.map((a, i) => ({ ...a, questionIndex: i })) });
   };
 
   const handlePointsChange = (qi, pts) => {
-    const points = pts === '' ? null : parseInt(pts, 10);
+    const val = pts === '' ? null : parseInt(pts, 10);
     const max = quizDetails.questions[qi].points;
-    setSelectedSubmission(cur => ({
+    setSelectedSub(cur => ({
       ...cur,
-      answers: cur.answers.map((a, i) => i === qi ? { ...a, pointsAwarded: (points === null ? null : (!isNaN(points) && points >= 0 && points <= max) ? points : a.pointsAwarded) } : a),
+      answers: cur.answers.map((a, i) =>
+        i === qi ? { ...a, pointsAwarded: val === null ? null : (!isNaN(val) && val >= 0 && val <= max ? val : a.pointsAwarded) } : a
+      ),
     }));
   };
 
-  const handleSubmitGrading = async () => {
-    if (!selectedSubmission) return;
-    setIsSaving(true);
-    const total = selectedSubmission.answers.reduce((s, a) => s + (a.pointsAwarded || 0), 0);
-    const updatedAnswers = selectedSubmission.answers.map(a => ({ ...a, status: 'manually_graded', pointsAwarded: a.pointsAwarded ?? 0 }));
+  const handleSave = async () => {
+    if (!selectedSub) return;
+    setSaving(true);
+    const total = selectedSub.answers.reduce((s, a) => s + (a.pointsAwarded || 0), 0);
+    const updatedAnswers = selectedSub.answers.map(a => ({ ...a, status: 'manually_graded', pointsAwarded: a.pointsAwarded ?? 0 }));
     try {
-      await updateDoc(doc(db, 'quiz_results', selectedSubmission.id), {
-        score: total, finalScore: total + (selectedSubmission.bonus || 0), answers: updatedAnswers, status: 'completed',
+      await updateDoc(doc(db, 'quiz_results', selectedSub.id), {
+        score: total, finalScore: total + (selectedSub.bonus || 0), answers: updatedAnswers, status: 'completed',
       });
-      fetchSubmissions(); setIsModalOpen(false); setSelectedSubmission(null);
-    } catch (err) { setError('Could not save the grade.'); console.error(err); }
-    finally { setIsSaving(false); }
+      toast.success('Grade saved!');
+      setSelectedSub(null);
+      fetchAll();
+    } catch (err) { toast.error('Could not save grade.'); console.error(err); }
+    finally { setSaving(false); }
   };
 
-  if (loading) return <div className="flex justify-center items-center h-screen w-screen bg-gradient-to-br from-[#f12711] to-[#f5af19] text-white text-2xl font-semibold">Loading Submissions...</div>;
+  const handleSignOut = async () => { await ctxSignOut(); navigate('/login'); };
+  const handleSwitchRole = async () => { try { await switchRole('student'); toast.success('Switched to Student'); } catch { toast.error('Failed.'); } };
+
+  const initials = displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'T';
+  const pendingCount = submissions.filter(s => s.status === 'pending').length;
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen w-screen bg-gradient-to-br from-[#f12711] to-[#f5af19]">
+      <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+    </div>
+  );
 
   return (
-    <div className="flex justify-center min-h-screen w-screen pt-20 px-8 pb-8 bg-gradient-to-br from-[#f12711] to-[#f5af19] text-white">
-      <div className="w-full max-w-[1100px] bg-white rounded-2xl p-8 text-[#333] shadow-[0_15px_40px_rgba(0,0,0,0.25)] animate-fade-in">
+    <div className="min-h-screen w-screen bg-gradient-to-br from-[#f12711] via-[#e85a19] to-[#f5af19] relative overflow-x-hidden">
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse at 20% 80%,rgba(0,0,0,0.1) 0%,transparent 60%)' }} />
 
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8 pb-4 border-b-[3px] border-[#f5af19]">
-          <button onClick={() => navigate('/teacher/your-quizzes')} className="flex items-center gap-2 bg-[#f7f7f7] border border-[#ddd] text-[#555] px-5 py-2.5 rounded-full font-semibold cursor-pointer transition-all hover:bg-[#eee]"><FaArrowLeft /> Your Quizzes</button>
-          <h1 className="flex-1 text-center text-[#e85a19] text-[2.2rem] m-0 mx-4 font-bold">{quizDetails ? `Grading: ${quizDetails.title}` : 'Grading'}</h1>
-          <div className="bg-[#e85a19] text-white px-4 py-2 rounded-full font-bold text-sm">{submissions.length} Submissions</div>
+      {/* Header */}
+      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
+        <button onClick={() => navigate('/teacher/your-quizzes')}
+          className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Your Quizzes
+        </button>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="border-white/20 text-white bg-white/10 hidden md:flex">🏫 Teacher</Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Avatar className="w-9 h-9 border-2 border-white/20 cursor-pointer hover:border-white/50 transition-colors">
+                <AvatarFallback className="bg-white/20 text-white font-bold text-sm">{initials}</AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="font-normal">
+                <p className="font-semibold">{displayName || 'Teacher'}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Teacher account</p>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
+                <User className="w-4 h-4" /> My Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer">
+                <GraduationCap className="w-4 h-4 text-[#4776e6]" /> Switch to Student
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-600 focus:text-red-600">
+                <LogOut className="w-4 h-4" /> Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+      </header>
 
-        {error && <div className="bg-[#fff8f8] text-[#d32f2f] px-4 py-3 border-l-4 border-[#d32f2f] mb-6 rounded-r-lg">{error}</div>}
-
-        {submissions.length === 0 ? (
-          <div className="text-center py-16 text-[#777]">
-            <h3 className="text-xl text-[#333] mb-2">No Submissions Yet</h3>
-            <p>Check back later once students have completed the quiz.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {submissions.map(sub => (
-              <div key={sub.id} className="grid grid-cols-[2fr_1fr_1.5fr_1fr] items-center gap-6 p-6 bg-[#fdfdfd] rounded-xl border-l-[5px] border-[#ccc] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:border-l-[#f5af19]">
-                <div>
-                  <span className="block font-semibold text-lg text-[#333]">{sub.userName}</span>
-                  <span className="text-sm text-[#777]">{sub.userEmail}</span>
-                </div>
-                <div className="text-center">
-                  <span className="block text-xs text-[#888] uppercase mb-1">Score</span>
-                  <span className="text-2xl font-bold text-[#e85a19]">{sub.status === 'completed' ? `${sub.finalScore} / ${sub.maxScore}` : `${sub.score} / ${sub.maxScore}`}</span>
-                </div>
-                <div className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-full font-semibold text-sm ${sub.status === 'completed' ? 'bg-[#e8f5e9] text-[#43a047]' : 'bg-[#fff8e1] text-[#f57c00]'}`}>
-                  {sub.status === 'completed' ? <><FaCheckCircle/> Completed</> : <><FaHourglassHalf/> Pending Review</>}
-                </div>
-                <button onClick={() => handleOpenModal(sub)} className="px-6 py-3 rounded-lg border-none font-semibold text-white bg-gradient-to-r from-[#673ab7] to-[#512da8] cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_4px_15px_rgba(103,58,183,0.4)]">
-                  {sub.status === 'completed' ? 'View Graded' : 'Grade Now'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Hero */}
+      <div className="relative z-10 px-6 md:px-10 pb-6">
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow">
+            Grading: {quizDetails?.title || '…'}
+          </h1>
+          <p className="text-white/70 mt-1">
+            {submissions.length} submission{submissions.length !== 1 ? 's' : ''}
+            {pendingCount > 0 && <span className="ml-2 font-bold text-amber-200">· {pendingCount} pending review</span>}
+          </p>
+        </motion.div>
       </div>
 
-      {/* Grading Modal */}
-      {isModalOpen && selectedSubmission && quizDetails && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] p-8 animate-fade-in" onClick={() => { setIsModalOpen(false); setSelectedSubmission(null); }}>
-          <div className="bg-white rounded-2xl w-full max-w-[800px] max-h-[90vh] flex flex-col shadow-xl animate-slide-up" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center px-8 py-6 border-b border-[#eee] sticky top-0 bg-white z-10 rounded-t-2xl">
-              <h2 className="m-0 text-xl font-semibold text-[#333]">Grade: {selectedSubmission.userName}</h2>
-              <button onClick={() => { setIsModalOpen(false); setSelectedSubmission(null); }} className="bg-[#f0f0f0] border-none text-[#555] w-8 h-8 rounded-full cursor-pointer flex items-center justify-center transition-all hover:bg-[#e0e0e0]"><FaTimes /></button>
+      {/* Main */}
+      <div className="relative z-10 mx-4 md:mx-10 mb-10 rounded-3xl bg-[#f8fafc] shadow-2xl overflow-hidden">
+        <div className="p-6 md:p-8">
+
+          {error && (
+            <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0" /> {error}
             </div>
-            <div className="overflow-y-auto py-2 px-8 max-h-[70vh]">
-              {quizDetails.questions.map((q, i) => (
-                <AnswerToGrade key={q.id || i} originalQuestion={q} answer={selectedSubmission.answers[i]} onPointsChange={(pts) => handlePointsChange(i, pts)} isGraded={selectedSubmission.status === 'completed'} />
+          )}
+
+          {submissions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--muted))] flex items-center justify-center mb-4">
+                <ClipboardCheck className="w-8 h-8 text-[hsl(var(--muted-foreground))]" />
+              </div>
+              <p className="font-semibold text-[hsl(var(--foreground))]">No submissions yet</p>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Students haven't submitted this quiz yet.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {/* Pending header */}
+              {pendingCount > 0 && (
+                <>
+                  <div className="flex items-center gap-2 text-amber-700 mb-1">
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-bold">Needs Review ({pendingCount})</span>
+                  </div>
+                  {submissions.filter(s => s.status === 'pending').map((sub, i) => (
+                    <SubmissionRow key={sub.id} sub={sub} index={i} onGrade={openModal} />
+                  ))}
+                  {submissions.some(s => s.status === 'completed') && (
+                    <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] mt-2 mb-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-sm font-bold">Completed ({submissions.filter(s => s.status === 'completed').length})</span>
+                    </div>
+                  )}
+                  {submissions.filter(s => s.status === 'completed').map((sub, i) => (
+                    <SubmissionRow key={sub.id} sub={sub} index={i} onGrade={openModal} />
+                  ))}
+                </>
+              )}
+              {pendingCount === 0 && submissions.map((sub, i) => (
+                <SubmissionRow key={sub.id} sub={sub} index={i} onGrade={openModal} />
               ))}
             </div>
-            {selectedSubmission.status !== 'completed' && (
-              <div className="flex justify-end gap-4 p-6 border-t border-[#eee]">
-                <button onClick={() => { setIsModalOpen(false); setSelectedSubmission(null); }} className="bg-[#f0f0f0] text-[#555] border-none rounded-lg px-6 py-3 font-semibold cursor-pointer text-base">Cancel</button>
-                <button onClick={handleSubmitGrading} disabled={isSaving} className="bg-gradient-to-r from-[#4caf50] to-[#43a047] text-white border-none rounded-lg px-6 py-3 font-semibold cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_4px_15px_rgba(76,175,80,0.3)] disabled:bg-[#9e9e9e] disabled:cursor-not-allowed text-base">
-                  {isSaving ? 'Saving...' : 'Save & Complete Grade'}
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* Grading Dialog */}
+      <Dialog open={!!selectedSub} onOpenChange={open => { if (!open) setSelectedSub(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0 pb-4 border-b border-[hsl(var(--border))]">
+            <DialogTitle className="flex items-center gap-2">
+              <UserCircle className="w-5 h-5 text-[#e85a19]" />
+              {selectedSub?.userName}
+              {selectedSub?.isGuest && <Badge variant="outline" className="text-xs">Guest</Badge>}
+            </DialogTitle>
+            <div className="flex items-center gap-3 mt-1">
+              <Badge variant={selectedSub?.status === 'completed' ? 'success' : 'warning'}>
+                {selectedSub?.status === 'completed' ? 'Completed' : 'Pending Review'}
+              </Badge>
+              <span className="text-xs text-[hsl(var(--muted-foreground))]">
+                Auto-graded: {selectedSub?.score}/{selectedSub?.maxScore} pts
+              </span>
+            </div>
+          </DialogHeader>
+
+          <div className="overflow-y-auto flex-1 pt-4 flex flex-col gap-4">
+            {quizDetails?.questions.map((q, i) => (
+              <AnswerBlock
+                key={q.id || i}
+                originalQuestion={q}
+                answer={selectedSub?.answers[i]}
+                onPointsChange={pts => handlePointsChange(i, pts)}
+                isGraded={selectedSub?.status === 'completed'}
+              />
+            ))}
+          </div>
+
+          {selectedSub?.status !== 'completed' && (
+            <DialogFooter className="shrink-0 pt-4 border-t border-[hsl(var(--border))] gap-2">
+              <Button variant="outline" onClick={() => setSelectedSub(null)}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saving}
+                className="gap-2 bg-gradient-to-r from-[#e85a19] to-[#f5af19] text-white border-0 hover:opacity-90">
+                {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> Save Grade</>}
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+};
+
+// ── Submission row component ──────────────────────────────────────────────────
+const SubmissionRow = ({ sub, index, onGrade }) => {
+  const pct = sub.maxScore > 0 ? Math.round(((sub.status === 'completed' ? sub.finalScore : sub.score) / sub.maxScore) * 100) : 0;
+  const pending = sub.status === 'pending';
+
+  return (
+    <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.04 }}>
+      <Card className={`border-0 shadow-sm hover:shadow-md transition-all border-l-4 ${pending ? 'border-l-amber-400' : 'border-l-green-500'}`}>
+        <CardContent className="py-4 px-5">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${pending ? 'bg-amber-400' : 'bg-green-500'}`}>
+                {sub.userName?.charAt(0)?.toUpperCase() || '?'}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm text-[hsl(var(--foreground))] truncate">{sub.userName}</p>
+                  {sub.isGuest && <Badge variant="outline" className="text-xs shrink-0">Guest</Badge>}
+                </div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  {sub.completedAt?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) || '—'}
+                </p>
+              </div>
+            </div>
+
+            <div className="text-center shrink-0">
+              <p className="text-xl font-black text-[#e85a19]">
+                {sub.status === 'completed' ? `${sub.finalScore}` : `${sub.score}`}
+                <span className="text-sm font-normal text-[hsl(var(--muted-foreground))]">/{sub.maxScore}</span>
+              </p>
+              {sub.status === 'completed' && (
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">{pct}%</p>
+              )}
+            </div>
+
+            <Badge variant={pending ? 'warning' : 'success'} className="shrink-0">
+              {pending ? 'Pending' : 'Graded'}
+            </Badge>
+
+            <Button size="sm" onClick={() => onGrade(sub)} className={`shrink-0 gap-1.5 ${pending ? 'bg-gradient-to-r from-[#e85a19] to-[#f5af19] text-white border-0 hover:opacity-90' : ''}`}
+              variant={pending ? 'default' : 'outline'}>
+              {pending ? 'Grade Now' : 'View Graded'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };
 

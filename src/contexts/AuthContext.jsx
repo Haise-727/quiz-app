@@ -89,6 +89,13 @@ export function AuthProvider({ children }) {
     return cred;
   }
 
+  async function updateDisplayName(name) {
+    if (!currentUser) return;
+    await updateProfile(currentUser, { displayName: name });
+    await updateDoc(doc(db, 'users', currentUser.uid), { displayName: name });
+    setDisplayName(name);
+  }
+
   async function switchRole(newRole) {
     if (!currentUser) return;
     await updateDoc(doc(db, 'users', currentUser.uid), { role: newRole });
@@ -132,6 +139,7 @@ export function AuthProvider({ children }) {
     signInWithEmail,
     signUpWithEmail,
     createUserProfile,
+    updateDisplayName,
     switchRole,
     signOut: handleSignOut,
     fetchUserData,

@@ -1,168 +1,252 @@
 import React, { useState, useEffect } from 'react';
-import { getAuth, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useAuth } from '../../contexts/AuthContext';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ArrowLeft, PlayCircle, Search, Hash, BookOpen, Clock, ChevronRight, LogOut, School, User } from 'lucide-react';
 
 const AttendQuiz = () => {
   const navigate = useNavigate();
-  const auth = getAuth();
-  const user = auth.currentUser;
+  const { currentUser, displayName, signOut: ctxSignOut, switchRole } = useAuth();
 
   const [quizCode, setQuizCode] = useState('');
+  const [search, setSearch] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [availableQuizzes, setAvailableQuizzes] = useState([]);
+  const [joining, setJoining] = useState(false);
+  const [quizzes, setQuizzes] = useState([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchActive = async () => {
       try {
         const snap = await getDocs(query(collection(db, 'quizzes'), where('active', '==', true)));
-        setAvailableQuizzes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.error('Error fetching quizzes:', e);
-      } finally {
-        setLoadingQuizzes(false);
-      }
+        setQuizzes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch { toast.error('Could not load available quizzes.'); }
+      finally { setLoadingQuizzes(false); }
     };
-    fetch();
+    fetchActive();
   }, []);
 
-  const handleSignOut = () => signOut(auth).then(() => navigate('/login')).catch(console.error);
-
-  const handleJoinQuiz = async () => {
-    if (!quizCode.trim()) { setError('Please enter a quiz code.'); return; }
-    setError('');
-    setIsLoading(true);
+  const handleJoin = async () => {
+    const code = quizCode.trim().toUpperCase();
+    if (!code) { setError('Please enter a quiz code.'); return; }
+    setError(''); setJoining(true);
     try {
       const snap = await getDocs(
-        query(collection(db, 'quizzes'), where('code', '==', quizCode.toUpperCase()), where('active', '==', true))
+        query(collection(db, 'quizzes'), where('code', '==', code), where('active', '==', true))
       );
-      if (snap.empty) { setError('No active quiz found with this code. Please check and try again.'); return; }
+      if (snap.empty) { setError('No active quiz found with that code.'); return; }
       navigate(`/student/quiz/${snap.docs[0].id}`);
-    } catch {
-      setError('Failed to join quiz. Please try again later.');
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { setError('Failed to join. Please try again.'); }
+    finally { setJoining(false); }
   };
 
-  const formatDate = (ts) => {
-    if (!ts) return 'Unknown date';
-    try {
-      const d = ts.toDate ? ts.toDate() : new Date(ts);
-      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    } catch { return 'Invalid date'; }
-  };
+  const handleSignOut = async () => { await ctxSignOut(); navigate('/login'); };
+  const handleSwitchRole = async () => { try { await switchRole('teacher'); } catch { toast.error('Failed to switch role.'); } };
+
+  const initials = (displayName || currentUser?.email || 'S').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  const filtered = quizzes.filter(q =>
+    q.title?.toLowerCase().includes(search.toLowerCase()) ||
+    q.description?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen w-screen bg-gradient-to-br from-[#3a1c71] to-[#4776e6] text-white p-8 overflow-hidden">
+    <div className="min-h-screen w-screen bg-gradient-to-br from-[#3a1c71] via-[#2d3a9e] to-[#4776e6] relative overflow-x-hidden">
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse at 80% 20%,rgba(255,255,255,0.05) 0%,transparent 60%)' }} />
 
-      <button onClick={handleSignOut} className="absolute top-5 right-5 bg-white/20 text-white border-none rounded-full px-5 py-2.5 font-bold cursor-pointer transition-all hover:bg-red-500 hover:-translate-y-0.5 z-10">
-        Sign Out
-      </button>
-      <button onClick={() => navigate('/student/dashboard')} className="absolute top-5 left-5 flex items-center gap-2 bg-white/20 text-white border-none rounded-full px-5 py-2.5 font-bold cursor-pointer transition-all hover:bg-white/30 hover:-translate-y-0.5 z-10">
-        <i className="fas fa-arrow-left text-[0.9em]" /> Back to Dashboard
-      </button>
+      {/* Header */}
+      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
+        <button
+          onClick={() => navigate('/student/dashboard')}
+          className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Dashboard
+        </button>
 
-      <div className="flex flex-col items-center gap-4 w-[90vw] max-w-[700px] p-8 rounded-2xl bg-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.2)] animate-fade-in">
-        <h1 className="text-3xl font-bold">Ready to Quiz?</h1>
-        <p className="text-[#ddd] text-[1.1rem] mb-4 text-center">Welcome, {user?.email || 'Student'}</p>
-
-        {/* Code input card */}
-        <div className="w-full max-w-[500px] text-center mt-4">
-          <h2 className="text-[1.5rem] font-semibold text-[#e0e0e0] mb-6">Join a Quiz</h2>
-          <div className="flex bg-black/20 rounded-xl overflow-hidden border border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.2)] transition-all duration-300 focus-within:border-white/40 mt-4">
-            <input
-              type="text"
-              placeholder="Enter Quiz Code"
-              value={quizCode}
-              onChange={(e) => setQuizCode(e.target.value.toUpperCase())}
-              onKeyPress={(e) => e.key === 'Enter' && handleJoinQuiz()}
-              maxLength={6}
-              className="flex-1 bg-transparent border-none px-4 py-4 text-base text-white placeholder-white/50 outline-none"
-            />
-            <button
-              onClick={handleJoinQuiz}
-              disabled={isLoading}
-              className="bg-gradient-to-r from-[#fdfbfb] to-[#ebedee] text-[#333] border-none px-6 font-bold text-base cursor-pointer transition-all duration-300 hover:from-white hover:to-[#f0f2f3] hover:text-black disabled:bg-[#555] disabled:text-[#999] disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Joining...' : 'Join Now'}
-            </button>
-          </div>
-          {error && <div className="text-[#ffbaba] bg-[rgba(255,82,82,0.2)] border border-[rgba(255,82,82,0.5)] px-3 py-3 rounded-lg mt-6 font-medium animate-fade-in">{error}</div>}
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="border-white/20 text-white bg-white/10 hidden md:flex">
+            🎓 Student
+          </Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Avatar className="w-9 h-9 border-2 border-white/20 cursor-pointer hover:border-white/50 transition-colors">
+                <AvatarFallback className="bg-white/20 text-white font-bold text-sm">{initials}</AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="font-normal">
+                <p className="font-semibold">{displayName || currentUser?.email?.split('@')[0] || 'Student'}</p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">Student account</p>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
+                <User className="w-4 h-4" /> My Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer">
+                <School className="w-4 h-4 text-[#e85a19]" /> Switch to Teacher
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-600 focus:text-red-600">
+                <LogOut className="w-4 h-4" /> Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+      </header>
 
-        {/* Available quizzes card */}
-        <div className="bg-white text-[#333] rounded-xl p-8 w-full shadow-[0_5px_15px_rgba(0,0,0,0.1)] mt-6 animate-fade-in">
-          <h2 className="text-[1.8rem] mb-5 text-center">Available Quizzes</h2>
+      {/* Hero */}
+      <div className="relative z-10 px-6 md:px-10 pb-6">
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
+          <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow">Join a Quiz 🎮</h1>
+          <p className="text-white/60 mt-1">Enter a code or pick from the list below.</p>
+        </motion.div>
+      </div>
 
-          {loadingQuizzes ? (
-            <div className="flex flex-col items-center gap-4 py-8 text-[#666]">
-              <div className="w-10 h-10 border-4 border-[#e3f2fd] border-t-[#4b70e2] rounded-full animate-spin" />
-              <p>Loading available quizzes...</p>
-            </div>
-          ) : availableQuizzes.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6 mt-6">
-              {availableQuizzes.map((quiz, i) => (
-                <div
-                  key={quiz.id}
-                  className="bg-gradient-to-br from-[#f8fbff] to-[#e3f2fd] rounded-xl p-6 shadow-[0_4px_12px_rgba(75,112,226,0.1)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_8px_25px_rgba(75,112,226,0.2)] border border-[rgba(75,112,226,0.1)] relative overflow-hidden opacity-0 translate-y-5 animate-slide-in-up"
-                  style={{ animationDelay: `${i * 0.1}s`, animationFillMode: 'forwards' }}
-                >
-                  {/* Top accent bar on hover */}
-                  <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#4b70e2] to-[#64b5f6] scale-x-0 transition-transform duration-300 group-hover:scale-x-100" />
+      {/* Main */}
+      <div className="relative z-10 mx-4 md:mx-10 mb-10 rounded-3xl bg-[#f8fafc] shadow-2xl overflow-hidden">
+        <div className="p-6 md:p-8 flex flex-col gap-8">
 
-                  <div className="flex justify-between items-start mb-4 gap-4">
-                    <h3 className="text-[#1a237e] m-0 text-[1.25rem] font-semibold flex-1 leading-snug">{quiz.title}</h3>
-                    <div className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide bg-gradient-to-br from-[#e8f5e8] to-[#c8e6c9] text-[#2e7d32] animate-pulse-opacity">
-                      <i className="fas fa-circle text-[0.6rem] animate-blink" /> Active
-                    </div>
+          {/* Code join */}
+          <section>
+            <Card className="border-0 shadow-md overflow-hidden">
+              <div className="h-1.5 bg-gradient-to-r from-[#3a1c71] to-[#4776e6]" />
+              <CardContent className="pt-6 pb-7">
+                <div className="max-w-md mx-auto text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#3a1c71] to-[#4776e6] flex items-center justify-center mx-auto mb-4">
+                    <Hash className="w-6 h-6 text-white" />
                   </div>
+                  <h2 className="text-xl font-bold text-[hsl(var(--foreground))] mb-1">Enter Quiz Code</h2>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">Ask your teacher for the 6-character code</p>
 
-                  <div className="mb-6">
-                    <p className="text-[#546e7a] text-[0.9rem] mb-5 leading-relaxed line-clamp-2">
-                      {quiz.description || 'No description provided'}
-                    </p>
-                    <div className="flex flex-wrap gap-4 mb-5">
-                      {[
-                        { icon: 'fa-question-circle', text: `${quiz.questions?.length || 0} Questions` },
-                        { icon: 'fa-clock', text: `${Math.floor((quiz.timeLimit || 60) / 60)}:${((quiz.timeLimit || 60) % 60).toString().padStart(2,'0')} mins` },
-                        { icon: 'fa-calendar', text: formatDate(quiz.createdAt) },
-                      ].map(({ icon, text }) => (
-                        <div key={text} className="flex items-center gap-2 text-[#607d8b] text-[0.85rem] font-medium">
-                          <i className={`fas ${icon} text-[#4b70e2] text-[0.9rem]`} />
-                          <span>{text}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="bg-gradient-to-br from-white to-[#f5f8ff] border-2 border-dashed border-[#4b70e2] rounded-lg p-3 flex justify-between items-center">
-                      <span className="text-[#607d8b] text-[0.85rem] font-medium">Quiz Code:</span>
-                      <span className="font-mono font-bold text-[#4b70e2] text-[1.1rem] tracking-wide px-2 py-0.5 bg-[rgba(75,112,226,0.1)] rounded">{quiz.code}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-center pt-4 border-t border-[rgba(75,112,226,0.1)]">
-                    <button
-                      onClick={() => navigate(`/student/quiz/${quiz.id}`)}
-                      className="bg-gradient-to-br from-[#4b70e2] to-[#64b5f6] text-white border-none rounded-full px-8 py-3 font-semibold cursor-pointer transition-all duration-300 flex items-center gap-2 text-[0.95rem] shadow-[0_2px_8px_rgba(75,112,226,0.3)] hover:from-[#3a5cc1] hover:to-[#42a5f5] hover:-translate-y-0.5 hover:shadow-[0_4px_15px_rgba(75,112,226,0.4)]"
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="e.g. AB1234"
+                      value={quizCode}
+                      onChange={e => { setQuizCode(e.target.value.toUpperCase()); setError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleJoin()}
+                      maxLength={6}
+                      className="text-center text-lg font-mono tracking-widest font-bold uppercase"
+                    />
+                    <Button
+                      onClick={handleJoin}
+                      disabled={joining}
+                      variant="student"
+                      className="px-6 gap-2 shrink-0"
                     >
-                      <i className="fas fa-play text-[0.9rem]" /> Take Quiz
-                    </button>
+                      <PlayCircle className="w-4 h-4" />
+                      {joining ? 'Joining…' : 'Join'}
+                    </Button>
                   </div>
+
+                  {error && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                      className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-3">
+                      {error}
+                    </motion.p>
+                  )}
                 </div>
-              ))}
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Available quizzes */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-[hsl(var(--foreground))]">Available Quizzes</h2>
+              <Badge variant="secondary">{filtered.length} active</Badge>
             </div>
-          ) : (
-            <div className="text-center py-12 px-8 text-[#607d8b]">
-              <div className="text-[3.5rem] text-[#4b70e2] mb-4 animate-float">
-                <i className="fas fa-clipboard-list" />
+
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[hsl(var(--muted-foreground))]" />
+              <Input
+                placeholder="Search quizzes…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {loadingQuizzes ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-4 border-[#4776e6]/20 border-t-[#4776e6] rounded-full animate-spin" />
               </div>
-              <h3 className="text-[#1a237e] mb-3 text-[1.5rem] font-semibold">No Quizzes Available</h3>
-              <p className="m-0 text-base opacity-80">Check back later for new quizzes!</p>
-            </div>
-          )}
+            ) : filtered.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filtered.map((quiz, i) => (
+                  <motion.div
+                    key={quiz.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <Card className="border-0 shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5 overflow-hidden">
+                      <div className="h-1 bg-gradient-to-r from-[#3a1c71] to-[#4776e6]" />
+                      <CardContent className="pt-4 pb-5">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <h3 className="font-bold text-[hsl(var(--foreground))] leading-snug">{quiz.title}</h3>
+                          <Badge variant="success" className="shrink-0 text-xs">Active</Badge>
+                        </div>
+
+                        {quiz.description && (
+                          <p className="text-xs text-[hsl(var(--muted-foreground))] line-clamp-2 mb-3">{quiz.description}</p>
+                        )}
+
+                        <div className="flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))] mb-4">
+                          <span className="flex items-center gap-1">
+                            <BookOpen className="w-3.5 h-3.5" /> {quiz.questions?.length || 0} Qs
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" /> {quiz.totalPoints || 0} pts
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="bg-[hsl(var(--muted))] rounded-lg px-3 py-1.5">
+                            <span className="font-mono font-black text-[#4776e6] tracking-widest text-sm">{quiz.code}</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="student"
+                            onClick={() => navigate(`/student/quiz/${quiz.id}`)}
+                            className="gap-1.5"
+                          >
+                            Start <ChevronRight className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--muted))] flex items-center justify-center mb-4">
+                  <BookOpen className="w-8 h-8 text-[hsl(var(--muted-foreground))]" />
+                </div>
+                <p className="font-semibold text-[hsl(var(--foreground))]">
+                  {search ? 'No quizzes match your search' : 'No active quizzes right now'}
+                </p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+                  {search ? 'Try a different search term' : 'Check back later or enter a code above'}
+                </p>
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>
