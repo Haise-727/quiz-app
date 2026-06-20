@@ -52,24 +52,9 @@ const Profile = () => {
   const roleLabel = userRole === 'teacher' ? 'Teacher' : 'Student';
 
   return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
-      {/* Decorative background grid and blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-      </div>
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-4 border-b border-[hsl(var(--border))]">
-        <button onClick={() => navigate(backPath)}
-          className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors cursor-pointer">
-          <ArrowLeft className="w-4 h-4" /> Dashboard
-        </button>
-        <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/50">{roleLabel}</Badge>
-      </header>
-
+    <div className="w-full max-w-xl mx-auto relative">
       {/* Hero */}
-      <div className="relative z-10 flex flex-col items-center pt-8 pb-6 px-6">
+      <div className="flex flex-col items-center pb-6">
         <div className="w-20 h-20 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--muted))] flex items-center justify-center text-2xl font-bold text-[hsl(var(--foreground))] mb-3">
           {initials}
         </div>
@@ -84,7 +69,7 @@ const Profile = () => {
         initial={{ opacity: 0, y: 15 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.3, delay: 0.05 }}
-        className="relative z-10 mx-4 md:mx-auto md:max-w-xl mb-10 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden shadow-sm"
+        className="relative z-10 mb-10 rounded-[12px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden"
       >
         <div className="p-6 md:p-8 flex flex-col gap-6">
 

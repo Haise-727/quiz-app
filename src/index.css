@@ -22,62 +22,137 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
 
-  --variant-dark: [data-theme="dark"];
+  /* Custom design tokens from design.md */
+  --color-surface: hsl(var(--surface));
+  --color-surface-dim: hsl(var(--surface-dim));
+  --color-surface-bright: hsl(var(--surface-bright));
+  --color-surface-container-lowest: hsl(var(--surface-container-lowest));
+  --color-surface-container-low: hsl(var(--surface-container-low));
+  --color-surface-container: hsl(var(--surface-container));
+  --color-surface-container-high: hsl(var(--surface-container-high));
+  --color-surface-container-highest: hsl(var(--surface-container-highest));
+  --color-on-surface: hsl(var(--on-surface));
+  --color-on-surface-variant: hsl(var(--on-surface-variant));
+  --color-inverse-surface: hsl(var(--inverse-surface));
+  --color-inverse-on-surface: hsl(var(--inverse-on-surface));
+  --color-outline: hsl(var(--outline));
+  --color-outline-variant: hsl(var(--outline-variant));
+  --color-surface-tint: hsl(var(--surface-tint));
+  --color-primary-container: hsl(var(--primary-container));
+  --color-on-primary-container: hsl(var(--on-primary-container));
+  --color-inverse-primary: hsl(var(--inverse-primary));
+  --color-tertiary: hsl(var(--tertiary));
+  --color-on-tertiary: hsl(var(--on-tertiary));
+  --color-tertiary-container: hsl(var(--tertiary-container));
+  --color-on-tertiary-container: hsl(var(--on-tertiary-container));
+
+  --radius-sm: 0.25rem;
+  --radius-default: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+  --radius-interactive: 10px;
+
+  --variant-dark: .dark, [data-theme="dark"];
 }
 
-/* ── Design tokens (Supabase-inspired) ─────────────────────────────────── */
+/* ── Design tokens (Material 3 Forest Green / Studio Style) ─────────────────── */
 @layer base {
   :root {
-    /* Semantic surface colors - Light Mode (Supabase Clean Style) */
-    --background:      210 20% 98%;      /* #F8F9FA */
-    --foreground:      224 71.4% 4.1%;   /* #0B0F19 */
-    --card:            0 0% 100%;        /* #FFFFFF */
-    --card-foreground: 224 71.4% 4.1%;   /* #0B0F19 */
-    --popover:         0 0% 100%;        /* #FFFFFF */
-    --popover-foreground: 224 71.4% 4.1%; /* #0B0F19 */
-    --muted:           220 14.3% 95.9%;  /* #F1F5F9 */
-    --muted-foreground: 215.4 16.3% 46.9%; /* #64748B */
-    --border:          220 13% 91%;      /* #E2E8F0 */
-    --input:           220 13% 91%;      /* #E2E8F0 */
-    --ring:            152 42% 40%;      /* Neutral emerald */
+    /* Default to Dark Mode (Primary Experience) */
+    --background: 137 20% 7%;
+    --foreground: 120 11% 88%;
+    --card: 137 12% 12%;
+    --card-foreground: 120 11% 88%;
+    --popover: 137 12% 12%;
+    --popover-foreground: 120 11% 88%;
+    --muted: 146 14% 10%;
+    --muted-foreground: 132 12% 76%;
+    --border: 138 10% 26%;
+    --input: 138 10% 26%;
+    --ring: 151 79% 65%;
+    
+    --primary: 153 60% 53%;
+    --primary-foreground: 156 100% 11%;
+    --secondary: 229 10% 79%;
+    --secondary-foreground: 224 11% 20%;
+    --accent: 146 14% 10%;
+    --accent-foreground: 120 11% 88%;
+    --destructive: 6 100% 84%;
+    --destructive-foreground: 357 100% 21%;
 
-    /* Brand: primary (Neutral emerald) */
-    --primary:         152 42% 40%;      /* Neutral emerald */
-    --primary-foreground: 210 38% 98%;
-
-    --secondary:       220 14.3% 95.9%;
-    --secondary-foreground: 224 71.4% 4.1%;
-    --accent:          220 14.3% 95.9%;
-    --accent-foreground: 224 71.4% 4.1%;
-    --destructive:     0 84.3% 60.2%;    /* #EF4444 */
-    --destructive-foreground: 210 38% 98%;
-
-    --radius: 12px;
+    /* Material 3 specific aliases for dark mode */
+    --surface: 137 20% 7%;
+    --surface-dim: 137 20% 7%;
+    --surface-bright: 137 6% 22%;
+    --surface-container-lowest: 137 28% 5%;
+    --surface-container-low: 146 14% 10%;
+    --surface-container: 137 12% 12%;
+    --surface-container-high: 143 10% 16%;
+    --surface-container-highest: 137 7% 20%;
+    --on-surface: 120 11% 88%;
+    --on-surface-variant: 132 12% 76%;
+    --inverse-surface: 120 11% 88%;
+    --inverse-on-surface: 137 8% 18%;
+    --outline: 133 6% 55%;
+    --outline-variant: 138 10% 26%;
+    --surface-tint: 152 69% 60%;
+    --primary-container: 153 60% 53%;
+    --on-primary-container: 157 100% 16%;
+    --inverse-primary: 158 100% 21%;
+    --tertiary: 19 100% 84%;
+    --on-tertiary: 22 100% 17%;
+    --tertiary-container: 20 100% 72%;
+    --on-tertiary-container: 22 78% 26%;
   }
 
-  [data-theme="dark"] {
-    /* Semantic surface colors - Dark Mode (Supabase Dark Style) */
-    --background:      225 21% 7.5%;     /* #0F1117 */
-    --foreground:      210 38% 98%;      /* #F8FAFC */
-    --card:            224 19% 11.6%;    /* #181B23 */
-    --card-foreground: 210 38% 98%;      /* #F8FAFC */
-    --popover:         224 19% 11.6%;    /* #181B23 */
-    --popover-foreground: 210 38% 98%;    /* #F8FAFC */
-    --muted:           221 24.2% 15.1%;  /* #1D2330 */
-    --muted-foreground: 215 20% 65%;      /* #94A3B8 */
-    --border:          224 19% 20%;      /* rgba(255,255,255,0.06) */
-    --input:           224 19% 20%;
-    --ring:            152 45% 48%;      /* Muted emerald for dark background */
+  .light, [data-theme="light"] {
+    /* Light Mode */
+    --background: 137 20% 98%;
+    --foreground: 137 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 137 40% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 137 40% 10%;
+    --muted: 137 10% 94%;
+    --muted-foreground: 137 15% 45%;
+    --border: 137 10% 86%;
+    --input: 137 10% 86%;
+    --ring: 153 60% 45%;
 
-    --primary:         152 45% 48%;      /* Muted emerald for dark background */
-    --primary-foreground: 225 21% 7.5%;
+    --primary: 153 60% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 229 10% 40%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 137 10% 94%;
+    --accent-foreground: 137 40% 10%;
+    --destructive: 0 84.3% 60.2%;
+    --destructive-foreground: 0 0% 100%;
 
-    --secondary:       221 24.2% 15.1%;
-    --secondary-foreground: 210 38% 98%;
-    --accent:          221 24.2% 15.1%;
-    --accent-foreground: 210 38% 98%;
-    --destructive:     0 84.3% 60.2%;    /* #EF4444 */
-    --destructive-foreground: 210 38% 98%;
+    /* Material 3 specific aliases for light mode */
+    --surface: 0 0% 100%;
+    --surface-dim: 137 10% 97%;
+    --surface-bright: 137 10% 99%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-low: 137 10% 96%;
+    --surface-container: 137 10% 94%;
+    --surface-container-high: 137 10% 92%;
+    --surface-container-highest: 137 10% 88%;
+    --on-surface: 137 40% 10%;
+    --on-surface-variant: 137 15% 35%;
+    --inverse-surface: 137 20% 7%;
+    --inverse-on-surface: 120 11% 88%;
+    --outline: 137 10% 50%;
+    --outline-variant: 137 10% 86%;
+    --surface-tint: 153 60% 45%;
+    --primary-container: 153 60% 45%;
+    --on-primary-container: 157 100% 16%;
+    --inverse-primary: 158 100% 21%;
+    --tertiary: 19 100% 84%;
+    --on-tertiary: 22 100% 17%;
+    --tertiary-container: 20 100% 72%;
+    --on-tertiary-container: 22 78% 26%;
   }
 }
 
@@ -86,6 +161,9 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+  }
+  body, div, header, aside, main, section, nav, button, input, select, textarea, a, span, p, h1, h2, h3, h4, h5, h6 {
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   }
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -105,6 +183,52 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+}
+
+@utility text-display {
+  font-family: 'Inter', sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+@utility text-headline-lg {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 32px;
+  letter-spacing: -0.01em;
+}
+@utility text-headline-md {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+@utility text-body-lg {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+@utility text-body-md {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+@utility text-label-md {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+}
+@utility text-label-sm {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 14px;
 }
 
 /* Custom keyframes used across pages - limited to 200ms and calm opacity/transform */

@@ -27,6 +27,7 @@ import Practice from './pages/Practice';
 import Flashcards from './pages/Flashcards';
 import NotFound from './pages/NotFound';
 
+import DashboardLayout from './components/layout/DashboardLayout';
 import './App.css';
 
 // ─── Route guards ──────────────────────────────────────────────────────────────
@@ -82,23 +83,23 @@ function App() {
         <Route path="/flashcards/:quizId"  element={<Flashcards />} />
 
         {/* ── Teacher (must be logged in as teacher) ── */}
-        <Route path="/teacher/home"              element={<ProtectedRoute role="teacher"><TeacherHome /></ProtectedRoute>} />
-        <Route path="/teacher/create-quiz"       element={<ProtectedRoute role="teacher"><CreateQuiz /></ProtectedRoute>} />
-        <Route path="/teacher/your-quizzes"      element={<ProtectedRoute role="teacher"><YourQuizzes /></ProtectedRoute>} />
-        <Route path="/teacher/media-test"        element={<ProtectedRoute role="teacher"><MediaTest /></ProtectedRoute>} />
-        <Route path="/teacher/classes"           element={<ProtectedRoute role="teacher"><Classes /></ProtectedRoute>} />
-        <Route path="/teacher/question-bank"     element={<ProtectedRoute role="teacher"><QuestionBank /></ProtectedRoute>} />
-        <Route path="/teacher/grading/:quizId"    element={<ProtectedRoute role="teacher"><Grading /></ProtectedRoute>} />
-        <Route path="/teacher/analytics/:quizId" element={<ProtectedRoute role="teacher"><Analytics /></ProtectedRoute>} />
+        <Route path="/teacher/home"              element={<ProtectedRoute role="teacher"><DashboardLayout><TeacherHome /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/create-quiz"       element={<ProtectedRoute role="teacher"><DashboardLayout><CreateQuiz /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/your-quizzes"      element={<ProtectedRoute role="teacher"><DashboardLayout><YourQuizzes /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/media-test"        element={<ProtectedRoute role="teacher"><DashboardLayout><MediaTest /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/classes"           element={<ProtectedRoute role="teacher"><DashboardLayout><Classes /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/question-bank"     element={<ProtectedRoute role="teacher"><DashboardLayout><QuestionBank /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/grading/:quizId"    element={<ProtectedRoute role="teacher"><DashboardLayout><Grading /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/analytics/:quizId" element={<ProtectedRoute role="teacher"><DashboardLayout><Analytics /></DashboardLayout></ProtectedRoute>} />
 
         {/* ── Shared (any authenticated user) ── */}
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />
 
         {/* ── Student (must be logged in as student) ── */}
-        <Route path="/student/dashboard"         element={<ProtectedRoute role="student"><StudentDashboard /></ProtectedRoute>} />
-        <Route path="/student/attend-quiz"       element={<ProtectedRoute role="student"><AttendQuiz /></ProtectedRoute>} />
+        <Route path="/student/dashboard"         element={<ProtectedRoute role="student"><DashboardLayout><StudentDashboard /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/student/attend-quiz"       element={<ProtectedRoute role="student"><DashboardLayout><AttendQuiz /></DashboardLayout></ProtectedRoute>} />
         <Route path="/student/quiz/:quizId"      element={<ProtectedRoute role="student"><TakeQuiz /></ProtectedRoute>} />
-        <Route path="/student/results"           element={<ProtectedRoute role="student"><YourResults /></ProtectedRoute>} />
+        <Route path="/student/results"           element={<ProtectedRoute role="student"><DashboardLayout><YourResults /></DashboardLayout></ProtectedRoute>} />
 
         {/* ── Legacy redirects ── */}
         <Route path="/student/login"          element={<Navigate to="/login?role=student" replace />} />

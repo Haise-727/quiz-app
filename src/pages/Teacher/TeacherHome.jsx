@@ -174,67 +174,9 @@ const TeacherHome = () => {
   ];
 
   return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
-      {/* Decorative background grid and blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-      </div>
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-4 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]/80 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center text-white font-black text-sm">Q</div>
-          <span className="text-[hsl(var(--foreground))] font-bold text-base tracking-tight hidden sm:block">Quizlike</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <NotificationBell />
-          <button
-            onClick={toggleTheme}
-            className="w-8 h-8 rounded-lg bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted))]/80 text-[hsl(var(--foreground))] flex items-center justify-center transition-colors border border-[hsl(var(--border))] cursor-pointer"
-            aria-label="Toggle dark mode"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-
-          <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/50 text-xs hidden md:flex rounded-md py-0.5 px-2 font-semibold">
-            Teacher
-          </Badge>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Avatar className="w-8 h-8 border border-[hsl(var(--border))] cursor-pointer hover:border-[hsl(var(--primary))] transition-colors">
-                <AvatarFallback className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] font-bold text-xs">{initials}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 bg-[hsl(var(--card))] border-[hsl(var(--border))]">
-              <DropdownMenuLabel className="font-normal p-3">
-                <p className="font-semibold text-sm text-[hsl(var(--foreground))]">{displayName || 'Teacher'}</p>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">Teacher account</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-[hsl(var(--border))]" />
-              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer text-sm py-2 px-3 hover:bg-[hsl(var(--muted))]/50">
-                <User className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-                My Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer text-sm py-2 px-3 hover:bg-[hsl(var(--muted))]/50">
-                <GraduationCap className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-                Switch to Student
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-[hsl(var(--border))]" />
-              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-sm py-2 px-3 text-red-500 focus:text-red-500 hover:bg-red-500/10">
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
+    <div className="w-full relative">
       {/* Greeting Header */}
-      <div className="relative z-10 px-6 md:px-10 pt-8 pb-4">
+      <div className="pb-4">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="animate-fade-in">
           <p className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
             Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}
@@ -247,8 +189,7 @@ const TeacherHome = () => {
       </div>
 
       {/* 70/30 Grid Layout */}
-      <main className="relative z-10 px-6 md:px-10 pb-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 mt-4">
           
           {/* LEFT Column (70%) */}
           <div className="flex flex-col gap-6">
@@ -389,7 +330,6 @@ const TeacherHome = () => {
           </div>
 
         </div>
-      </main>
 
       {/* Quiz type modal */}
       <Dialog open={quizModalOpen} onOpenChange={setQuizModalOpen}>

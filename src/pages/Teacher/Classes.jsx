@@ -187,33 +187,12 @@ const Classes = () => {
   // ── Render ──
 
   return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
-      {/* Decorative background grid and blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-      </div>
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5 border-b border-[hsl(var(--border))]">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[hsl(var(--primary))] flex items-center justify-center text-white font-black text-sm">Q</div>
-          <span className="text-[hsl(var(--foreground))] font-bold text-lg tracking-tight hidden sm:block">Quizlike</span>
-        </div>
-        <button
-          onClick={() => navigate('/teacher/home')}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted))]/80 text-[hsl(var(--foreground))] text-sm font-semibold transition-colors border border-[hsl(var(--border))]"
-        >
-          <ArrowLeft className="w-4 h-4" /> Dashboard
-        </button>
-      </header>
-
-      {/* Hero */}
-      <div className="relative z-10 px-6 md:px-10 py-8">
+    <div className="w-full relative">
+      {/* Hero / Page Title */}
+      <div className="pb-6">
         <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <h1 className="text-3xl md:text-4xl font-black text-[hsl(var(--foreground))]">My Classes</h1>
-          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-base">Create classes, assign quizzes, and manage enrollments.</p>
+          <h1 className="text-3xl font-black text-[hsl(var(--foreground))]">My Classes</h1>
+          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-sm">Create classes, assign quizzes, and manage enrollments.</p>
         </motion.div>
       </div>
 
@@ -222,7 +201,7 @@ const Classes = () => {
         initial={{ opacity: 0, y: 15 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.3, delay: 0.05 }}
-        className="relative z-10 mx-4 md:mx-10 mb-10 rounded-2xl bg-[hsl(var(--background))] border border-[hsl(var(--border))] shadow-sm overflow-hidden"
+        className="relative z-10 mb-10 rounded-[12px] bg-[hsl(var(--card))] border border-[hsl(var(--border))] overflow-hidden"
       >
         <div className="p-6 md:p-8">
 

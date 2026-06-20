@@ -179,54 +179,12 @@ const Analytics = () => {
   );
 
   return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
-      {/* Decorative background grid and blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-      </div>
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5 border-b border-[hsl(var(--border))]">
-        <button onClick={() => navigate('/teacher/your-quizzes')}
-          className="flex items-center gap-2 text-[hsl(var(--foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Your Quizzes
-        </button>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/50 hidden md:flex">Teacher</Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Avatar className="w-9 h-9 border border-[hsl(var(--border))] cursor-pointer hover:border-[hsl(var(--primary))] transition-colors">
-                <AvatarFallback className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] font-bold text-sm">{initials}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="font-normal">
-                <p className="font-semibold text-[hsl(var(--foreground))]">{displayName || 'Teacher'}</p>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">Teacher account</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
-                <User className="w-4 h-4" /> My Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSwitch} className="gap-2 cursor-pointer">
-                <GraduationCap className="w-4 h-4 text-[hsl(var(--primary))]" /> Switch to Student
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-650 focus:text-red-650">
-                <LogOut className="w-4 h-4" /> Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <div className="relative z-10 px-6 md:px-10 py-6">
+    <div className="w-full relative">
+      {/* Hero / Page Title */}
+      <div className="pb-6">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-black text-[hsl(var(--foreground))]">Analytics</h1>
-          <p className="text-[hsl(var(--muted-foreground))] mt-1 font-semibold">{quiz?.title}</p>
+          <h1 className="text-3xl font-black text-[hsl(var(--foreground))]">Analytics</h1>
+          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-sm font-semibold">{quiz?.title}</p>
         </motion.div>
       </div>
 
@@ -235,7 +193,7 @@ const Analytics = () => {
         initial={{ opacity: 0, y: 15 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.3, delay: 0.05 }}
-        className="relative z-10 mx-4 md:mx-10 mb-10 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-sm overflow-hidden"
+        className="relative z-10 mb-10 rounded-[12px] bg-[hsl(var(--card))] border border-[hsl(var(--border))] overflow-hidden"
       >
         <div className="p-6 md:p-8 flex flex-col gap-8">
 
