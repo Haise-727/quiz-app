@@ -3,8 +3,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import '../../styles/Teacher/CreateQuiz.css';
-import { FaTrashAlt, FaPlus, FaClipboard, FaTimes, FaArrowLeft, FaPhotoVideo, FaGripLines, FaSave, FaLaptop, FaPaste, FaEdit } from 'react-icons/fa';
+import { FaTrashAlt, FaPlus, FaClipboard, FaTimes, FaArrowLeft, FaPhotoVideo, FaGripLines, FaSave, FaLaptop, FaPaste, FaEdit, FaDatabase } from 'react-icons/fa';
+import { toast } from 'sonner';
+import { saveToBank, getBankQuestions } from '../../utils/questionBankHelpers';
 import ImageKit from 'imagekit-javascript';
 import MediaPreview from '../../components/MediaPreview';
 import ImageEditorModal from '../../components/ImageEditorModal';
@@ -44,6 +47,9 @@ const CreateQuiz = () => {
     const [loading, setLoading] = useState(true);
     const [quizTitle, setQuizTitle] = useState('');
     const [quizDescription, setQuizDescription] = useState('');
+    const [quizSubject, setQuizSubject] = useState('');
+    const [quizTags, setQuizTags] = useState([]);
+    const [tagInput, setTagInput] = useState('');
     const [questions, setQuestions] = useState([generateNewQuestion('MCQ')]);
     const [isPublished, setIsPublished] = useState(false);
     const [generatedCode, setGeneratedCode] = useState('');
@@ -51,6 +57,13 @@ const CreateQuiz = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [editorState, setEditorState] = useState({ isOpen: false, imageSrc: null, target: null });
+
+    const [savingToBankId, setSavingToBankId] = useState(null);
+    const [isBankOpen, setIsBankOpen] = useState(false);
+    const [bankQuestions, setBankQuestions] = useState([]);
+    const [bankSearch, setBankSearch] = useState('');
+    const [bankFilterType, setBankFilterType] = useState('ALL');
+    const [loadingBank, setLoadingBank] = useState(false);
 
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [mediaTarget, setMediaTarget] = useState(null);
@@ -94,6 +107,51 @@ const CreateQuiz = () => {
         const old = questions[qIndex];
         const newQuestion = { ...generateNewQuestion(newType), id: old.id, questionText: old.questionText, points: old.points, timeLimit: old.timeLimit };
         setQuestions(current => current.map((q, i) => i === qIndex ? newQuestion : q));
+    };
+
+    const handleSaveToBank = async (q) => {
+        if (!currentUser) {
+            toast.error("You must be logged in to save questions.");
+            return;
+        }
+        setSavingToBankId(q.id);
+        try {
+            await saveToBank(q, currentUser.uid);
+            toast.success("Question saved to Question Bank!");
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to save question to bank.");
+        } finally {
+            setSavingToBankId(null);
+        }
+    };
+
+    const openBankModal = async () => {
+        setIsBankOpen(true);
+        if (!currentUser) return;
+        setLoadingBank(true);
+        try {
+            const list = await getBankQuestions(currentUser.uid);
+            setBankQuestions(list);
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to load question bank.");
+        } finally {
+            setLoadingBank(false);
+        }
+    };
+
+    const handleInsertFromBank = (q) => {
+        const newId = `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const insertedQuestion = {
+            ...q,
+            id: newId
+        };
+        delete insertedQuestion.teacherId;
+        delete insertedQuestion.savedAt;
+        
+        setQuestions(current => [...current, insertedQuestion]);
+        toast.success("Question inserted!");
     };
 
     const openUploadModal = (target) => { setMediaTarget(target); setIsUploadModalOpen(true); };
@@ -388,6 +446,8 @@ const CreateQuiz = () => {
             const quizData = {
                 title: quizTitle,
                 description: quizDescription,
+                subject: quizSubject.trim(),
+                tags: quizTags,
                 code: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('').sort(() => 0.5 - Math.random()).join('').slice(0, 6),
                 quizType,
                 createdBy: currentUser.uid,
@@ -413,7 +473,14 @@ const CreateQuiz = () => {
     if (loading) return <div className="loading-screen">Loading...</div>;
 
     return (
-        <div className="create-quiz-container">
+        <div className="create-quiz-container relative overflow-x-hidden">
+            {/* Decorative background grid and blobs */}
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+                <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+                <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+            </div>
+
             <input type="file" ref={hiddenFileInput} style={{ display: 'none' }} onChange={handleFileInputChange} accept="image/*,video/*,audio/*" />
             {isUploadModalOpen && (<UploadChoiceModal onChoice={handleUploadChoice} onClose={() => setIsUploadModalOpen(false)} />)}
 
@@ -426,7 +493,12 @@ const CreateQuiz = () => {
                 />
             )}
 
-            <div className="create-quiz-content">
+            <motion.div 
+                initial={{ opacity: 0, y: 15 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                transition={{ duration: 0.3 }}
+                className="create-quiz-content z-10"
+            >
                 {!isPublished ? (
                     <>
                         <div className="create-quiz-header">
@@ -447,11 +519,66 @@ const CreateQuiz = () => {
                                 <label>Description</label>
                                 <textarea value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} placeholder="A brief summary for your students" className="form-control" rows="3" />
                             </div>
+                            <div className="form-group">
+                                <label>Subject</label>
+                                <input
+                                    type="text"
+                                    value={quizSubject}
+                                    onChange={(e) => setQuizSubject(e.target.value)}
+                                    placeholder="e.g., Mathematics, Science, History"
+                                    className="form-control"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Tags</label>
+                                <div className="tags-input-wrapper">
+                                    {quizTags.map((tag, idx) => (
+                                        <span key={idx} className="tag-chip">
+                                            {tag}
+                                            <button
+                                                type="button"
+                                                className="tag-chip-remove"
+                                                onClick={() => setQuizTags(quizTags.filter((_, i) => i !== idx))}
+                                                aria-label={`Remove tag ${tag}`}
+                                            >
+                                                ×
+                                            </button>
+                                        </span>
+                                    ))}
+                                    <input
+                                        type="text"
+                                        className="tags-text-input"
+                                        value={tagInput}
+                                        onChange={(e) => setTagInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                                                e.preventDefault();
+                                                const newTag = tagInput.trim().replace(/,$/, '');
+                                                if (newTag && !quizTags.includes(newTag)) {
+                                                    setQuizTags([...quizTags, newTag]);
+                                                }
+                                                setTagInput('');
+                                            } else if (e.key === 'Backspace' && !tagInput && quizTags.length > 0) {
+                                                setQuizTags(quizTags.slice(0, -1));
+                                            }
+                                        }}
+                                        placeholder={quizTags.length === 0 ? 'Type a tag and press Enter or comma…' : 'Add more…'}
+                                    />
+                                </div>
+                            </div>
                         </div>
                         <div className="quiz-questions-section">
                             <h3>2. Questions</h3>
-                            {questions.map((q, qIndex) => (
-                                <div key={q.id} className="question-card">
+                            <AnimatePresence>
+                                {questions.map((q, qIndex) => (
+                                    <motion.div 
+                                        key={q.id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="question-card"
+                                    >
                                     <div className="question-header">
                                         <h4>Question {qIndex + 1}</h4>
                                         <div className="question-controls">
@@ -467,6 +594,15 @@ const CreateQuiz = () => {
                                                     <option value="LISTENING_COMPREHENSION">Listening Comprehension</option>
                                                 </select>
                                             )}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSaveToBank(q)}
+                                                className="save-bank-btn"
+                                                disabled={savingToBankId === q.id}
+                                                title="Save to Bank"
+                                            >
+                                                {savingToBankId === q.id ? 'Saving...' : 'Save to Bank'}
+                                            </button>
                                             <button onClick={() => handleRemoveQuestion(qIndex)} className="remove-item-btn" type="button" disabled={questions.length === 1}><FaTrashAlt /></button>
                                         </div>
                                     </div>
@@ -543,9 +679,13 @@ const CreateQuiz = () => {
                                         /> : <button className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'reorderItemMedia', itemIndex: iIndex})}><FaPhotoVideo/></button>}<input type="text" value={item.text} onChange={e => handleReorderItemChange(qIndex, iIndex, e.target.value)} placeholder="Item text" className="form-control"/></div><button type="button" className="remove-item-btn" onClick={() => handleRemoveReorderItem(qIndex, iIndex)} disabled={q.reorderData.items.length <= 1}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddReorderItem(qIndex)}><FaPlus/> Add Item</button></div>}
                                         {(q.type === 'VISUAL_COMPREHENSION' || q.type === 'LISTENING_COMPREHENSION') && <div className="comprehension-container"><h4 style={{marginTop: '1.5rem'}}>Follow-up Questions</h4>{(q.visualData?.subQuestions || q.listeningData?.subQuestions).map((subQ, subQIndex) => (<div key={subQ.id} className="sub-question-card"><div className="sub-question-header"><h5>Question {subQIndex + 1} ({subQ.type})</h5><button className="remove-item-btn" onClick={() => handleRemoveSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex)}><FaTimes/></button></div><input type="text" value={subQ.questionText} onChange={(e) => handleSubQuestionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, 'questionText', e.target.value)} className="form-control" placeholder="Sub-question text"/>{subQ.type === 'MCQ' && subQ.mcqData && <div className="options-container" style={{paddingTop: '1rem'}}>{subQ.mcqData.options.map((opt, oIndex) => (<div key={opt.id} className="option-item"><input type="checkbox" className="form-check-input" checked={subQ.mcqData.correctOptions.includes(opt.id)} onChange={() => handleSubMCQCorrectToggle(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex)} /><input type="text" value={opt.text} onChange={(e) => handleSubMCQOptionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex, e.target.value)} placeholder={`Option ${oIndex + 1}`} className="form-control" /></div>))}</div>}</div>))}<div className="sub-question-add-buttons"><button type="button" className="add-item-btn" onClick={() => handleAddSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', 'MCQ')}><FaPlus/> Add MCQ</button></div></div>}
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
-                            <button onClick={handleAddQuestion} className="add-question-btn" type="button"><FaPlus /> Add Question</button>
+                            </AnimatePresence>
+                            <div className="create-quiz-bottom-actions">
+                                <button onClick={handleAddQuestion} className="btn-primary-action" type="button"><FaPlus /> Add Question</button>
+                                <button onClick={openBankModal} className="btn-secondary-action" type="button"><FaDatabase /> Insert from Bank</button>
+                            </div>
                         </div>
                     </>
                 ) : (
@@ -557,7 +697,80 @@ const CreateQuiz = () => {
                         <button onClick={() => navigate('/teacher/home')}>Back to Dashboard</button>
                     </div>
                 )}
-            </div>
+            </motion.div>
+
+            {isBankOpen && (
+                <div className="bank-modal-overlay" onClick={() => setIsBankOpen(false)}>
+                    <div className="bank-modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div className="bank-modal-header">
+                            <h3><FaDatabase /> Question Bank</h3>
+                            <button className="close-modal-btn-simple" onClick={() => setIsBankOpen(false)}><FaTimes /></button>
+                        </div>
+                        <div className="bank-modal-filters">
+                            <input
+                                type="text"
+                                className="form-control bank-search-input"
+                                placeholder="Search questions..."
+                                value={bankSearch}
+                                onChange={(e) => setBankSearch(e.target.value)}
+                            />
+                            <select
+                                value={bankFilterType}
+                                onChange={(e) => setBankFilterType(e.target.value)}
+                                className="bank-type-select"
+                            >
+                                <option value="ALL">All Types</option>
+                                <option value="MCQ">Multiple Choice</option>
+                                <option value="FILL_IN_THE_BLANK">Fill in the Blank</option>
+                                <option value="PARAGRAPH">Paragraph</option>
+                                <option value="MATCH_THE_FOLLOWING">Match the Following</option>
+                                <option value="CATEGORIZE">Categorize</option>
+                                <option value="REORDER">Reorder</option>
+                                <option value="VISUAL_COMPREHENSION">Visual Comprehension</option>
+                                <option value="LISTENING_COMPREHENSION">Listening Comprehension</option>
+                            </select>
+                        </div>
+                        <div className="bank-questions-list">
+                            {loadingBank ? (
+                                <div className="bank-no-questions">Loading questions from bank...</div>
+                            ) : bankQuestions.length === 0 ? (
+                                <div className="bank-no-questions">Your question bank is empty. Save questions to reuse them.</div>
+                            ) : (() => {
+                                const filtered = bankQuestions.filter(bq => {
+                                    const matchText = (bq.questionText || '').toLowerCase().includes(bankSearch.toLowerCase());
+                                    const matchType = bankFilterType === 'ALL' || bq.type === bankFilterType;
+                                    return matchText && matchType;
+                                });
+                                if (filtered.length === 0) {
+                                    return <div className="bank-no-questions">No matching questions found.</div>;
+                                }
+                                return filtered.map(bq => (
+                                    <div key={bq.id} className="bank-question-item">
+                                        <div className="bank-q-details">
+                                            <p className="bank-q-text">{bq.questionText || <span className="italic text-gray-400">Untitled Question</span>}</p>
+                                            <div className="bank-q-meta">
+                                                <span className="bank-q-badge type-badge">{bq.type}</span>
+                                                <span className="bank-q-badge points-badge">{bq.points} pts</span>
+                                                <span className="bank-q-badge">{bq.timeLimit}s</span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="bank-insert-btn"
+                                            onClick={() => handleInsertFromBank(bq)}
+                                        >
+                                            Insert
+                                        </button>
+                                    </div>
+                                ));
+                            })()}
+                        </div>
+                        <div className="bank-insert-actions">
+                            <button type="button" onClick={() => setIsBankOpen(false)}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import MediaRenderer from '../../components/MediaRenderer';
 import { Button } from '@/components/ui/button';
+import { createNotification } from '../../utils/notifications';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -92,7 +93,7 @@ const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => 
   };
 
   return (
-    <div className="border border-[hsl(var(--border))] rounded-xl p-4 bg-white">
+    <div className="border border-[hsl(var(--border))] rounded-xl p-4 bg-[hsl(var(--card))]">
       <p className="font-semibold text-sm text-[hsl(var(--foreground))] mb-4 leading-relaxed">
         {answer.questionIndex + 1}. {originalQuestion.questionText}
       </p>
@@ -118,7 +119,7 @@ const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => 
 
         <div className="sm:w-36 shrink-0">
           <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-2 text-center">Points</p>
-          <div className={`flex items-center border-2 rounded-xl overflow-hidden transition-colors ${!isGraded ? 'border-[#e85a19] focus-within:ring-2 focus-within:ring-[#e85a19]/20' : 'border-[hsl(var(--border))]'}`}>
+          <div className={`flex items-center border-2 rounded-xl overflow-hidden transition-colors ${!isGraded ? 'border-[hsl(var(--primary))] focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20' : 'border-[hsl(var(--border))]'}`}>
             <input
               type="number"
               value={answer.pointsAwarded === null || answer.pointsAwarded === undefined ? '' : answer.pointsAwarded}
@@ -126,7 +127,7 @@ const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => 
               max={originalQuestion.points}
               min="0"
               disabled={isGraded}
-              className="w-full border-none bg-transparent outline-none p-2 text-2xl font-black text-center text-[#e85a19] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-[hsl(var(--muted-foreground))]"
+              className="w-full border-none bg-transparent outline-none p-2 text-2xl font-black text-center text-[hsl(var(--primary))] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:text-[hsl(var(--muted-foreground))]"
             />
             <span className="text-sm font-medium text-[hsl(var(--muted-foreground))] pr-3 shrink-0">/{originalQuestion.points}</span>
           </div>
@@ -213,6 +214,21 @@ const Grading = () => {
         score: total, finalScore: total + (selectedSub.bonus || 0), answers: updatedAnswers, status: 'completed',
       });
       toast.success('Grade saved!');
+
+      // Notify the student
+      if (selectedSub.userId && !selectedSub.userId.startsWith('guest_')) {
+        try {
+          await createNotification(
+            selectedSub.userId,
+            `Your quiz "${quizDetails.title}" has been graded! Final Score: ${total + (selectedSub.bonus || 0)}/${selectedSub.maxScore}`,
+            'grade_released',
+            { quizId, resultId: selectedSub.id }
+          );
+        } catch (notifErr) {
+          console.error("Error creating grade released notification:", notifErr);
+        }
+      }
+
       setSelectedSub(null);
       fetchAll();
     } catch (err) { toast.error('Could not save grade.'); console.error(err); }
@@ -226,66 +242,33 @@ const Grading = () => {
   const pendingCount = submissions.filter(s => s.status === 'pending').length;
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen w-screen bg-gradient-to-br from-[#f12711] to-[#f5af19]">
-      <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
     </div>
   );
 
   return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#f12711] via-[#e85a19] to-[#f5af19] relative overflow-x-hidden">
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 20% 80%,rgba(0,0,0,0.1) 0%,transparent 60%)' }} />
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
-        <button onClick={() => navigate('/teacher/your-quizzes')}
-          className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Your Quizzes
-        </button>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-white/20 text-white bg-white/10 hidden md:flex">🏫 Teacher</Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Avatar className="w-9 h-9 border-2 border-white/20 cursor-pointer hover:border-white/50 transition-colors">
-                <AvatarFallback className="bg-white/20 text-white font-bold text-sm">{initials}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="font-normal">
-                <p className="font-semibold">{displayName || 'Teacher'}</p>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">Teacher account</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
-                <User className="w-4 h-4" /> My Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer">
-                <GraduationCap className="w-4 h-4 text-[#4776e6]" /> Switch to Student
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-600 focus:text-red-600">
-                <LogOut className="w-4 h-4" /> Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <div className="relative z-10 px-6 md:px-10 pb-6">
+    <div className="w-full relative">
+      {/* Hero / Page Title */}
+      <div className="pb-6">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow">
+          <h1 className="text-3xl font-black text-[hsl(var(--foreground))]">
             Grading: {quizDetails?.title || '…'}
           </h1>
-          <p className="text-white/70 mt-1">
+          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-sm">
             {submissions.length} submission{submissions.length !== 1 ? 's' : ''}
-            {pendingCount > 0 && <span className="ml-2 font-bold text-amber-200">· {pendingCount} pending review</span>}
+            {pendingCount > 0 && <span className="ml-2 font-bold text-amber-500">· {pendingCount} pending review</span>}
           </p>
         </motion.div>
       </div>
 
       {/* Main */}
-      <div className="relative z-10 mx-4 md:mx-10 mb-10 rounded-3xl bg-[#f8fafc] shadow-2xl overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ duration: 0.3, delay: 0.05 }}
+        className="relative z-10 mb-10 rounded-[12px] bg-[hsl(var(--card))] overflow-hidden border border-[hsl(var(--border))]"
+      >
         <div className="p-6 md:p-8">
 
           {error && (
@@ -331,14 +314,14 @@ const Grading = () => {
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Grading Dialog */}
       <Dialog open={!!selectedSub} onOpenChange={open => { if (!open) setSelectedSub(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader className="shrink-0 pb-4 border-b border-[hsl(var(--border))]">
             <DialogTitle className="flex items-center gap-2">
-              <UserCircle className="w-5 h-5 text-[#e85a19]" />
+              <UserCircle className="w-5 h-5 text-[hsl(var(--primary))]" />
               {selectedSub?.userName}
               {selectedSub?.isGuest && <Badge variant="outline" className="text-xs">Guest</Badge>}
             </DialogTitle>
@@ -368,7 +351,7 @@ const Grading = () => {
             <DialogFooter className="shrink-0 pt-4 border-t border-[hsl(var(--border))] gap-2">
               <Button variant="outline" onClick={() => setSelectedSub(null)}>Cancel</Button>
               <Button onClick={handleSave} disabled={saving}
-                className="gap-2 bg-gradient-to-r from-[#e85a19] to-[#f5af19] text-white border-0 hover:opacity-90">
+                className="gap-2 bg-[hsl(var(--primary))] text-white border-0 hover:bg-[hsl(var(--primary-hover))]">
                 {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Save className="w-4 h-4" /> Save Grade</>}
               </Button>
             </DialogFooter>
@@ -386,7 +369,7 @@ const SubmissionRow = ({ sub, index, onGrade }) => {
 
   return (
     <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.04 }}>
-      <Card className={`border-0 shadow-sm hover:shadow-md transition-all border-l-4 ${pending ? 'border-l-amber-400' : 'border-l-green-500'}`}>
+      <Card className={`border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm hover:shadow-md transition-all border-l-4 ${pending ? 'border-l-amber-400' : 'border-l-green-500'}`}>
         <CardContent className="py-4 px-5">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -405,7 +388,7 @@ const SubmissionRow = ({ sub, index, onGrade }) => {
             </div>
 
             <div className="text-center shrink-0">
-              <p className="text-xl font-black text-[#e85a19]">
+              <p className="text-xl font-black text-[hsl(var(--primary))]">
                 {sub.status === 'completed' ? `${sub.finalScore}` : `${sub.score}`}
                 <span className="text-sm font-normal text-[hsl(var(--muted-foreground))]">/{sub.maxScore}</span>
               </p>
@@ -418,7 +401,7 @@ const SubmissionRow = ({ sub, index, onGrade }) => {
               {pending ? 'Pending' : 'Graded'}
             </Badge>
 
-            <Button size="sm" onClick={() => onGrade(sub)} className={`shrink-0 gap-1.5 ${pending ? 'bg-gradient-to-r from-[#e85a19] to-[#f5af19] text-white border-0 hover:opacity-90' : ''}`}
+            <Button size="sm" onClick={() => onGrade(sub)} className={`shrink-0 gap-1.5 ${pending ? 'bg-[hsl(var(--primary))] text-white border-0 hover:bg-[hsl(var(--primary-hover))]' : ''}`}
               variant={pending ? 'default' : 'outline'}>
               {pending ? 'Grade Now' : 'View Graded'}
             </Button>

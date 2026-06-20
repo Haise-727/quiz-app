@@ -146,79 +146,101 @@ const MediaTest = () => {
   };
 
   return (
-    <div style={{ 
-      maxWidth: '800px', 
-      margin: '0 auto', 
-      padding: '20px',
-      fontFamily: 'Arial, sans-serif',
-      color: '#333'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
-        <h1 style={{ margin: 0 }}>🔐 Secure ImageKit Media Test</h1>
-        <button onClick={() => navigate('/teacher/home')} style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-          ← Back to Dashboard
-        </button>
+    <div className="w-full max-w-3xl mx-auto relative">
+      {/* Hero / Page Title */}
+      <div className="pb-6">
+        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+          <h1 className="text-3xl font-black text-[hsl(var(--foreground))]">Media Upload Test</h1>
+          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-sm">Test and verify secure uploads to ImageKit storage.</p>
+        </motion.div>
       </div>
 
-      <div style={{ backgroundColor: '#e7f3ff', color: '#0c5460', padding: '12px', borderRadius: '4px', marginBottom: '20px', border: '1px solid #bee5eb', fontSize: '14px' }}>
+      <div className="bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] p-3.5 rounded-[10px] mb-6 text-xs font-semibold">
         <strong>🔗 API Endpoint Base:</strong> {getApiUrl() || '(Relative Path)'}
       </div>
 
-      <div style={{ border: '2px dashed #ddd', borderRadius: '8px', padding: '20px', textAlign: 'center', marginBottom: '20px', backgroundColor: '#fafafa' }}>
-        <h3>Upload Media File</h3>
-        <input type="file" accept="image/*,video/*,audio/*" onChange={handleFileSelect} style={{ marginBottom: '15px' }} />
-        
-        {selectedFile && !uploadedFile && (
-            <div style={{ marginBottom: '15px' }}>
-              <p><strong>Selected:</strong> {selectedFile.name}</p>
-              <div style={{ border: '1px solid #ccc', padding: '10px', marginTop: '10px', backgroundColor: '#fff' }}>
-                <h4>Local Preview:</h4>
-                <MediaPreview file={selectedFile} />
+      <Card className="mb-6">
+        <CardContent className="pt-6 flex flex-col items-center text-center">
+          <h3 className="font-bold text-base text-[hsl(var(--foreground))] mb-4">Upload Media File</h3>
+          
+          <input
+            type="file"
+            accept="image/*,video/*,audio/*"
+            onChange={handleFileSelect}
+            className="mb-4 block w-full text-xs text-[hsl(var(--muted-foreground))]
+              file:mr-4 file:py-2 file:px-4
+              file:rounded-full file:border-0
+              file:text-xs file:font-semibold
+              file:bg-[hsl(var(--muted))] file:text-[hsl(var(--foreground))]
+              hover:file:bg-[hsl(var(--surface-container-high))]
+              cursor-pointer"
+          />
+          
+          {selectedFile && !uploadedFile && (
+            <Card className="w-full mb-4 bg-[hsl(var(--surface-container-low))] border-[hsl(var(--border))]">
+              <CardContent className="pt-4 pb-4">
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mb-2"><strong>Selected File:</strong> {selectedFile.name}</p>
+                <div className="rounded-lg overflow-hidden border border-[hsl(var(--border))] p-3 bg-[hsl(var(--surface))]">
+                  <p className="text-xs font-semibold mb-2">Local Preview:</p>
+                  <MediaPreview file={selectedFile} />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Button
+            onClick={handleUpload}
+            disabled={!selectedFile || isUploading}
+            className="w-full sm:w-auto"
+          >
+            {isUploading ? `Uploading...` : 'Secure Upload to ImageKit'}
+          </Button>
+
+          {isUploading && (
+            <div className="w-full mt-4">
+              <div className="w-full bg-[hsl(var(--border))] rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-[hsl(var(--primary))] h-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
               </div>
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">{uploadProgress}% uploaded</p>
             </div>
-        )}
-
-        <button onClick={handleUpload} disabled={!selectedFile || isUploading} style={{ padding: '10px 20px', backgroundColor: isUploading ? '#ccc' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: isUploading ? 'not-allowed' : 'pointer', fontSize: '16px' }}>
-          {isUploading ? `Uploading...` : '🔐 Secure Upload to ImageKit'}
-        </button>
-
-        {isUploading && (
-          <div style={{ marginTop: '10px' }}>
-            <div style={{ width: '100%', backgroundColor: '#e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{ width: `${uploadProgress}%`, height: '8px', backgroundColor: '#007bff', transition: 'width 0.3s ease' }} />
-            </div>
-            <p style={{ margin: '5px 0' }}>{uploadProgress}%</p>
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {error && (
-        <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '12px', borderRadius: '4px', marginBottom: '20px', border: '1px solid #f5c6cb' }}>
-          ❌ {error}
+        <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-[10px] mb-6 text-sm">
+          {error}
         </div>
       )}
 
       {uploadedFile && (
-        <div style={{ backgroundColor: '#d4edda', color: '#155724', padding: '20px', borderRadius: '8px', border: '1px solid #c3e6cb', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0 }}>✅ Secure Upload Successful!</h3>
-            <button onClick={handleDelete} style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-              Delete File
-            </button>
-          </div>
+        <Card className="border-green-500/20 bg-green-500/5 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-sm text-[hsl(var(--foreground))]">Secure Upload Successful!</h3>
+              <Button variant="destructive" size="sm" onClick={handleDelete}>
+                Delete File
+              </Button>
+            </div>
 
-          <div style={{ marginBottom: '15px', fontSize: '14px', wordBreak: 'break-all' }}>
-            <p><strong>File ID:</strong> {uploadedFile.fileId}</p>
-            <p><strong>File Name:</strong> {uploadedFile.name}</p>
-            <p><strong>URL:</strong> <a href={uploadedFile.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', fontWeight: 'bold' }}>{uploadedFile.url}</a></p>
-            <p><strong>Size:</strong> {uploadedFile.size ? (uploadedFile.size / 1024).toFixed(2) + ' KB' : 'N/A'}</p>
-          </div>
+            <div className="mb-4 text-xs space-y-1.5 text-[hsl(var(--muted-foreground))] font-mono break-all text-left">
+              <p><strong>File ID:</strong> {uploadedFile.fileId}</p>
+              <p><strong>File Name:</strong> {uploadedFile.name}</p>
+              <p><strong>URL:</strong> <a href={uploadedFile.url} target="_blank" rel="noopener noreferrer" className="text-[hsl(var(--primary))] underline">{uploadedFile.url}</a></p>
+              <p><strong>Size:</strong> {uploadedFile.size ? (uploadedFile.size / 1024).toFixed(2) + ' KB' : 'N/A'}</p>
+            </div>
 
-          <div style={{ border: '1px solid #c3e6cb', borderRadius: '4px', padding: '15px', backgroundColor: '#ffffff', textAlign: 'center' }}>
-            <h4 style={{ marginTop: 0, marginBottom: '15px' }}>Preview from ImageKit:</h4>
-            <MediaPreview file={uploadedFile} />
-          </div>
-        </div>
+            <Card className="bg-[hsl(var(--surface))] border-[hsl(var(--border))]">
+              <CardContent className="pt-4 pb-4 text-center">
+                <h4 className="text-xs font-semibold mb-3">Preview from ImageKit:</h4>
+                <MediaPreview file={uploadedFile} />
+              </CardContent>
+            </Card>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -23,6 +23,9 @@ import {
   ArrowLeft, Trophy, Target, TrendingUp, Clock, Eye,
   PlayCircle, LogOut, School, CheckCircle2, XCircle, AlertCircle, User,
 } from 'lucide-react';
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+} from 'recharts';
 
 // ── Question review card ──────────────────────────────────────────────────────
 const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
@@ -196,6 +199,7 @@ const YourResults = () => {
   const [selectedResult, setSelectedResult] = useState(null);
   const [reviewQuiz, setReviewQuiz] = useState(null);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [showWrongOnly, setShowWrongOnly] = useState(false);
 
   useEffect(() => {
     if (!currentUser) { navigate('/login'); return; }
@@ -263,33 +267,37 @@ const YourResults = () => {
   const bestScore = completed.length > 0 ? Math.max(...completed.map(r => r.percentage)) : 0;
 
   if (loading) return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#3a1c71] to-[#4776e6] flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex items-center justify-center">
+      <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
     </div>
   );
 
   return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#3a1c71] via-[#2d3a9e] to-[#4776e6] relative overflow-x-hidden">
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 80% 20%,rgba(255,255,255,0.05) 0%,transparent 60%)' }} />
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
+      {/* Decorative background grid and blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      </div>
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
+      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5 border-b border-[hsl(var(--border))]">
         <button onClick={() => navigate('/student/dashboard')}
-          className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors">
+          className="flex items-center gap-2 text-[hsl(var(--foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors">
           <ArrowLeft className="w-4 h-4" /> Dashboard
         </button>
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-white/20 text-white bg-white/10 hidden md:flex">🎓 Student</Badge>
+          <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/50 hidden md:flex">Student</Badge>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Avatar className="w-9 h-9 border-2 border-white/20 cursor-pointer hover:border-white/50 transition-colors">
-                <AvatarFallback className="bg-white/20 text-white font-bold text-sm">{initials}</AvatarFallback>
+              <Avatar className="w-9 h-9 border border-[hsl(var(--border))] cursor-pointer hover:border-[hsl(var(--primary))] transition-colors">
+                <AvatarFallback className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] font-bold text-sm">{initials}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel className="font-normal">
-                <p className="font-semibold">{displayName || 'Student'}</p>
+                <p className="font-semibold text-[hsl(var(--foreground))]">{displayName || 'Student'}</p>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">Student account</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -297,10 +305,10 @@ const YourResults = () => {
                 <User className="w-4 h-4" /> My Profile
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer">
-                <School className="w-4 h-4 text-[#e85a19]" /> Switch to Teacher
+                <School className="w-4 h-4 text-[hsl(var(--primary))]" /> Switch to Teacher
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-600 focus:text-red-600">
+              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-650 focus:text-red-650">
                 <LogOut className="w-4 h-4" /> Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -309,15 +317,20 @@ const YourResults = () => {
       </header>
 
       {/* Hero */}
-      <div className="relative z-10 px-6 md:px-10 pb-6">
+      <div className="relative z-10 px-6 md:px-10 py-6">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow">Your Results 📊</h1>
-          <p className="text-white/60 mt-1">{totalTaken} quiz{totalTaken !== 1 ? 'zes' : ''} completed</p>
+          <h1 className="text-3xl md:text-4xl font-black text-[hsl(var(--foreground))]">Your Results</h1>
+          <p className="text-[hsl(var(--muted-foreground))] mt-1">{totalTaken} quiz{totalTaken !== 1 ? 'zes' : ''} completed</p>
         </motion.div>
       </div>
 
       {/* Main */}
-      <div className="relative z-10 mx-4 md:mx-10 mb-10 rounded-3xl bg-[#f8fafc] shadow-2xl overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ duration: 0.3, delay: 0.05 }}
+        className="relative z-10 mx-4 md:mx-10 mb-10 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-sm overflow-hidden"
+      >
         <div className="p-6 md:p-8 flex flex-col gap-8">
 
           {/* Summary stats */}
@@ -325,26 +338,109 @@ const YourResults = () => {
             <section>
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  { icon: Target, label: 'Taken', value: totalTaken, color: 'from-[#3a1c71] to-[#4776e6]' },
-                  { icon: TrendingUp, label: 'Average', value: `${avgScore}%`, color: 'from-[#4776e6] to-[#6366f1]' },
-                  { icon: Trophy, label: 'Best', value: `${bestScore}%`, color: 'from-[#10b981] to-[#059669]' },
-                ].map(({ icon: Icon, label, value, color }, i) => (
+                  { icon: Target, label: 'Taken', value: totalTaken, borderColor: 'border-t-purple-500', iconBg: 'bg-purple-500/10', iconColor: 'text-purple-500' },
+                  { icon: TrendingUp, label: 'Average', value: `${avgScore}%`, borderColor: 'border-t-blue-500', iconBg: 'bg-blue-500/10', iconColor: 'text-blue-500' },
+                  { icon: Trophy, label: 'Best', value: `${bestScore}%`, borderColor: 'border-t-emerald-500', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
+                ].map(({ icon: Icon, label, value, borderColor, iconBg, iconColor }, i) => (
                   <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
-                    <Card className="border-0 shadow-md overflow-hidden">
-                      <div className={`h-1.5 bg-gradient-to-r ${color}`} />
+                    <Card className={`border border-[hsl(var(--border))] border-t-4 ${borderColor} shadow-sm overflow-hidden bg-[hsl(var(--card))] rounded-2xl`}>
                       <CardContent className="pt-4 pb-5 flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shrink-0`}>
-                          <Icon className="w-4 h-4 text-white" />
+                        <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+                          <Icon className={`w-4 h-4 ${iconColor}`} />
                         </div>
                         <div>
                           <p className="text-xl font-black text-[hsl(var(--foreground))]">{value}</p>
-                          <p className="text-xs text-[hsl(var(--muted-foreground))]">{label}</p>
+                          <p className="text-xs text-[hsl(var(--muted-foreground))] font-medium mt-0.5">{label}</p>
                         </div>
                       </CardContent>
                     </Card>
                   </motion.div>
                 ))}
               </div>
+            </section>
+          )}
+
+          {/* Charts Section */}
+          {totalTaken > 0 && (
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+              {/* Score Trend Line Chart */}
+              <Card className="border border-[hsl(var(--border))] shadow-sm p-4 bg-[hsl(var(--card))] rounded-2xl">
+                <CardHeader className="pb-2 pl-2">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2 text-[hsl(var(--foreground))]">
+                    <TrendingUp className="w-4 h-4 text-[hsl(var(--primary))]" /> Score Trend
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-64 pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={[...results].reverse().map(r => ({
+                      date: r.completedAt?.toDate ? r.completedAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A',
+                      Score: r.percentage,
+                      title: r.quizTitle
+                    }))}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                      <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted-foreground)' }} />
+                      <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} tick={{ fill: 'var(--muted-foreground)' }} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid var(--border)', color: 'hsl(var(--foreground))' }}
+                        labelStyle={{ fontWeight: 'bold', color: 'hsl(var(--primary))', fontSize: '12px' }}
+                        itemStyle={{ fontSize: '12px', color: 'hsl(var(--foreground))' }}
+                        formatter={(value, name, props) => [`${value}%`, `Score (${props.payload.title})`]}
+                      />
+                      <Line type="monotone" dataKey="Score" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Quiz Breakdown Bar Chart (Show only if >= 3 results) */}
+              {totalTaken >= 3 ? (
+                <Card className="border border-[hsl(var(--border))] shadow-sm p-4 bg-[hsl(var(--card))] rounded-2xl">
+                  <CardHeader className="pb-2 pl-2">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-[hsl(var(--foreground))]">
+                      <Trophy className="w-4 h-4 text-[hsl(var(--primary))]" /> Quiz Breakdown
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-64 pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={(() => {
+                        const groups = {};
+                        results.forEach(r => {
+                          const key = r.subject || r.quizTitle || 'Unknown';
+                          if (!groups[key]) {
+                            groups[key] = { name: key, total: 0, count: 0 };
+                          }
+                          groups[key].total += r.percentage;
+                          groups[key].count += 1;
+                        });
+                        return Object.values(groups).map(g => ({
+                          name: g.name.length > 15 ? g.name.substring(0, 12) + '...' : g.name,
+                          fullName: g.name,
+                          Average: Math.round(g.total / g.count)
+                        }));
+                      })()}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                        <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted-foreground)' }} />
+                        <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} tick={{ fill: 'var(--muted-foreground)' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid var(--border)', color: 'hsl(var(--foreground))' }}
+                          labelStyle={{ fontWeight: 'bold', color: 'hsl(var(--primary))', fontSize: '12px' }}
+                          itemStyle={{ fontSize: '12px', color: 'hsl(var(--foreground))' }}
+                          formatter={(value, name, props) => [`${value}%`, `Average Score (${props.payload.fullName})`]}
+                        />
+                        <Bar dataKey="Average" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={25} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="border border-[hsl(var(--border))] shadow-sm p-6 bg-[hsl(var(--card))] rounded-2xl flex flex-col items-center justify-center text-center h-full min-h-[200px]">
+                  <Trophy className="w-8 h-8 text-[hsl(var(--muted-foreground))] mb-2" />
+                  <p className="font-bold text-sm text-[hsl(var(--foreground))]">Quiz Breakdown</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1 max-w-[280px]">
+                    Complete at least 3 quizzes to unlock subject/quiz breakdown analysis.
+                  </p>
+                </Card>
+              )}
             </section>
           )}
 
@@ -365,8 +461,8 @@ const YourResults = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {results.map((result, i) => (
                   <motion.div key={result.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                    <Card className="border-0 shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5 overflow-hidden">
-                      <div className={`h-1 bg-gradient-to-r ${result.percentage >= 80 ? 'from-green-500 to-emerald-500' : result.percentage >= 60 ? 'from-blue-500 to-indigo-500' : result.percentage >= 40 ? 'from-amber-500 to-orange-500' : 'from-red-500 to-rose-500'}`} />
+                    <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 overflow-hidden rounded-2xl">
+                      <div className={`h-1 ${result.percentage >= 80 ? 'bg-emerald-500' : result.percentage >= 60 ? 'bg-blue-500' : result.percentage >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} />
                       <CardContent className="pt-4 pb-5">
                         <div className="flex items-start justify-between gap-3 mb-4">
                           <div className="flex items-center gap-2">
@@ -392,14 +488,14 @@ const YourResults = () => {
 
                         {result.status === 'completed' && (
                           <div className="mb-4">
-                            <Progress value={result.percentage} className="h-2"
-                              indicatorClassName={`${result.percentage >= 80 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : result.percentage >= 60 ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : result.percentage >= 40 ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-red-500 to-rose-500'}`}
+                            <Progress value={result.percentage} className="h-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border))]"
+                              indicatorClassName={result.percentage >= 80 ? 'bg-emerald-500' : result.percentage >= 60 ? 'bg-blue-500' : result.percentage >= 40 ? 'bg-amber-500' : 'bg-red-500'}
                             />
                           </div>
                         )}
 
                         {result.status === 'pending' && (
-                          <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs mb-4">
+                          <div className="flex items-center gap-2 text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-xs mb-4">
                             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                             Some answers are pending teacher review.
                           </div>
@@ -416,21 +512,34 @@ const YourResults = () => {
             </section>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Review Dialog */}
-      <Dialog open={!!selectedResult} onOpenChange={open => { if (!open) { setSelectedResult(null); setReviewQuiz(null); } }}>
+      <Dialog open={!!selectedResult} onOpenChange={open => { if (!open) { setSelectedResult(null); setReviewQuiz(null); setShowWrongOnly(false); } }}>
         <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader className="shrink-0 pb-4 border-b border-[hsl(var(--border))]">
             <DialogTitle className="text-xl">{selectedResult?.quizTitle} — Review</DialogTitle>
             {selectedResult && (
-              <div className="flex items-center gap-3 mt-2">
-                <Badge variant={scoreBadge(selectedResult.percentage, selectedResult.status)}>
-                  {selectedResult.status === 'completed' ? `${selectedResult.percentage}%` : 'Pending'}
-                </Badge>
-                <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                  {selectedResult.correctCount}/{selectedResult.answers?.length} correct · {selectedResult.finalScore}/{selectedResult.maxScore} pts
-                </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-2">
+                <div className="flex items-center gap-3">
+                  <Badge variant={scoreBadge(selectedResult.percentage, selectedResult.status)}>
+                    {selectedResult.status === 'completed' ? `${selectedResult.percentage}%` : 'Pending'}
+                  </Badge>
+                  <span className="text-sm text-[hsl(var(--muted-foreground))]">
+                    {selectedResult.correctCount}/{selectedResult.answers?.length} correct · {selectedResult.finalScore}/{selectedResult.maxScore} pts
+                  </span>
+                </div>
+                {selectedResult.status === 'completed' && (
+                  <label className="flex items-center gap-2 text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1 cursor-pointer select-none hover:bg-red-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={showWrongOnly}
+                      onChange={e => setShowWrongOnly(e.target.checked)}
+                      className="accent-red-600 cursor-pointer"
+                    />
+                    <span>Show Wrong Answers Only</span>
+                  </label>
+                )}
               </div>
             )}
           </DialogHeader>
@@ -438,13 +547,32 @@ const YourResults = () => {
           <div className="overflow-y-auto flex-1 pt-4">
             {reviewLoading ? (
               <div className="flex items-center justify-center py-16">
-                <div className="w-8 h-8 border-4 border-[#4776e6]/20 border-t-[#4776e6] rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
               </div>
             ) : reviewQuiz && selectedResult ? (
               <div className="flex flex-col gap-4">
-                {reviewQuiz.questions.map((q, i) => (
-                  <QuestionReview key={q.id || i} originalQuestion={q} studentAnswerData={selectedResult.answers[i]} index={i} />
-                ))}
+                {(() => {
+                  const filtered = reviewQuiz.questions
+                    .map((q, i) => ({ q, ans: selectedResult.answers[i], origIndex: i }))
+                    .filter(({ q, ans }) => {
+                      if (!showWrongOnly) return true;
+                      const isPending = ans?.status === 'pending_review';
+                      const isCorrect = !isPending && ans?.pointsAwarded >= q.points;
+                      return !isCorrect;
+                    });
+                  
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
+                        No incorrect answers found! Outstanding job!
+                      </div>
+                    );
+                  }
+
+                  return filtered.map(({ q, ans, origIndex }) => (
+                    <QuestionReview key={q.id || origIndex} originalQuestion={q} studentAnswerData={ans} index={origIndex} />
+                  ));
+                })()}
               </div>
             ) : (
               <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">

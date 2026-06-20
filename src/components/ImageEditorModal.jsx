@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import ImageEditor from '@toast-ui/react-image-editor';
+import 'tui-image-editor/dist/tui-image-editor.css';
+import 'tui-color-picker/dist/tui-color-picker.css';
 import { FaSave, FaTimes, FaTrashAlt } from 'react-icons/fa';
 
 // Define the custom theme for the editor to match your app's aesthetic
