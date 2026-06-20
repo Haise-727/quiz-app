@@ -13,6 +13,8 @@ import YourQuizzes from './pages/Teacher/YourQuizzes';
 import MediaTest from './pages/Teacher/MediaTest';
 import Grading from './pages/Teacher/Grading';
 import Analytics from './pages/Teacher/Analytics';
+import Classes from './pages/Teacher/Classes';
+import QuestionBank from './pages/Teacher/QuestionBank';
 
 import StudentDashboard from './pages/Student/StudentDashboard';
 import AttendQuiz from './pages/Student/AttendQuiz';
@@ -26,8 +28,6 @@ import Flashcards from './pages/Flashcards';
 import NotFound from './pages/NotFound';
 
 import './App.css';
-import 'tui-image-editor/dist/tui-image-editor.css';
-import 'tui-color-picker/dist/tui-color-picker.css';
 
 // ─── Route guards ──────────────────────────────────────────────────────────────
 
@@ -86,6 +86,8 @@ function App() {
         <Route path="/teacher/create-quiz"       element={<ProtectedRoute role="teacher"><CreateQuiz /></ProtectedRoute>} />
         <Route path="/teacher/your-quizzes"      element={<ProtectedRoute role="teacher"><YourQuizzes /></ProtectedRoute>} />
         <Route path="/teacher/media-test"        element={<ProtectedRoute role="teacher"><MediaTest /></ProtectedRoute>} />
+        <Route path="/teacher/classes"           element={<ProtectedRoute role="teacher"><Classes /></ProtectedRoute>} />
+        <Route path="/teacher/question-bank"     element={<ProtectedRoute role="teacher"><QuestionBank /></ProtectedRoute>} />
         <Route path="/teacher/grading/:quizId"    element={<ProtectedRoute role="teacher"><Grading /></ProtectedRoute>} />
         <Route path="/teacher/analytics/:quizId" element={<ProtectedRoute role="teacher"><Analytics /></ProtectedRoute>} />
 

@@ -49,48 +49,48 @@ const Profile = () => {
   };
 
   const backPath = userRole === 'teacher' ? '/teacher/home' : '/student/dashboard';
-  const roleColor = userRole === 'teacher' ? '#e85a19' : '#4776e6';
-  const roleLabel = userRole === 'teacher' ? '🏫 Teacher' : '🎓 Student';
-  const gradientBg = userRole === 'teacher'
-    ? 'bg-gradient-to-br from-[#f12711] via-[#e85a19] to-[#f5af19]'
-    : 'bg-gradient-to-br from-[#3a1c71] via-[#2d3a9e] to-[#4776e6]';
+  const roleLabel = userRole === 'teacher' ? 'Teacher' : 'Student';
 
   return (
-    <div className={`min-h-screen w-screen ${gradientBg} relative overflow-x-hidden`}>
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 70% 20%,rgba(255,255,255,0.06) 0%,transparent 60%)' }} />
-
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
+      {/* Decorative background grid and blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      </div>
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
+      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-4 border-b border-[hsl(var(--border))]">
         <button onClick={() => navigate(backPath)}
-          className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors">
+          className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors cursor-pointer">
           <ArrowLeft className="w-4 h-4" /> Dashboard
         </button>
-        <Badge variant="outline" className="border-white/20 text-white bg-white/10">{roleLabel}</Badge>
+        <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/50">{roleLabel}</Badge>
       </header>
 
       {/* Hero */}
-      <div className="relative z-10 flex flex-col items-center pb-8 px-6">
-        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}>
-          <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-black text-white shadow-2xl mb-4"
-            style={{ background: `linear-gradient(135deg, ${roleColor}cc, ${roleColor})` }}>
-            {initials}
-          </div>
-        </motion.div>
-        <motion.h1 initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="text-2xl font-black text-white drop-shadow">
+      <div className="relative z-10 flex flex-col items-center pt-8 pb-6 px-6">
+        <div className="w-20 h-20 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--muted))] flex items-center justify-center text-2xl font-bold text-[hsl(var(--foreground))] mb-3">
+          {initials}
+        </div>
+        <h1 className="text-xl font-bold text-[hsl(var(--foreground))] tracking-tight">
           {displayName || currentUser?.email?.split('@')[0] || 'Your Profile'}
-        </motion.h1>
-        <p className="text-white/60 text-sm mt-1">{currentUser?.email}</p>
+        </h1>
+        <p className="text-[hsl(var(--muted-foreground))] text-xs mt-1">{currentUser?.email}</p>
       </div>
 
       {/* Main card */}
-      <div className="relative z-10 mx-4 md:mx-auto md:max-w-xl mb-10 rounded-3xl bg-[#f8fafc] shadow-2xl overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ duration: 0.3, delay: 0.05 }}
+        className="relative z-10 mx-4 md:mx-auto md:max-w-xl mb-10 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] overflow-hidden shadow-sm"
+      >
         <div className="p-6 md:p-8 flex flex-col gap-6">
 
           {/* Display name edit */}
           <section>
-            <h2 className="text-base font-bold text-[hsl(var(--foreground))] mb-4">Account Info</h2>
+            <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-4">Account Info</h2>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] text-xs font-semibold uppercase tracking-wide">
@@ -103,9 +103,9 @@ const Profile = () => {
                     onKeyDown={e => e.key === 'Enter' && handleSave()}
                     placeholder="Your name"
                     maxLength={40}
+                    className="bg-[hsl(var(--muted))]/20 border-[hsl(var(--border))] focus-visible:ring-[hsl(var(--primary))]/30 focus-visible:border-[hsl(var(--primary))]"
                   />
-                  <Button onClick={handleSave} disabled={saving} className="gap-2 shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${roleColor}, ${roleColor}cc)`, border: 0, color: '#fff' }}>
+                  <Button onClick={handleSave} disabled={saving} className="gap-2 shrink-0 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-[hsl(var(--primary-foreground))] border-0">
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Save
                   </Button>
@@ -116,7 +116,7 @@ const Profile = () => {
                 <Label className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] text-xs font-semibold uppercase tracking-wide">
                   <Mail className="w-3.5 h-3.5" /> Email
                 </Label>
-                <p className="text-sm text-[hsl(var(--foreground))] bg-[hsl(var(--muted))] rounded-lg px-3 py-2.5">
+                <p className="text-sm text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/40 border border-[hsl(var(--border))] rounded-lg px-3 py-2">
                   {currentUser?.email}
                 </p>
               </div>
@@ -126,7 +126,7 @@ const Profile = () => {
                   <Label className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] text-xs font-semibold uppercase tracking-wide">
                     <Shield className="w-3.5 h-3.5" /> Role
                   </Label>
-                  <div className="flex items-center gap-2 bg-[hsl(var(--muted))] rounded-lg px-3 py-2.5">
+                  <div className="flex items-center gap-2 bg-[hsl(var(--muted))]/40 border border-[hsl(var(--border))] rounded-lg px-3 py-2">
                     <span className="text-sm">{roleLabel}</span>
                   </div>
                 </div>
@@ -136,7 +136,7 @@ const Profile = () => {
                     <Label className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] text-xs font-semibold uppercase tracking-wide">
                       <Calendar className="w-3.5 h-3.5" /> Joined
                     </Label>
-                    <p className="text-sm text-[hsl(var(--foreground))] bg-[hsl(var(--muted))] rounded-lg px-3 py-2.5">
+                    <p className="text-sm text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/40 border border-[hsl(var(--border))] rounded-lg px-3 py-2">
                       {joinDate}
                     </p>
                   </div>
@@ -145,22 +145,22 @@ const Profile = () => {
             </div>
           </section>
 
-          <Separator />
+          <Separator className="bg-[hsl(var(--border))]" />
 
           {/* Role switcher */}
           <section>
-            <h2 className="text-base font-bold text-[hsl(var(--foreground))] mb-1">Switch Role</h2>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4">
-              You're currently a <strong>{userRole}</strong>. Switch to access the {userRole === 'teacher' ? 'student' : 'teacher'} side.
+            <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-2">Switch Role</h2>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mb-4 leading-relaxed">
+              You're currently in <strong>{userRole}</strong> view. Switch to access the {userRole === 'teacher' ? 'student' : 'teacher'} interface.
             </p>
-            <Button variant="outline" onClick={handleSwitchRole} disabled={switching} className="gap-2">
-              {switching ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            <Button variant="outline" onClick={handleSwitchRole} disabled={switching} className="gap-2 border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]">
+              {switching ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />}
               Switch to {userRole === 'teacher' ? 'Student' : 'Teacher'}
             </Button>
           </section>
 
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

@@ -154,7 +154,7 @@ const MediaTest = () => {
       color: '#333'
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
-        <h1 style={{ margin: 0 }}>🔐 Secure ImageKit Media Test</h1>
+        <h1 style={{ margin: 0 }}>Secure ImageKit Media Test</h1>
         <button onClick={() => navigate('/teacher/home')} style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
           ← Back to Dashboard
         </button>
@@ -179,7 +179,7 @@ const MediaTest = () => {
         )}
 
         <button onClick={handleUpload} disabled={!selectedFile || isUploading} style={{ padding: '10px 20px', backgroundColor: isUploading ? '#ccc' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: isUploading ? 'not-allowed' : 'pointer', fontSize: '16px' }}>
-          {isUploading ? `Uploading...` : '🔐 Secure Upload to ImageKit'}
+          {isUploading ? `Uploading...` : 'Secure Upload to ImageKit'}
         </button>
 
         {isUploading && (
@@ -194,14 +194,14 @@ const MediaTest = () => {
 
       {error && (
         <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '12px', borderRadius: '4px', marginBottom: '20px', border: '1px solid #f5c6cb' }}>
-          ❌ {error}
+          {error}
         </div>
       )}
 
       {uploadedFile && (
         <div style={{ backgroundColor: '#d4edda', color: '#155724', padding: '20px', borderRadius: '8px', border: '1px solid #c3e6cb', marginBottom: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0 }}>✅ Secure Upload Successful!</h3>
+            <h3 style={{ margin: 0 }}>Secure Upload Successful!</h3>
             <button onClick={handleDelete} style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
               Delete File
             </button>

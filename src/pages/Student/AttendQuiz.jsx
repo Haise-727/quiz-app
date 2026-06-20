@@ -63,33 +63,37 @@ const AttendQuiz = () => {
   );
 
   return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#3a1c71] via-[#2d3a9e] to-[#4776e6] relative overflow-x-hidden">
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 80% 20%,rgba(255,255,255,0.05) 0%,transparent 60%)' }} />
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
+      {/* Decorative background grid and blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      </div>
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
+      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5 border-b border-[hsl(var(--border))]">
         <button
           onClick={() => navigate('/student/dashboard')}
-          className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors"
+          className="flex items-center gap-2 text-[hsl(var(--foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Dashboard
         </button>
 
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-white/20 text-white bg-white/10 hidden md:flex">
-            🎓 Student
+          <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/50 hidden md:flex">
+            Student
           </Badge>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Avatar className="w-9 h-9 border-2 border-white/20 cursor-pointer hover:border-white/50 transition-colors">
-                <AvatarFallback className="bg-white/20 text-white font-bold text-sm">{initials}</AvatarFallback>
+              <Avatar className="w-9 h-9 border border-[hsl(var(--border))] cursor-pointer hover:border-[hsl(var(--primary))] transition-colors">
+                <AvatarFallback className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] font-bold text-sm">{initials}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel className="font-normal">
-                <p className="font-semibold">{displayName || currentUser?.email?.split('@')[0] || 'Student'}</p>
+                <p className="font-semibold text-[hsl(var(--foreground))]">{displayName || currentUser?.email?.split('@')[0] || 'Student'}</p>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">Student account</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -100,7 +104,7 @@ const AttendQuiz = () => {
                 <School className="w-4 h-4 text-[#e85a19]" /> Switch to Teacher
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-600 focus:text-red-600">
+              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-650 focus:text-red-650">
                 <LogOut className="w-4 h-4" /> Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -109,25 +113,30 @@ const AttendQuiz = () => {
       </header>
 
       {/* Hero */}
-      <div className="relative z-10 px-6 md:px-10 pb-6">
+      <div className="relative z-10 px-6 md:px-10 py-6">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow">Join a Quiz 🎮</h1>
-          <p className="text-white/60 mt-1">Enter a code or pick from the list below.</p>
+          <h1 className="text-3xl md:text-4xl font-black text-[hsl(var(--foreground))]">Join a Quiz</h1>
+          <p className="text-[hsl(var(--muted-foreground))] mt-1">Enter a code or pick from the list below.</p>
         </motion.div>
       </div>
 
       {/* Main */}
-      <div className="relative z-10 mx-4 md:mx-10 mb-10 rounded-3xl bg-[#f8fafc] shadow-2xl overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ duration: 0.3, delay: 0.05 }}
+        className="relative z-10 mx-4 md:mx-10 mb-10 rounded-2xl bg-[hsl(var(--background))] border border-[hsl(var(--border))] shadow-sm overflow-hidden"
+      >
         <div className="p-6 md:p-8 flex flex-col gap-8">
 
           {/* Code join */}
           <section>
-            <Card className="border-0 shadow-md overflow-hidden">
-              <div className="h-1.5 bg-gradient-to-r from-[#3a1c71] to-[#4776e6]" />
+            <Card className="border border-[hsl(var(--border))] shadow-sm overflow-hidden bg-[hsl(var(--card))] rounded-2xl">
+              <div className="h-1.5 bg-[hsl(var(--primary))]" />
               <CardContent className="pt-6 pb-7">
                 <div className="max-w-md mx-auto text-center">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#3a1c71] to-[#4776e6] flex items-center justify-center mx-auto mb-4">
-                    <Hash className="w-6 h-6 text-white" />
+                  <div className="w-12 h-12 rounded-2xl bg-[hsl(var(--primary))]/10 flex items-center justify-center mx-auto mb-4">
+                    <Hash className="w-6 h-6 text-[hsl(var(--primary))]" />
                   </div>
                   <h2 className="text-xl font-bold text-[hsl(var(--foreground))] mb-1">Enter Quiz Code</h2>
                   <p className="text-sm text-[hsl(var(--muted-foreground))] mb-5">Ask your teacher for the 6-character code</p>
@@ -139,13 +148,13 @@ const AttendQuiz = () => {
                       onChange={e => { setQuizCode(e.target.value.toUpperCase()); setError(''); }}
                       onKeyDown={e => e.key === 'Enter' && handleJoin()}
                       maxLength={6}
-                      className="text-center text-lg font-mono tracking-widest font-bold uppercase"
+                      className="text-center text-lg font-mono tracking-widest font-bold uppercase focus-visible:ring-[hsl(var(--primary))]/30 focus-visible:border-[hsl(var(--primary))]"
                     />
                     <Button
                       onClick={handleJoin}
                       disabled={joining}
-                      variant="student"
-                      className="px-6 gap-2 shrink-0"
+                      variant="default"
+                      className="px-6 gap-2 shrink-0 text-white bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-hover))]"
                     >
                       <PlayCircle className="w-4 h-4" />
                       {joining ? 'Joining…' : 'Join'}
@@ -183,7 +192,7 @@ const AttendQuiz = () => {
 
             {loadingQuizzes ? (
               <div className="flex items-center justify-center py-12">
-                <div className="w-8 h-8 border-4 border-[#4776e6]/20 border-t-[#4776e6] rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
               </div>
             ) : filtered.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -194,8 +203,8 @@ const AttendQuiz = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                   >
-                    <Card className="border-0 shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5 overflow-hidden">
-                      <div className="h-1 bg-gradient-to-r from-[#3a1c71] to-[#4776e6]" />
+                    <Card className="border border-[hsl(var(--border))] shadow-sm hover:shadow-md bg-[hsl(var(--card))] transition-all hover:-translate-y-0.5 overflow-hidden rounded-2xl">
+                      <div className="h-1 bg-[hsl(var(--primary))]" />
                       <CardContent className="pt-4 pb-5">
                         <div className="flex items-start justify-between gap-3 mb-3">
                           <h3 className="font-bold text-[hsl(var(--foreground))] leading-snug">{quiz.title}</h3>
@@ -216,14 +225,14 @@ const AttendQuiz = () => {
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <div className="bg-[hsl(var(--muted))] rounded-lg px-3 py-1.5">
-                            <span className="font-mono font-black text-[#4776e6] tracking-widest text-sm">{quiz.code}</span>
+                          <div className="bg-[hsl(var(--muted))] border border-[hsl(var(--border))] rounded-lg px-3 py-1.5">
+                            <span className="font-mono font-bold text-[hsl(var(--primary))] tracking-widest text-sm">{quiz.code}</span>
                           </div>
                           <Button
                             size="sm"
-                            variant="student"
+                            variant="default"
                             onClick={() => navigate(`/student/quiz/${quiz.id}`)}
-                            className="gap-1.5"
+                            className="gap-1.5 text-white bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-hover))]"
                           >
                             Start <ChevronRight className="w-3.5 h-3.5" />
                           </Button>
@@ -248,7 +257,7 @@ const AttendQuiz = () => {
             )}
           </section>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

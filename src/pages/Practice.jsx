@@ -19,17 +19,17 @@ const CorrectAnswer = ({ q }) => {
         <div className="flex flex-col gap-1">
           {q.mcqData.correctOptions.map(id => {
             const opt = q.mcqData.options.find(o => o.id === id);
-            return <p key={id} className="font-semibold text-green-300">✓ {opt?.text}</p>;
+            return <p key={id} className="font-semibold text-[hsl(var(--primary))]">✓ {opt?.text}</p>;
           })}
         </div>
       );
     case 'FILL_IN_THE_BLANK':
-      return <p className="font-semibold text-green-300">✓ {q.fillBlankData.answers.map(a => a.text).join(' / ')}</p>;
+      return <p className="font-semibold text-[hsl(var(--primary))]">✓ {q.fillBlankData.answers.map(a => a.text).join(' / ')}</p>;
     case 'MATCH_THE_FOLLOWING':
       return (
         <div className="flex flex-col gap-1">
           {q.matchData.pairs.map(p => (
-            <p key={p.id} className="text-sm text-green-300">{p.prompt} → <strong>{p.answer}</strong></p>
+            <p key={p.id} className="text-sm text-[hsl(var(--primary))]">{p.prompt} → <strong>{p.answer}</strong></p>
           ))}
         </div>
       );
@@ -37,7 +37,7 @@ const CorrectAnswer = ({ q }) => {
       return (
         <ol className="flex flex-col gap-1">
           {q.reorderData.items.map((item, i) => (
-            <li key={item.id} className="text-sm text-green-300">{i + 1}. {item.text}</li>
+            <li key={item.id} className="text-sm text-[hsl(var(--primary))]">{i + 1}. {item.text}</li>
           ))}
         </ol>
       );
@@ -46,8 +46,8 @@ const CorrectAnswer = ({ q }) => {
         <div className="flex flex-col gap-2">
           {q.categorizeData.categories.map(cat => (
             <div key={cat.id}>
-              <p className="text-xs font-bold text-green-400 uppercase">{cat.name}:</p>
-              <p className="text-sm text-green-300">
+              <p className="text-xs font-bold text-[hsl(var(--primary))] uppercase">{cat.name}:</p>
+              <p className="text-sm text-[hsl(var(--primary))]">
                 {q.categorizeData.items.filter(i => i.categoryId === cat.id).map(i => i.text).join(', ')}
               </p>
             </div>
@@ -55,9 +55,9 @@ const CorrectAnswer = ({ q }) => {
         </div>
       );
     case 'PARAGRAPH':
-      return <p className="text-sm italic text-white/40">Open-ended — no auto-answer.</p>;
+      return <p className="text-sm italic text-[hsl(var(--muted-foreground))]">Open-ended — no auto-answer.</p>;
     default:
-      return <p className="text-sm text-white/40">No auto-answer for this type.</p>;
+      return <p className="text-sm text-[hsl(var(--muted-foreground))]">No auto-answer for this type.</p>;
   }
 };
 
@@ -70,7 +70,6 @@ const Practice = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [index, setIndex] = useState(0);
-  // results[i]: { answered: bool, correct: bool|null, selected: any }
   const [results, setResults] = useState([]);
   const [fillInput, setFillInput] = useState('');
   const [done, setDone] = useState(false);
@@ -91,25 +90,23 @@ const Practice = () => {
   }, [quizId]);
 
   if (loading) return (
-    <div className="min-h-screen w-screen bg-[#0d1b2a] flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-teal-500/30 border-t-teal-400 rounded-full animate-spin" />
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
     </div>
   );
   if (error) return (
-    <div className="min-h-screen w-screen bg-[#0d1b2a] flex flex-col items-center justify-center gap-4 text-white p-8">
-      <div className="text-5xl">😞</div>
-      <h2 className="text-2xl font-bold">{error}</h2>
-      <Button onClick={() => navigate('/')} variant="outline" className="border-white/20 text-white hover:bg-white/10">Go Home</Button>
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex flex-col items-center justify-center gap-4 text-[hsl(var(--foreground))] p-8">
+      <XCircle className="w-12 h-12 text-red-500 mb-2" />
+      <h2 className="text-lg font-bold">{error}</h2>
+      <Button onClick={() => navigate('/')} variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]">Go Home</Button>
     </div>
   );
 
   const q = quiz?.questions[index];
   const r = results[index];
-  const allAnswered = results.every(r => r.answered);
   const score = results.filter(r => r.answered && r.correct === true).length;
   const scorePct = quiz ? Math.round((score / quiz.questions.length) * 100) : 0;
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
   const answer = (updates) => {
     setResults(prev => { const n = [...prev]; n[index] = { ...n[index], answered: true, ...updates }; return n; });
   };
@@ -147,37 +144,45 @@ const Practice = () => {
   };
 
   // ── Done screen ──────────────────────────────────────────────────────────────
+  // ── Done screen ──────────────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="min-h-screen w-screen bg-[#0d1b2a] flex items-center justify-center p-6">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-          className="bg-white/5 border border-white/10 rounded-3xl p-10 w-full max-w-lg text-white text-center">
-          <Trophy className="w-14 h-14 text-amber-400 mx-auto mb-4" />
-          <h1 className="text-3xl font-black mb-1">Practice Complete!</h1>
-          <p className="text-white/50 mb-8">{quiz.title}</p>
+      <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Decorative background grid and blobs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+        </div>
 
-          <div className="w-36 h-36 mx-auto rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex flex-col items-center justify-center shadow-2xl mb-8">
-            <span className="text-5xl font-black">{scorePct}%</span>
-            <span className="text-xs opacity-70 mt-0.5">{score}/{quiz.questions.length} correct</span>
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg p-8 w-full max-w-lg text-[hsl(var(--foreground))] text-center shadow-md">
+          <Trophy className="w-10 h-10 text-[hsl(var(--primary))] mx-auto mb-3" />
+          <h1 className="text-xl font-bold tracking-tight mb-1">Practice Complete!</h1>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mb-6">{quiz.title}</p>
+
+          <div className="w-28 h-28 mx-auto rounded-full bg-[hsl(var(--muted))]/30 border border-[hsl(var(--border))] flex flex-col items-center justify-center mb-6">
+            <span className="text-3xl font-bold text-[hsl(var(--primary))]">{scorePct}%</span>
+            <span className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">{score}/{quiz.questions.length} correct</span>
           </div>
 
           <div className="flex flex-col gap-2">
             {quiz.questions.map((q, i) => (
-              <div key={i} className={`flex items-center gap-3 text-left px-4 py-2.5 rounded-xl text-sm ${results[i].correct === true ? 'bg-green-500/10 border border-green-500/20' : results[i].correct === false ? 'bg-red-500/10 border border-red-500/20' : 'bg-white/5 border border-white/10'}`}>
-                {results[i].correct === true ? <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" /> :
-                 results[i].correct === false ? <XCircle className="w-4 h-4 text-red-400 shrink-0" /> :
-                 <Eye className="w-4 h-4 text-white/30 shrink-0" />}
-                <span className="truncate text-white/80">{q.questionText}</span>
+              <div key={i} className={`flex items-center gap-3 text-left px-3 py-2 rounded-md text-xs border ${results[i].correct === true ? 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : results[i].correct === false ? 'bg-red-500/5 border-red-500/20 text-red-400' : 'bg-[hsl(var(--muted))]/20 border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]'}`}>
+                {results[i].correct === true ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> :
+                 results[i].correct === false ? <XCircle className="w-3.5 h-3.5 shrink-0" /> :
+                 <Eye className="w-3.5 h-3.5 shrink-0" />}
+                <span className="truncate">{q.questionText}</span>
               </div>
             ))}
           </div>
 
-          <div className="flex gap-3 mt-8">
-            <Button onClick={reset} variant="outline" className="flex-1 gap-2 border-white/20 text-white hover:bg-white/10">
-              <RotateCcw className="w-4 h-4" /> Again
+          <div className="flex gap-3 mt-6">
+            <Button onClick={reset} variant="outline" className="flex-1 gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]">
+              <RotateCcw className="w-3.5 h-3.5" /> Again
             </Button>
-            <Button onClick={() => navigate('/')} className="flex-1 gap-2 bg-teal-500 hover:bg-teal-400 text-white border-0">
-              <Home className="w-4 h-4" /> Home
+            <Button onClick={() => navigate('/')} className="flex-1 gap-2 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-hover))] text-[hsl(var(--primary-foreground))] border-0">
+              <Home className="w-3.5 h-3.5" /> Home
             </Button>
           </div>
         </motion.div>
@@ -187,38 +192,44 @@ const Practice = () => {
 
   // ── Active question ──────────────────────────────────────────────────────────
   const variants = {
-    enter: d => ({ x: d > 0 ? 300 : -300, opacity: 0 }),
+    enter: d => ({ x: d > 0 ? 120 : -120, opacity: 0 }),
     center: { x: 0, opacity: 1 },
-    exit: d => ({ x: d < 0 ? 300 : -300, opacity: 0 }),
+    exit: d => ({ x: d < 0 ? 120 : -120, opacity: 0 }),
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#0d1b2a] text-white flex flex-col items-center py-8 px-4">
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex flex-col items-center py-8 px-4 relative overflow-x-hidden">
+      {/* Decorative background grid and blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      </div>
 
       {/* Header */}
-      <div className="w-full max-w-2xl flex items-center justify-between mb-6">
-        <Link to="/" className="text-white/40 hover:text-white/70 transition-colors">
-          <Home className="w-5 h-5" />
+      <div className="relative z-10 w-full max-w-2xl flex items-center justify-between mb-6">
+        <Link to="/" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+          <Home className="w-4 h-4" />
         </Link>
         <div className="text-center">
-          <p className="text-xs text-white/40 uppercase tracking-widest font-semibold mb-0.5">Practice Mode</p>
-          <p className="text-sm font-bold text-white/70 truncate max-w-48">{quiz.title}</p>
+          <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-widest font-semibold mb-0.5">Practice Mode</p>
+          <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] truncate max-w-48">{quiz.title}</p>
         </div>
-        <Badge className="bg-teal-500/20 text-teal-300 border-teal-500/30">
+        <Badge variant="outline" className="bg-[hsl(var(--muted))]/50 border-[hsl(var(--border))] text-xs">
           {index + 1}/{quiz.questions.length}
         </Badge>
       </div>
 
       {/* Progress */}
-      <div className="w-full max-w-2xl mb-8">
-        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <motion.div className="h-full bg-teal-400 rounded-full"
+      <div className="w-full max-w-2xl mb-6">
+        <div className="h-1 bg-[hsl(var(--muted))] rounded-full overflow-hidden">
+          <motion.div className="h-full bg-[hsl(var(--primary))]"
             animate={{ width: `${((index + 1) / quiz.questions.length) * 100}%` }}
-            transition={{ duration: 0.3 }} />
+            transition={{ duration: 0.2 }} />
         </div>
-        <div className="flex justify-center gap-1.5 mt-2">
+        <div className="flex justify-center gap-1 mt-2">
           {quiz.questions.map((_, i) => (
-            <div key={i} className={`w-2 h-2 rounded-full transition-all ${i === index ? 'bg-teal-400 scale-125' : results[i].correct === true ? 'bg-green-500' : results[i].correct === false ? 'bg-red-500' : results[i].answered ? 'bg-white/30' : 'bg-white/10'}`} />
+            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === index ? 'bg-[hsl(var(--primary))] scale-110' : results[i].correct === true ? 'bg-[hsl(var(--primary))]/80' : results[i].correct === false ? 'bg-red-500/80' : results[i].answered ? 'bg-[hsl(var(--muted-foreground))]' : 'bg-[hsl(var(--muted))]'}`} />
           ))}
         </div>
       </div>
@@ -226,39 +237,39 @@ const Practice = () => {
       {/* Question card */}
       <AnimatePresence initial={false} custom={direction} mode="wait">
         <motion.div key={index} custom={direction} variants={variants} initial="enter" animate="center" exit="exit"
-          transition={{ type: 'tween', ease: 'circOut', duration: 0.35 }}
-          className="w-full max-w-2xl bg-white/5 border border-white/10 rounded-2xl p-6 md:p-8 mb-6">
+          transition={{ type: 'tween', ease: 'easeInOut', duration: 0.2 }}
+          className="w-full max-w-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg p-6 mb-6">
 
-          <p className="text-xl md:text-2xl font-bold leading-relaxed mb-6">{q.questionText}</p>
+          <p className="text-lg font-bold leading-relaxed mb-4">{q.questionText}</p>
 
           {/* MCQ */}
           {q.type === 'MCQ' && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               {q.mcqData.options.map(opt => {
                 const isSelected = r.selected === opt.id;
                 const isCorrectOpt = q.mcqData.correctOptions.includes(opt.id);
-                let cls = 'border-white/20 bg-white/5 hover:border-teal-400/60 hover:bg-teal-500/5';
+                let cls = 'border-[hsl(var(--border))] bg-transparent hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/40';
                 if (r.answered) {
-                  if (isCorrectOpt) cls = 'border-green-500 bg-green-500/10 text-green-300';
-                  else if (isSelected) cls = 'border-red-500 bg-red-500/10 text-red-300';
-                  else cls = 'border-white/10 bg-white/5 opacity-50';
+                  if (isCorrectOpt) cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
+                  else if (isSelected) cls = 'border-red-500 bg-red-500/5 text-red-400';
+                  else cls = 'border-[hsl(var(--border))] bg-transparent opacity-40';
                 }
                 return (
                   <button key={opt.id} disabled={r.answered}
                     onClick={() => handleMCQ(opt.id)}
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${r.answered ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${r.answered && isCorrectOpt ? 'border-green-400 bg-green-400' : r.answered && isSelected ? 'border-red-400 bg-red-400' : 'border-white/30'}`}>
-                      {r.answered && isCorrectOpt && <CheckCircle2 className="w-4 h-4 text-white" />}
-                      {r.answered && isSelected && !isCorrectOpt && <XCircle className="w-4 h-4 text-white" />}
+                    className={`flex items-center gap-3 p-3 rounded-md border text-xs text-left transition-all ${r.answered ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${r.answered && isCorrectOpt ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : r.answered && isSelected ? 'border-red-500 bg-red-500' : 'border-[hsl(var(--border))]'}`}>
+                      {r.answered && isCorrectOpt && <CheckCircle2 className="w-2.5 h-2.5 text-[hsl(var(--primary-foreground))]" />}
+                      {r.answered && isSelected && !isCorrectOpt && <XCircle className="w-2.5 h-2.5 text-white" />}
                     </div>
                     <span className="font-medium">{opt.text}</span>
                   </button>
                 );
               })}
               {r.answered && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={`mt-2 px-4 py-3 rounded-xl text-sm font-semibold ${r.correct ? 'bg-green-500/15 border border-green-500/30 text-green-300' : 'bg-red-500/15 border border-red-500/30 text-red-300'}`}>
-                  {r.correct ? '🎉 Correct!' : '❌ Not quite — the correct answer is highlighted above.'}
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  className={`mt-2 px-3 py-2 rounded-md text-xs font-semibold ${r.correct ? 'bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                  {r.correct ? 'Correct!' : 'Not quite — the correct answer is highlighted.'}
                 </motion.div>
               )}
             </div>
@@ -266,23 +277,23 @@ const Practice = () => {
 
           {/* Fill in blank */}
           {q.type === 'FILL_IN_THE_BLANK' && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               <div className="flex gap-2">
                 <Input value={fillInput} onChange={e => setFillInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleFill()}
                   disabled={r.answered}
                   placeholder="Type your answer…"
-                  className="bg-white/5 border-white/20 text-white placeholder-white/30 focus-visible:border-teal-400" />
+                  className="bg-transparent border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))]/40 focus-visible:border-[hsl(var(--primary))]" />
                 {!r.answered && (
-                  <Button onClick={handleFill} className="bg-teal-500 hover:bg-teal-400 text-white border-0 shrink-0">
+                  <Button onClick={handleFill} className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-[hsl(var(--primary-foreground))] border-0 shrink-0 text-xs py-1.5 px-3 rounded-md">
                     Check
                   </Button>
                 )}
               </div>
               {r.answered && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={`px-4 py-3 rounded-xl text-sm ${r.correct ? 'bg-green-500/15 border border-green-500/30 text-green-300' : 'bg-red-500/15 border border-red-500/30 text-red-300'}`}>
-                  {r.correct ? '🎉 Correct!' : <>❌ Correct answer: <strong>{q.fillBlankData.answers.map(a => a.text).join(' / ')}</strong></>}
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  className={`px-3 py-2 rounded-md text-xs ${r.correct ? 'bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                  {r.correct ? 'Correct!' : <>Correct answer: <strong>{q.fillBlankData.answers.map(a => a.text).join(' / ')}</strong></>}
                 </motion.div>
               )}
             </div>
@@ -292,13 +303,13 @@ const Practice = () => {
           {!['MCQ', 'FILL_IN_THE_BLANK'].includes(q.type) && (
             <div>
               {!r.answered ? (
-                <Button onClick={handleReveal} variant="outline" className="gap-2 border-white/20 text-white hover:bg-white/10">
-                  <Eye className="w-4 h-4" /> Reveal Answer
+                <Button onClick={handleReveal} variant="outline" className="gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] text-xs py-1.5 px-3">
+                  <Eye className="w-3.5 h-3.5" /> Reveal Answer
                 </Button>
               ) : (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className="bg-white/5 border border-teal-500/30 rounded-xl p-4">
-                  <p className="text-xs font-bold text-teal-400 uppercase tracking-wide mb-2">Correct Answer</p>
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  className="border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 rounded-md p-3">
+                  <p className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wide mb-1.5">Correct Answer</p>
                   <CorrectAnswer q={q} />
                 </motion.div>
               )}
@@ -308,15 +319,15 @@ const Practice = () => {
       </AnimatePresence>
 
       {/* Navigation */}
-      <div className="w-full max-w-2xl flex items-center justify-between">
+      <div className="relative z-10 w-full max-w-2xl flex items-center justify-between">
         <Button onClick={goPrev} disabled={index === 0} variant="ghost"
-          className="gap-2 text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-20">
-          <ChevronLeft className="w-4 h-4" /> Prev
+          className="gap-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/20 disabled:opacity-20 text-xs py-1 px-3">
+          <ChevronLeft className="w-3.5 h-3.5" /> Prev
         </Button>
         {r.answered && (
-          <Button onClick={goNext} className="gap-2 bg-teal-500 hover:bg-teal-400 text-white border-0 px-8">
+          <Button onClick={goNext} className="gap-1.5 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-[hsl(var(--primary-foreground))] border-0 px-6 text-xs h-8 rounded-md">
             {index < quiz.questions.length - 1 ? 'Next' : 'Finish'}
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5" />
           </Button>
         )}
         {!r.answered && <div />}

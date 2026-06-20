@@ -165,16 +165,16 @@ const GuestTakeQuiz = () => {
 
   // ── Loading / error states ──────────────────────────────────────────────
   if (loading) return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#4854c7] to-[#6c63ff] flex flex-col items-center justify-center gap-4 text-white">
-      <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-      <p className="text-lg font-semibold">Loading quiz...</p>
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex flex-col items-center justify-center gap-4">
+      <div className="w-12 h-12 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
+      <p className="text-sm text-[hsl(var(--muted-foreground))]">Loading quiz...</p>
     </div>
   );
   if (error) return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#4854c7] to-[#6c63ff] flex flex-col items-center justify-center gap-6 text-white p-8">
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex flex-col items-center justify-center gap-6 p-8">
       <div className="text-5xl">😞</div>
       <h2 className="text-2xl font-bold">{error}</h2>
-      <button onClick={() => navigate('/')} className="px-6 py-3 bg-white/20 rounded-xl font-semibold hover:bg-white/30 transition-all">
+      <button onClick={() => navigate('/')} className="px-6 py-3 border border-[hsl(var(--border))] bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted))]/80 text-[hsl(var(--foreground))] rounded-xl font-semibold transition-all cursor-pointer">
         Back to Home
       </button>
     </div>
@@ -182,21 +182,28 @@ const GuestTakeQuiz = () => {
 
   // ── Name / intro screen ─────────────────────────────────────────────────
   if (!nameSubmitted) return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#4854c7] to-[#6c63ff] flex items-center justify-center p-4 text-white">
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="bg-white text-[#333] rounded-3xl p-10 w-full max-w-md shadow-2xl text-center">
-        <div className="text-5xl mb-4">🎮</div>
-        <h1 className="text-3xl font-black mb-2">{quiz.title}</h1>
-        {quiz.description && <p className="text-gray-500 text-sm mb-6 leading-relaxed">{quiz.description}</p>}
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative background grid and blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      </div>
 
-        <div className="flex justify-center gap-8 bg-gray-50 rounded-2xl p-4 mb-8 text-sm">
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-2xl p-10 w-full max-w-md shadow-sm text-center animate-fade-in">
+        <div className="text-5xl mb-4">🎮</div>
+        <h1 className="text-3xl font-black mb-2 text-[hsl(var(--foreground))]">{quiz.title}</h1>
+        {quiz.description && <p className="text-[hsl(var(--muted-foreground))] text-sm mb-6 leading-relaxed">{quiz.description}</p>}
+
+        <div className="flex justify-center gap-8 bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))] rounded-xl p-4 mb-8 text-sm">
           <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-black text-[#6c63ff]">{quiz.questions?.length ?? 0}</span>
-            <span className="text-gray-400">Questions</span>
+            <span className="text-2xl font-black text-[hsl(var(--primary))]">{quiz.questions?.length ?? 0}</span>
+            <span className="text-[hsl(var(--muted-foreground))]">Questions</span>
           </div>
-          <div className="w-px bg-gray-200" />
+          <div className="w-px bg-[hsl(var(--border))]" />
           <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-black text-[#6c63ff]">{quiz.totalPoints}</span>
-            <span className="text-gray-400">Points</span>
+            <span className="text-2xl font-black text-[hsl(var(--primary))]">{quiz.totalPoints}</span>
+            <span className="text-[hsl(var(--muted-foreground))]">Points</span>
           </div>
         </div>
 
@@ -207,70 +214,77 @@ const GuestTakeQuiz = () => {
           onChange={e => setGuestName(e.target.value)}
           onKeyPress={e => e.key === 'Enter' && setNameSubmitted(true)}
           maxLength={30}
-          className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-center text-base outline-none focus:border-[#6c63ff] mb-4 transition-all"
+          className="w-full border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 text-[hsl(var(--foreground))] rounded-xl px-4 py-3 text-center text-base outline-none focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))]/20 mb-4 transition-all"
         />
 
         <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => setNameSubmitted(true)}
-          className="w-full py-4 bg-gradient-to-r from-[#4776e6] to-[#8e54e9] text-white font-black text-lg rounded-2xl shadow-[0_6px_20px_rgba(107,99,255,0.4)] hover:shadow-[0_8px_28px_rgba(107,99,255,0.5)] transition-all"
+          className="w-full py-4 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-white font-black text-lg rounded-xl shadow transition-colors cursor-pointer"
         >
           Let's Go! 🚀
         </motion.button>
 
-        <p className="text-gray-400 text-xs mt-4">Playing as guest · Results visible to teacher</p>
+        <p className="text-[hsl(var(--muted-foreground))] text-xs mt-4">Playing as guest · Results visible to teacher</p>
       </motion.div>
     </div>
   );
 
   // ── Completed screen ────────────────────────────────────────────────────
   if (quizSubmitted) return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#4854c7] to-[#6c63ff] flex items-center justify-center p-4">
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative background grid and blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      </div>
+
       {finalResults ? (
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white text-[#333] rounded-3xl p-10 w-full max-w-md shadow-2xl text-center">
-          <FaCheckCircle className="text-5xl text-green-500 mx-auto mb-4" />
-          <h1 className="text-3xl font-black mb-1">Quiz Completed!</h1>
-          <p className="text-gray-400 mb-8">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="relative z-10 bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-2xl p-10 w-full max-w-md shadow-sm text-center">
+          <FaCheckCircle className="text-5xl text-[hsl(var(--primary))] mx-auto mb-4" />
+          <h1 className="text-3xl font-black mb-1 text-[hsl(var(--foreground))]">Quiz Completed!</h1>
+          <p className="text-[hsl(var(--muted-foreground))] mb-8">
             {guestName ? `Great job, ${guestName}!` : 'Great job!'}
           </p>
 
-          <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-br from-[#6c63ff] to-[#4854c7] text-white flex flex-col justify-center items-center shadow-[0_10px_30px_rgba(108,99,255,0.4)] mb-6">
-            <span className="text-sm font-medium opacity-70">Final Score</span>
+          <div className="w-40 h-40 mx-auto rounded-full bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] flex flex-col justify-center items-center mb-6">
+            <span className="text-xs font-semibold opacity-70 uppercase tracking-wider">Final Score</span>
             <span className="text-5xl font-black leading-tight">{finalResults.finalScore}</span>
             <span className="text-xs opacity-60">/ {finalResults.maxScore}</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-8 text-sm">
-            <div className="bg-gray-50 rounded-xl p-3">
-              <div className="font-black text-xl text-[#6c63ff]">{finalResults.score}</div>
-              <div className="text-gray-400">Base score</div>
+            <div className="bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))] rounded-xl p-3">
+              <div className="font-black text-xl text-[hsl(var(--primary))]">{finalResults.score}</div>
+              <div className="text-[hsl(var(--muted-foreground))]">Base score</div>
             </div>
-            <div className="bg-green-50 rounded-xl p-3">
-              <div className="font-black text-xl text-green-500">+{finalResults.bonus}</div>
-              <div className="text-gray-400">Speed bonus</div>
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+              <div className="font-black text-xl text-green-600 dark:text-green-400">{finalResults.bonus}</div>
+              <div className="text-[hsl(var(--muted-foreground))]">Speed bonus</div>
             </div>
           </div>
 
           {finalResults.status === 'pending' && (
-            <p className="text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm mb-6">
+            <p className="text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-sm mb-6">
               ⏳ Some answers need manual review by your teacher.
             </p>
           )}
 
           <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/')}
-            className="w-full py-3 bg-gradient-to-r from-[#4776e6] to-[#8e54e9] text-white font-bold rounded-xl transition-all hover:shadow-[0_6px_20px_rgba(107,99,255,0.4)]"
+            className="w-full py-3 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-white font-bold rounded-xl transition-all cursor-pointer shadow"
           >
             Back to Home
           </motion.button>
         </motion.div>
       ) : (
-        <div className="bg-white rounded-3xl p-10 max-w-md w-full text-center shadow-2xl flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-[#6c63ff]/30 border-t-[#6c63ff] rounded-full animate-spin" />
-          <p className="text-gray-500 font-semibold">Submitting your answers...</p>
+        <div className="relative z-10 bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-2xl p-10 max-w-md w-full text-center shadow-sm flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
+          <p className="text-[hsl(var(--muted-foreground))] font-semibold">Submitting your answers...</p>
         </div>
       )}
     </div>
@@ -282,20 +296,26 @@ const GuestTakeQuiz = () => {
   const mainMedia = currentQ.visualData?.mainMedia || currentQ.listeningData?.mainMedia || currentQ.media;
   const variants = { enter: d => ({ x: d > 0 ? 300 : -300, opacity: 0 }), center: { x: 0, opacity: 1 }, exit: d => ({ x: d < 0 ? 300 : -300, opacity: 0 }) };
 
-  const optBase = 'flex items-center gap-4 border-2 border-[#ddd] rounded-xl p-4 cursor-pointer transition-all hover:border-[#8e2de2] hover:translate-x-1 text-[#333]';
-  const optSel = 'bg-[#ede7f6] border-[#4a00e0] text-[#4a00e0] font-semibold shadow-md';
-  const draggable = 'px-4 py-2.5 rounded-full font-medium cursor-grab text-center shadow text-white bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] flex items-center gap-2 text-sm';
-  const matched = 'px-4 py-2.5 rounded-full font-medium cursor-default text-center shadow text-white bg-gradient-to-br from-[#22c55e] to-[#16a34a] flex items-center gap-2 text-sm';
+  const optBase = 'flex items-center gap-4 border border-[hsl(var(--border))] rounded-xl p-4 cursor-pointer transition-all hover:border-[hsl(var(--primary))]/50 hover:translate-x-1 text-[hsl(var(--foreground))] bg-[hsl(var(--card))]';
+  const optSel = 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))] text-[hsl(var(--primary))] font-semibold shadow-sm';
+  const draggable = 'px-4 py-2.5 rounded-xl font-medium cursor-grab text-center shadow-sm text-white bg-[hsl(var(--primary))] flex items-center gap-2 text-sm';
+  const matched = 'px-4 py-2.5 rounded-xl font-medium cursor-default text-center shadow-sm text-white bg-[hsl(var(--primary))] flex items-center gap-2 text-sm';
 
   // Timer color
-  const timerColor = timeLeft <= 10 ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-white/10 text-white border-white/20';
+  const timerColor = timeLeft <= 10 ? 'bg-red-500/20 text-red-650 border-red-500/30' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))]';
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="min-h-screen w-screen bg-gradient-to-br from-[#4854c7] to-[#6c63ff] text-white p-4 flex flex-col items-center">
+      <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] p-4 flex flex-col items-center relative overflow-x-hidden">
+        {/* Decorative background grid and blobs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+        </div>
 
         {/* Header */}
-        <div className="flex justify-between items-center w-full max-w-[800px] mt-4 mb-3 px-1">
+        <div className="relative z-10 flex justify-between items-center w-full max-w-[800px] mt-4 mb-3 px-1">
           <div className="flex flex-col">
             <span className="text-sm font-semibold opacity-70">{quiz.title}</span>
             {guestName && <span className="text-xs opacity-40">Playing as {guestName}</span>}
@@ -310,14 +330,14 @@ const GuestTakeQuiz = () => {
         </div>
 
         {/* Progress */}
-        <div className="w-full max-w-[800px] mb-5">
-          <div className="flex justify-between text-xs text-white/50 mb-1.5">
+        <div className="relative z-10 w-full max-w-[800px] mb-5">
+          <div className="flex justify-between text-xs opacity-50 mb-1.5">
             <span>Question {currentQuestionIndex + 1} of {quiz.questions.length}</span>
             <span>{Math.round(((currentQuestionIndex + 1) / quiz.questions.length) * 100)}%</span>
           </div>
-          <div className="bg-white/20 h-2 rounded-full overflow-hidden">
+          <div className="bg-[hsl(var(--muted))] h-2 rounded-full overflow-hidden">
             <motion.div
-              className="bg-white h-full rounded-full"
+              className="bg-[hsl(var(--primary))] h-full rounded-full"
               animate={{ width: `${((currentQuestionIndex + 1) / quiz.questions.length) * 100}%` }}
               transition={{ duration: 0.4 }}
             />
@@ -328,9 +348,9 @@ const GuestTakeQuiz = () => {
               <div
                 key={i}
                 className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
-                  i === currentQuestionIndex ? 'bg-white scale-125 shadow-[0_0_8px_white]' :
+                  i === currentQuestionIndex ? 'bg-[hsl(var(--primary))] scale-125' :
                   answers[i] && JSON.stringify(answers[i]) !== JSON.stringify(i === 0 ? [] : '') ? 'bg-green-400' :
-                  'bg-white/30'
+                  'bg-[hsl(var(--muted-foreground))]/30'
                 }`}
                 onClick={() => { recordTime(); setDirection(i > currentQuestionIndex ? 1 : -1); setCurrentQuestionIndex(i); }}
               />
@@ -346,10 +366,10 @@ const GuestTakeQuiz = () => {
             variants={variants}
             initial="enter" animate="center" exit="exit"
             transition={{ type: 'tween', ease: 'circOut', duration: 0.4 }}
-            className="bg-white text-[#333] p-6 md:p-8 rounded-2xl max-w-[800px] w-full shadow-2xl mb-5"
+            className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] p-6 md:p-8 rounded-2xl max-w-[800px] w-full shadow-sm mb-5"
           >
             {mainMedia && <MediaRenderer media={mainMedia} transform="question_main" className="block max-w-full max-h-[350px] mx-auto mb-5 rounded-xl" />}
-            <h2 className="text-xl md:text-2xl font-bold mb-6 leading-relaxed text-[#1e293b]">{currentQ.questionText}</h2>
+            <h2 className="text-xl md:text-2xl font-bold mb-6 leading-relaxed text-[hsl(var(--foreground))]">{currentQ.questionText}</h2>
 
             <div>
               {/* MCQ */}
@@ -359,7 +379,7 @@ const GuestTakeQuiz = () => {
                     <motion.div key={opt.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                       className={`${optBase} ${currentA?.includes(opt.id) ? optSel : ''}`}
                       onClick={() => handleAnswerChange(opt.id)}>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm flex-shrink-0 transition-all ${currentA?.includes(opt.id) ? 'bg-[#4a00e0] border-[#4a00e0] text-white' : 'border-[#ccc]'}`}>
+                      <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-sm flex-shrink-0 transition-all ${currentA?.includes(opt.id) ? 'bg-[hsl(var(--primary))] border-[hsl(var(--primary))] text-white' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]'}`}>
                         {currentA?.includes(opt.id) && '✓'}
                       </div>
                       {opt.text && <span>{opt.text}</span>}
@@ -371,28 +391,28 @@ const GuestTakeQuiz = () => {
 
               {currentQ.type === 'FILL_IN_THE_BLANK' && (
                 <input type="text" value={currentA || ''} onChange={e => handleAnswerChange(e.target.value)}
-                  className="w-full p-4 rounded-xl border-2 border-[#ddd] focus:border-[#4a00e0] focus:shadow-[0_0_0_3px_rgba(74,0,224,0.1)] outline-none text-lg transition-all" />
+                  className="w-full p-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))]/20 outline-none text-base transition-all" />
               )}
 
               {currentQ.type === 'PARAGRAPH' && (
                 <textarea value={currentA || ''} onChange={e => handleAnswerChange(e.target.value)}
-                  className="w-full p-4 rounded-xl border-2 border-[#ddd] focus:border-[#4a00e0] focus:shadow-[0_0_0_3px_rgba(74,0,224,0.1)] outline-none text-lg transition-all resize-y min-h-[120px]" />
+                  className="w-full p-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 focus:border-[hsl(var(--primary))] focus:ring-2 focus:ring-[hsl(var(--primary))]/20 outline-none text-base transition-all resize-y min-h-[120px]" />
               )}
 
               {currentQ.type === 'MATCH_THE_FOLLOWING' && currentA && (
                 <div className="grid grid-cols-[1.2fr_1fr] gap-6 items-start">
                   <div className="flex flex-col gap-3">
                     {currentQ.matchData.pairs.map(pair => (
-                      <div key={pair.id} className="grid grid-cols-[1fr_auto] items-center gap-3 bg-gray-50 rounded-xl p-2 border border-gray-200">
-                        <div className="flex items-center gap-2 justify-end text-right text-[#475569] font-semibold text-sm pr-2">
+                      <div key={pair.id} className="grid grid-cols-[1fr_auto] items-center gap-3 bg-[hsl(var(--muted))]/20 rounded-xl p-2 border border-[hsl(var(--border))]">
+                        <div className="flex items-center gap-2 justify-end text-right text-[hsl(var(--foreground))] font-semibold text-sm pr-2">
                           <MediaRenderer media={pair.promptMedia} transform="thumbnail" />{pair.prompt}
                         </div>
                         <Droppable droppableId={String(pair.id)}>{provided => (
                           <div ref={provided.innerRef} {...provided.droppableProps}
-                            className={`border-2 border-dashed rounded-lg min-h-[52px] flex items-center justify-center transition-colors ${currentA.pairs[pair.id] ? 'bg-purple-50 border-[#4a00e0]' : 'bg-white border-gray-300'}`}>
+                            className={`border border-dashed rounded-xl min-h-[52px] flex items-center justify-center transition-colors ${currentA.pairs[pair.id] ? 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted))]/30 border-[hsl(var(--border))]'}`}>
                             {currentA.pairs[pair.id]
                               ? <Draggable draggableId={String(currentA.pairs[pair.id].id)} index={0}>{p => <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className={matched}><MediaRenderer media={currentA.pairs[pair.id].answerMedia} transform="thumbnail" /><span>{currentA.pairs[pair.id].answerText}</span></div>}</Draggable>
-                              : <span className="text-xs text-gray-400 italic">Drop here</span>}
+                              : <span className="text-xs text-[hsl(var(--muted-foreground))] italic">Drop here</span>}
                             {provided.placeholder}
                           </div>
                         )}</Droppable>
@@ -400,8 +420,8 @@ const GuestTakeQuiz = () => {
                     ))}
                   </div>
                   <Droppable droppableId="bank">{provided => (
-                    <div ref={provided.innerRef} {...provided.droppableProps} className="bg-gray-100 p-3 rounded-xl min-h-[180px] flex flex-col gap-3">
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide text-center mb-1">Answers</h4>
+                    <div ref={provided.innerRef} {...provided.droppableProps} className="bg-[hsl(var(--muted))]/40 border border-[hsl(var(--border))] p-3 rounded-xl min-h-[180px] flex flex-col gap-3">
+                      <h4 className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wide text-center mb-1">Answers</h4>
                       {currentA.bank.map((ans, i) => <Draggable key={ans.id} draggableId={String(ans.id)} index={i}>{p => <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className={draggable}><MediaRenderer media={ans.answerMedia} transform="thumbnail" /><span>{ans.answerText}</span></div>}</Draggable>)}
                       {provided.placeholder}
                     </div>
@@ -411,11 +431,11 @@ const GuestTakeQuiz = () => {
 
               {currentQ.type === 'REORDER' && currentA && (
                 <Droppable droppableId="reorder-list">{provided => (
-                  <motion.div {...provided.droppableProps} ref={provided.innerRef} className="flex flex-col gap-3 bg-gray-50 p-4 rounded-xl border-2 border-dashed border-gray-300">
+                  <motion.div {...provided.droppableProps} ref={provided.innerRef} className="flex flex-col gap-3 bg-[hsl(var(--muted))]/20 p-4 rounded-xl border border-dashed border-[hsl(var(--border))]">
                     {currentA.map((item, i) => <Draggable key={item.id} draggableId={String(item.id)} index={i}>{p => (
                       <motion.div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} layout
-                        className="p-4 bg-white border-l-4 border-[#6366f1] rounded-lg text-[#2c3e50] shadow-sm font-medium cursor-grab flex items-center gap-3">
-                        <FaGripLines className="text-gray-400 flex-shrink-0" />
+                        className="p-4 bg-[hsl(var(--card))] border border-[hsl(var(--border))] border-l-4 border-l-[hsl(var(--primary))] rounded-xl text-[hsl(var(--foreground))] shadow-sm font-medium cursor-grab flex items-center gap-3">
+                        <FaGripLines className="text-[hsl(var(--muted-foreground))] flex-shrink-0" />
                         <MediaRenderer media={item.media} transform="thumbnail" className="w-10 h-8 rounded object-cover flex-shrink-0" />
                         <span>{item.text}</span>
                       </motion.div>
@@ -430,10 +450,10 @@ const GuestTakeQuiz = () => {
                   <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
                     {currentQ.categorizeData.categories.map(cat => (
                       <Droppable key={cat.id} droppableId={String(cat.id)}>{provided => (
-                        <div {...provided.droppableProps} ref={provided.innerRef} className="bg-gradient-to-t from-purple-50 to-white rounded-xl p-3 border border-purple-200">
-                          <h3 className="text-center text-[#6d28d9] font-bold text-sm pb-2 border-b border-purple-200 mb-2">{cat.name}</h3>
+                        <div {...provided.droppableProps} ref={provided.innerRef} className="bg-[hsl(var(--card))] rounded-xl p-3 border border-[hsl(var(--border))] shadow-sm">
+                          <h3 className="text-center text-[hsl(var(--primary))] font-bold text-sm pb-2 border-b border-[hsl(var(--border))] mb-2">{cat.name}</h3>
                           <div className="min-h-[120px] flex flex-col gap-2">
-                            {currentA[cat.id]?.map((item, i) => <Draggable key={item.id} draggableId={String(item.id)} index={i}>{p => <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="p-2 bg-white border border-gray-200 rounded-lg text-sm cursor-grab font-medium flex items-center gap-2"><MediaRenderer media={item.media} transform="thumbnail" />{item.text}</div>}</Draggable>)}
+                            {currentA[cat.id]?.map((item, i) => <Draggable key={item.id} draggableId={String(item.id)} index={i}>{p => <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="p-2 bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))] rounded-lg text-sm cursor-grab font-medium text-[hsl(var(--foreground))] flex items-center gap-2"><MediaRenderer media={item.media} transform="thumbnail" />{item.text}</div>}</Draggable>)}
                             {provided.placeholder}
                           </div>
                         </div>
@@ -441,25 +461,25 @@ const GuestTakeQuiz = () => {
                     ))}
                   </div>
                   <Droppable droppableId="bank" direction="horizontal">{provided => (
-                    <div {...provided.droppableProps} ref={provided.innerRef} className="bg-gray-100 p-3 rounded-xl flex flex-wrap gap-2 min-h-[56px] border-2 border-dashed border-gray-300">
-                      <p className="w-full text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Items to Sort</p>
-                      {currentA.bank?.map((item, i) => <Draggable key={item.id} draggableId={String(item.id)} index={i}>{p => <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="px-3 py-1.5 bg-indigo-100 border border-indigo-300 rounded-lg text-sm text-indigo-700 cursor-grab font-medium flex items-center gap-1.5"><MediaRenderer media={item.media} transform="thumbnail" />{item.text}</div>}</Draggable>)}
+                    <div {...provided.droppableProps} ref={provided.innerRef} className="bg-[hsl(var(--muted))]/30 p-3 rounded-xl flex flex-wrap gap-2 min-h-[56px] border border-dashed border-[hsl(var(--border))]">
+                      <p className="w-full text-xs text-[hsl(var(--muted-foreground))] font-semibold uppercase tracking-wide mb-1">Items to Sort</p>
+                      {currentA.bank?.map((item, i) => <Draggable key={item.id} draggableId={String(item.id)} index={i}>{p => <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className="px-3 py-1.5 bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 rounded-lg text-sm text-[hsl(var(--primary))] cursor-grab font-medium flex items-center gap-1.5"><MediaRenderer media={item.media} transform="thumbnail" />{item.text}</div>}</Draggable>)}
                       {provided.placeholder}
                     </div>
                   )}</Droppable>
                 </div>
               )}
 
-              {(currentQ.type === 'VISUAL_COMPREHENSION' || currentQ.type === 'LISTENING_COMPREHENSION') && (
+               {(currentQ.type === 'VISUAL_COMPREHENSION' || currentQ.type === 'LISTENING_COMPREHENSION') && (
                 <div className="flex flex-col gap-6">
                   {(currentQ.visualData?.subQuestions || currentQ.listeningData?.subQuestions).map((subQ, si) => (
-                    <div key={subQ.id} className="border-t border-gray-200 pt-5">
-                      <p className="font-semibold mb-3 text-[#1e293b]">{si + 1}. {subQ.questionText}</p>
+                    <div key={subQ.id} className="border-t border-[hsl(var(--border))] pt-5">
+                      <p className="font-semibold mb-3 text-[hsl(var(--foreground))]">{si + 1}. {subQ.questionText}</p>
                       {subQ.type === 'MCQ' && (
                         <div className="grid gap-2">
                           {subQ.mcqData.options.map(opt => (
-                            <div key={opt.id} className={`flex items-center gap-3 border-2 p-3 rounded-xl cursor-pointer transition-all text-sm ${currentA[si]?.includes(opt.id) ? 'bg-purple-50 border-[#4a00e0] text-[#4a00e0]' : 'border-gray-200 hover:border-[#8e2de2]'}`} onClick={() => handleAnswerChange(opt.id, si)}>
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs flex-shrink-0 ${currentA[si]?.includes(opt.id) ? 'bg-[#4a00e0] border-[#4a00e0] text-white' : 'border-gray-300'}`}>{String.fromCharCode(65 + subQ.mcqData.options.indexOf(opt))}</div>
+                            <div key={opt.id} className={`flex items-center gap-3 border p-3 rounded-xl cursor-pointer transition-all text-sm ${currentA[si]?.includes(opt.id) ? 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))] text-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 bg-[hsl(var(--card))]'}`} onClick={() => handleAnswerChange(opt.id, si)}>
+                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${currentA[si]?.includes(opt.id) ? 'bg-[hsl(var(--primary))] border-[hsl(var(--primary))] text-white' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'}`}>{String.fromCharCode(65 + subQ.mcqData.options.indexOf(opt))}</div>
                               <span>{opt.text}</span>
                             </div>
                           ))}
@@ -474,13 +494,13 @@ const GuestTakeQuiz = () => {
         </AnimatePresence>
 
         {/* Navigation */}
-        <div className="flex justify-between w-full max-w-[800px] pb-8">
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handlePrev} disabled={currentQuestionIndex === 0}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-white/10 text-white border border-white/20 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+        <div className="relative z-10 flex justify-between w-full max-w-[800px] pb-8">
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handlePrev} disabled={currentQuestionIndex === 0}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[hsl(var(--card))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm">
             <FaArrowLeft /> Prev
           </motion.button>
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleNext(false)}
-            className="flex items-center gap-2 px-8 py-3 rounded-xl font-black bg-white text-[#4854c7] shadow-lg hover:bg-white/90 hover:-translate-y-0.5 transition-all">
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => handleNext(false)}
+            className="flex items-center gap-2 px-8 py-3 rounded-xl font-black bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-white shadow transition-all cursor-pointer">
             {currentQuestionIndex < quiz.questions.length - 1 ? <><span>Next</span> <FaArrowRight /></> : <span>Submit Quiz 🏁</span>}
           </motion.button>
         </div>

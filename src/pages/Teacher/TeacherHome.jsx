@@ -3,6 +3,7 @@ import { db } from '../../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -18,8 +19,10 @@ import {
   Plus, LayoutDashboard, BookOpen, Upload, LogOut, Activity,
   CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown,
   BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench, User,
+  Sun, Moon
 } from 'lucide-react';
 import { clearInvalidQuizzes, seedTestQuiz } from '../../utils/devTools';
+import NotificationBell from '../../components/NotificationBell';
 
 const AnimatedCounter = ({ value, duration = 1500 }) => {
   const [count, setCount] = useState(0);
@@ -47,15 +50,16 @@ const QUIZ_TYPES = [
 ];
 
 const STAT_COLORS = [
-  'from-[#e85a19] to-[#f5af19]',
-  'from-[#4776e6] to-[#8b5cf6]',
-  'from-[#10b981] to-[#059669]',
-  'from-[#f59e0b] to-[#d97706]',
+  'bg-[hsl(var(--primary))]',
+  'bg-blue-500',
+  'bg-emerald-500',
+  'bg-amber-500',
 ];
 
 const TeacherHome = () => {
   const navigate = useNavigate();
-  const { currentUser, displayName, userRole, signOut: ctxSignOut, switchRole } = useAuth();
+  const { currentUser, displayName, signOut: ctxSignOut, switchRole } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ activeQuizzes: 0, totalQuizzes: 0, totalStudents: 0, completedSessions: 0 });
@@ -108,7 +112,6 @@ const TeacherHome = () => {
     try {
       await switchRole('student');
       toast.success('Switched to Student mode');
-      // ProtectedRoute auto-redirects once userRole flips
     } catch {
       toast.error('Failed to switch role.');
     }
@@ -123,7 +126,7 @@ const TeacherHome = () => {
     setDevLoading('clear');
     try {
       const count = await clearInvalidQuizzes(currentUser.uid);
-      toast.success(`Deleted ${count} invalid quiz${count !== 1 ? 'zes' : ''}.`);
+      toast.success(`Deleted ${count} invalid quizzes.`);
       if (count > 0) { fetched.current = false; fetchData(); }
     } catch {
       toast.error('Failed to clear invalid quizzes.');
@@ -158,8 +161,8 @@ const TeacherHome = () => {
   const initials = displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'T';
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen w-screen bg-gradient-to-br from-[#f12711] to-[#f5af19]">
-      <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+    <div className="flex items-center justify-center min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
     </div>
   );
 
@@ -171,44 +174,57 @@ const TeacherHome = () => {
   ];
 
   return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#f12711] via-[#e85a19] to-[#f5af19] relative overflow-x-hidden">
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 20% 80%,rgba(0,0,0,0.1) 0%,transparent 60%)' }} />
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
+      {/* Decorative background grid and blobs */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      </div>
 
-      {/* ── Top nav ── */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
+      {/* Header */}
+      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-4 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]/80 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-white font-black text-sm">Q</div>
-          <span className="text-white font-bold text-lg tracking-tight hidden sm:block">Quizlike</span>
+          <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center text-white font-black text-sm">Q</div>
+          <span className="text-[hsl(var(--foreground))] font-bold text-base tracking-tight hidden sm:block">Quizlike</span>
         </div>
 
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-white/20 text-white bg-white/10 hidden md:flex">
-            🏫 Teacher
+          <NotificationBell />
+          <button
+            onClick={toggleTheme}
+            className="w-8 h-8 rounded-lg bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted))]/80 text-[hsl(var(--foreground))] flex items-center justify-center transition-colors border border-[hsl(var(--border))] cursor-pointer"
+            aria-label="Toggle dark mode"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+          <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/50 text-xs hidden md:flex rounded-md py-0.5 px-2 font-semibold">
+            Teacher
           </Badge>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Avatar className="w-9 h-9 border-2 border-white/20 cursor-pointer hover:border-white/50 transition-colors">
-                <AvatarFallback className="bg-white/20 text-white font-bold text-sm">{initials}</AvatarFallback>
+              <Avatar className="w-8 h-8 border border-[hsl(var(--border))] cursor-pointer hover:border-[hsl(var(--primary))] transition-colors">
+                <AvatarFallback className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] font-bold text-xs">{initials}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="font-normal">
-                <p className="font-semibold text-[hsl(var(--foreground))]">{displayName || 'Teacher'}</p>
+            <DropdownMenuContent align="end" className="w-52 bg-[hsl(var(--card))] border-[hsl(var(--border))]">
+              <DropdownMenuLabel className="font-normal p-3">
+                <p className="font-semibold text-sm text-[hsl(var(--foreground))]">{displayName || 'Teacher'}</p>
                 <p className="text-xs text-[hsl(var(--muted-foreground))]">Teacher account</p>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
-                <User className="w-4 h-4" />
+              <DropdownMenuSeparator className="bg-[hsl(var(--border))]" />
+              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer text-sm py-2 px-3 hover:bg-[hsl(var(--muted))]/50">
+                <User className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
                 My Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer">
-                <GraduationCap className="w-4 h-4 text-[#4776e6]" />
+              <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer text-sm py-2 px-3 hover:bg-[hsl(var(--muted))]/50">
+                <GraduationCap className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
                 Switch to Student
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-600 focus:text-red-600">
+              <DropdownMenuSeparator className="bg-[hsl(var(--border))]" />
+              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-sm py-2 px-3 text-red-500 focus:text-red-500 hover:bg-red-500/10">
                 <LogOut className="w-4 h-4" />
                 Sign Out
               </DropdownMenuItem>
@@ -217,174 +233,184 @@ const TeacherHome = () => {
         </div>
       </header>
 
-      {/* ── Hero strip ── */}
-      <div className="relative z-10 px-6 md:px-10 pb-8">
-        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow">
-            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'},{' '}
-            {displayName?.split(' ')[0] || 'Teacher'} 👋
+      {/* Greeting Header */}
+      <div className="relative z-10 px-6 md:px-10 pt-8 pb-4">
+        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="animate-fade-in">
+          <p className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
+            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}
+          </p>
+          <h1 className="text-3xl font-bold text-[hsl(var(--foreground))] tracking-tight mt-1">
+            {displayName?.split(' ')[0] || 'Teacher'}
           </h1>
-          <p className="text-white/70 mt-1 text-base">Here's what's happening with your quizzes today.</p>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">Here is what is happening with your quizzes today.</p>
         </motion.div>
       </div>
 
-      {/* ── Main content card ── */}
-      <div className="relative z-10 mx-4 md:mx-10 mb-10 rounded-3xl bg-[#f8fafc] shadow-2xl overflow-hidden">
-        <div className="p-6 md:p-8 flex flex-col gap-8">
+      {/* 70/30 Grid Layout */}
+      <main className="relative z-10 px-6 md:px-10 pb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 mt-4">
+          
+          {/* LEFT Column (70%) */}
+          <div className="flex flex-col gap-6">
+            
+            {/* Quick Actions (Flashcard grid) */}
+            <section>
+              <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-3">Quick Actions</h2>
+              <motion.div 
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.05 }
+                  }
+                }}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+              >
+                {[
+                  { icon: Plus, label: 'Create Quiz', desc: 'Build a new assessment', onClick: () => setQuizModalOpen(true) },
+                  { icon: LayoutDashboard, label: 'Your Quizzes', desc: 'Manage & grade quizzes', onClick: () => navigate('/teacher/your-quizzes') },
+                  { icon: GraduationCap, label: 'My Classes', desc: 'Manage classes & rosters', onClick: () => navigate('/teacher/classes') },
+                  { icon: BookOpen, label: 'Question Bank', desc: 'Reusable questions list', onClick: () => navigate('/teacher/question-bank') },
+                  { icon: Upload, label: 'Media Test', desc: 'Test files & media uploads', onClick: () => navigate('/teacher/media-test') },
+                ].map(({ icon: Icon, label, desc, onClick }) => (
+                  <motion.button
+                    key={label}
+                    onClick={onClick}
+                    variants={{
+                      hidden: { opacity: 0, y: 12 },
+                      show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } }
+                    }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex flex-col items-center justify-center p-5 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] text-center cursor-pointer transition-all duration-200 group relative overflow-hidden min-h-[140px] shadow-sm hover:shadow-md"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-[hsl(var(--muted))] border border-[hsl(var(--border))] flex items-center justify-center mb-3 group-hover:bg-[hsl(var(--primary))]/10 group-hover:border-[hsl(var(--primary))]/30 transition-colors duration-200">
+                      <Icon className="w-5 h-5 text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))] transition-colors duration-200" />
+                    </div>
+                    <span className="text-sm font-bold text-[hsl(var(--foreground))] tracking-tight">{label}</span>
+                    <span className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1 leading-snug px-2">{desc}</span>
+                  </motion.button>
+                ))}
+              </motion.div>
+            </section>
 
-          {/* ── Stat cards ── */}
-          <section>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {statCards.map(({ label, value, color }, i) => (
-                <motion.div key={label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
-                  <Card className="border-0 shadow-md overflow-hidden">
-                    <div className={`h-1.5 bg-gradient-to-r ${color}`} />
-                    <CardContent className="pt-4 pb-5">
-                      <p className="text-3xl font-black text-[hsl(var(--foreground))]">
+            {/* Recent Activity */}
+            <section>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Recent Activity</h2>
+                <Activity className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
+              </div>
+              <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] rounded-lg overflow-hidden">
+                <CardContent className="p-0">
+                  {recentActivity.map((a, i) => (
+                    <div key={i} className={`flex items-center justify-between px-4 py-3 transition-colors hover:bg-[hsl(var(--muted))]/20 ${i !== recentActivity.length - 1 ? 'border-b border-[hsl(var(--border))]' : ''}`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-[hsl(var(--muted))] flex items-center justify-center flex-shrink-0">
+                          <BookOpen className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm text-[hsl(var(--foreground))] font-semibold truncate">{a.message}</p>
+                          <p className="text-xs text-[hsl(var(--muted-foreground))]">{formatDate(a.timestamp)}</p>
+                        </div>
+                      </div>
+                      {a.active !== undefined && (
+                        <Badge variant="outline" className={`text-xs rounded px-1.5 py-0.5 border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 ${a.active ? 'text-[hsl(var(--primary))] border-[hsl(var(--primary))]/20' : 'text-[hsl(var(--muted-foreground))]'}`}>
+                          {a.active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </section>
+
+          </div>
+
+          {/* RIGHT Column (30%) - Sidebar */}
+          <div className="flex flex-col gap-6">
+            
+            {/* Stats Panel */}
+            <section>
+              <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-3">Metrics</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {statCards.map(({ label, value }) => (
+                  <Card key={label} className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3.5 flex flex-col justify-between rounded-lg">
+                    <div>
+                      <p className="text-2xl font-bold text-[hsl(var(--foreground))] tracking-tight">
                         <AnimatedCounter value={value} />
                       </p>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))] font-medium mt-0.5">{label}</p>
-                    </CardContent>
+                      <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-tight mt-1">{label}</p>
+                    </div>
                   </Card>
-                </motion.div>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Quick actions ── */}
-          <section>
-            <h2 className="text-lg font-bold text-[hsl(var(--foreground))] mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                {
-                  icon: Plus, label: 'Create Quiz', desc: 'Build a new assessment',
-                  onClick: () => setQuizModalOpen(true),
-                  cls: 'bg-gradient-to-br from-[#e85a19] to-[#f5af19] text-white border-0 hover:shadow-[0_8px_30px_rgba(232,90,25,0.35)]',
-                },
-                {
-                  icon: LayoutDashboard, label: 'Your Quizzes', desc: 'Manage & grade quizzes',
-                  onClick: () => navigate('/teacher/your-quizzes'),
-                  cls: 'bg-gradient-to-br from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:shadow-[0_8px_30px_rgba(71,118,230,0.35)]',
-                },
-                {
-                  icon: Upload, label: 'Media Test', desc: 'Test file uploads',
-                  onClick: () => navigate('/teacher/media-test'),
-                  cls: 'bg-white text-[hsl(var(--foreground))] border border-[hsl(var(--border))] hover:border-[#e85a19]/50 hover:shadow-md',
-                },
-              ].map(({ icon: Icon, label, desc, onClick, cls }) => (
-                <motion.button
-                  key={label}
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={onClick}
-                  className={`flex items-center gap-4 p-5 rounded-2xl text-left transition-all duration-200 cursor-pointer ${cls}`}
-                >
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${cls.includes('text-white') ? 'bg-white/20' : 'bg-[#e85a19]/10'}`}>
-                    <Icon className={`w-5 h-5 ${cls.includes('text-white') ? 'text-white' : 'text-[#e85a19]'}`} />
-                  </div>
-                  <div>
-                    <p className="font-bold">{label}</p>
-                    <p className={`text-xs mt-0.5 ${cls.includes('text-white') ? 'opacity-70' : 'text-[hsl(var(--muted-foreground))]'}`}>{desc}</p>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-          </section>
-
-          {/* ── Recent activity ── */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-[hsl(var(--foreground))]">Recent Activity</h2>
-              <Activity className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-            </div>
-            <Card className="shadow-sm">
-              <CardContent className="p-0">
-                {recentActivity.map((a, i) => (
-                  <div key={i} className={`flex items-center gap-4 px-5 py-4 transition-colors hover:bg-[hsl(var(--muted))]/50 ${i !== recentActivity.length - 1 ? 'border-b border-[hsl(var(--border))]' : ''}`}>
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#e85a19] to-[#f5af19] flex items-center justify-center flex-shrink-0">
-                      <BookOpen className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-[hsl(var(--foreground))] truncate">{a.message}</p>
-                      <p className="text-xs text-[hsl(var(--muted-foreground))]">{formatDate(a.timestamp)}</p>
-                    </div>
-                    {a.active !== undefined && (
-                      <Badge variant={a.active ? 'success' : 'secondary'}>
-                        {a.active ? '● Active' : 'Inactive'}
-                      </Badge>
-                    )}
-                  </div>
                 ))}
-              </CardContent>
-            </Card>
-          </section>
+              </div>
+            </section>
 
-          {/* ── Dev Tools ── */}
-          <section className="border border-dashed border-amber-300 rounded-2xl p-5 bg-amber-50/60">
-            <div className="flex items-center gap-2 mb-4">
-              <Wrench className="w-4 h-4 text-amber-600" />
-              <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide">Dev Tools</h2>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={devLoading === 'clear'}
-                onClick={handleClearInvalid}
-                className="gap-2 border-amber-300 text-amber-800 hover:bg-amber-100"
-              >
-                {devLoading === 'clear'
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <Trash2 className="w-3.5 h-3.5" />
-                }
-                Clear Invalid Quizzes
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={devLoading === 'seed'}
-                onClick={handleSeedQuiz}
-                className="gap-2 border-amber-300 text-amber-800 hover:bg-amber-100"
-              >
-                {devLoading === 'seed'
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : <Sparkles className="w-3.5 h-3.5" />
-                }
-                Seed Test Quiz (All Types)
-              </Button>
-            </div>
-            <p className="text-xs text-amber-600/80 mt-3">
-              Clear Invalid: removes quizzes using the old schema (text/correctOption fields). Seed: creates a fresh test quiz with all 7 question types.
-            </p>
-          </section>
+            {/* Dev Tools */}
+            <section>
+              <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-3">Developer tools</h2>
+              <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 rounded-lg">
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={devLoading === 'clear'}
+                    onClick={handleClearInvalid}
+                    className="w-full gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+                  >
+                    {devLoading === 'clear'
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Trash2 className="w-3.5 h-3.5" />
+                    }
+                    Clear Invalid Quizzes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={devLoading === 'seed'}
+                    onClick={handleSeedQuiz}
+                    className="w-full gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
+                  >
+                    {devLoading === 'seed'
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Sparkles className="w-3.5 h-3.5" />
+                    }
+                    Seed Test Quiz (All Types)
+                  </Button>
+                  <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-2 leading-relaxed">
+                    Clear Invalid removes outdated schemas. Seed creates a test quiz with all 7 question types.
+                  </p>
+                </div>
+              </Card>
+            </section>
+
+          </div>
 
         </div>
-      </div>
+      </main>
 
-      {/* ── Quiz type modal ── */}
+      {/* Quiz type modal */}
       <Dialog open={quizModalOpen} onOpenChange={setQuizModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-[hsl(var(--card))] border-[hsl(var(--border))]">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Choose Quiz Type</DialogTitle>
-            <DialogDescription>Select the format that best fits your assessment goal.</DialogDescription>
+            <DialogTitle className="text-lg font-bold text-[hsl(var(--foreground))]">Choose Quiz Type</DialogTitle>
+            <DialogDescription className="text-xs text-[hsl(var(--muted-foreground))]">Select the format that best fits your assessment goal.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-6 pt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 pt-1">
             {QUIZ_TYPES.map(({ type, icon: Icon, label, desc }) => (
-              <motion.button
+              <button
                 key={type}
-                whileHover={{ scale: 1.03, y: -2 }}
-                whileTap={{ scale: 0.97 }}
                 onClick={() => handleSelectType(type)}
-                className="flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40 text-center transition-all hover:border-[#e85a19] hover:bg-[#e85a19]/5 cursor-pointer"
+                className="flex flex-col items-center gap-2 p-3.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 text-center transition-all hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/5 cursor-pointer text-left"
               >
-                <div className="w-10 h-10 rounded-xl bg-[#e85a19]/10 flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-[#e85a19]" />
-                </div>
+                <Icon className="w-4 h-4 text-[hsl(var(--muted-foreground))] mb-1" />
                 <div>
-                  <p className="font-bold text-sm text-[hsl(var(--foreground))]">{label}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))] leading-snug mt-0.5">{desc}</p>
+                  <p className="font-semibold text-xs text-[hsl(var(--foreground))]">{label}</p>
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-snug mt-0.5">{desc}</p>
                 </div>
-              </motion.button>
+              </button>
             ))}
           </div>
         </DialogContent>
