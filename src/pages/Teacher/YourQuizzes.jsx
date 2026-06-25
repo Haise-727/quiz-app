@@ -9,19 +9,18 @@ import MediaRenderer from '../../components/MediaRenderer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
-  ArrowLeft, Plus, Eye, Trash2, Copy, Share2,
-  BookOpen, MoreVertical, LogOut, GraduationCap,
-  ToggleLeft, ToggleRight, ClipboardList, BarChart2, Search, User,
+  Plus, Eye, Trash2, Copy, Share2,
+  BookOpen, MoreVertical,
+  ToggleLeft, ToggleRight, ClipboardList, BarChart2, Search,
   Zap, CreditCard,
 } from 'lucide-react';
 
@@ -84,7 +83,7 @@ const QuestionPreview = ({ question, index }) => {
 // ── Main page ─────────────────────────────────────────────────────────────────
 const YourQuizzes = () => {
   const navigate = useNavigate();
-  const { currentUser, displayName, signOut: ctxSignOut, switchRole } = useAuth();
+  const { currentUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [quizzes, setQuizzes] = useState([]);
@@ -134,15 +133,10 @@ const YourQuizzes = () => {
     finally { setDeleting(false); }
   };
 
-  const handleSignOut = async () => { await ctxSignOut(); navigate('/login'); };
-  const handleSwitchRole = async () => { try { await switchRole('student'); toast.success('Switched to Student mode'); } catch { toast.error('Failed.'); } };
-
   const formatDate = (ts) => {
     if (!ts?.toDate) return '—';
     return ts.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
-
-  const initials = displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'T';
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen w-screen bg-[hsl(var(--background))]">

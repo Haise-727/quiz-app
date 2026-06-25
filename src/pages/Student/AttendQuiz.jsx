@@ -2,23 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { ArrowLeft, PlayCircle, Search, Hash, BookOpen, Clock, ChevronRight, LogOut, School, User } from 'lucide-react';
+import { PlayCircle, Search, Hash, BookOpen, Clock, ChevronRight } from 'lucide-react';
 
 const AttendQuiz = () => {
   const navigate = useNavigate();
-  const { currentUser, displayName, signOut: ctxSignOut, switchRole } = useAuth();
 
   const [quizCode, setQuizCode] = useState('');
   const [search, setSearch] = useState('');
@@ -52,11 +45,6 @@ const AttendQuiz = () => {
     finally { setJoining(false); }
   };
 
-  const handleSignOut = async () => { await ctxSignOut(); navigate('/login'); };
-  const handleSwitchRole = async () => { try { await switchRole('teacher'); } catch { toast.error('Failed to switch role.'); } };
-
-  const initials = (displayName || currentUser?.email || 'S').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
   const filtered = quizzes.filter(q =>
     q.title?.toLowerCase().includes(search.toLowerCase()) ||
     q.description?.toLowerCase().includes(search.toLowerCase())
@@ -70,47 +58,6 @@ const AttendQuiz = () => {
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
         <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
       </div>
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5 border-b border-[hsl(var(--border))]">
-        <button
-          onClick={() => navigate('/student/dashboard')}
-          className="flex items-center gap-2 text-[hsl(var(--foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Dashboard
-        </button>
-
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]/50 hidden md:flex">
-            Student
-          </Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Avatar className="w-9 h-9 border border-[hsl(var(--border))] cursor-pointer hover:border-[hsl(var(--primary))] transition-colors">
-                <AvatarFallback className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] font-bold text-sm">{initials}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="font-normal">
-                <p className="font-semibold text-[hsl(var(--foreground))]">{displayName || currentUser?.email?.split('@')[0] || 'Student'}</p>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">Student account</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
-                <User className="w-4 h-4" /> My Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSwitchRole} className="gap-2 cursor-pointer">
-                <School className="w-4 h-4 text-[#e85a19]" /> Switch to Teacher
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-650 focus:text-red-650">
-                <LogOut className="w-4 h-4" /> Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
 
       {/* Hero */}
       <div className="relative z-10 px-6 md:px-10 py-6">

@@ -431,7 +431,7 @@ const TakeQuiz = () => {
               {(currentQuestion.type === 'VISUAL_COMPREHENSION' || currentQuestion.type === 'LISTENING_COMPREHENSION') && (
                 <div className="flex flex-col gap-8">
                   <div className="flex flex-col gap-6">
-                    {(currentQuestion.visualData?.subQuestions || currentQuestion.listeningData?.subQuestions).map((subQ, si) => (
+                    {(currentQuestion.visualData?.subQuestions || currentQuestion.listeningData?.subQuestions || []).map((subQ, si) => (
                       <div key={subQ.id} className="border-t border-[hsl(var(--border))] pt-6">
                         <p className="font-semibold mb-4 text-[hsl(var(--foreground))]">{si + 1}. {subQ.questionText}</p>
                         {subQ.type === 'MCQ' && (

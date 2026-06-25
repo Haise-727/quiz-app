@@ -11,42 +11,6 @@ import { Separator } from '@/components/ui/separator';
 import { FaGoogle } from 'react-icons/fa';
 import { Eye, EyeOff, GraduationCap, BookOpen, ArrowLeft, Loader2 } from 'lucide-react';
 
-// ── Role picker card ──────────────────────────────────────────────────────────
-const RoleCard = ({ role, icon: Icon, label, desc, selected, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`
-      group flex flex-col items-center gap-3 p-5 rounded-xl border-2 transition-all duration-200 text-left w-full cursor-pointer
-      ${selected
-        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]'
-        : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--muted))]/60'
-      }
-    `}
-  >
-    <div
-      className={`w-12 h-12 rounded-xl flex items-center justify-center text-white transition-all ${
-        selected ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]/20'
-      }`}
-    >
-      <Icon className="w-6 h-6" />
-    </div>
-    <div className="text-center">
-      <p className="font-bold text-[hsl(var(--foreground))]">{label}</p>
-      <p className="text-xs text-[hsl(var(--muted-foreground))] leading-snug mt-0.5">{desc}</p>
-    </div>
-    {selected && (
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs bg-[hsl(var(--primary))]"
-      >
-        ✓
-      </motion.div>
-    )}
-  </button>
-);
-
 // ── Role selection modal (for new Google users) ────────────────────────────────
 const RoleSelectionModal = ({ user, onSelect, loading }) => (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">

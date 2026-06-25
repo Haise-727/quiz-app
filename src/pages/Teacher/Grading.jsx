@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -10,18 +10,13 @@ import { Button } from '@/components/ui/button';
 import { createNotification } from '../../utils/notifications';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  ArrowLeft, CheckCircle2, Clock, UserCircle, LogOut, GraduationCap,
-  Save, Loader2, ClipboardCheck, AlertCircle, User,
+  CheckCircle2, Clock, UserCircle,
+  Save, Loader2, ClipboardCheck, AlertCircle,
 } from 'lucide-react';
 
 // ── Single answer block inside grading modal ──────────────────────────────────
@@ -140,8 +135,7 @@ const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const Grading = () => {
   const { quizId } = useParams();
-  const navigate = useNavigate();
-  const { currentUser, displayName, signOut: ctxSignOut, switchRole } = useAuth();
+  const { currentUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [quizDetails, setQuizDetails] = useState(null);
@@ -235,10 +229,6 @@ const Grading = () => {
     finally { setSaving(false); }
   };
 
-  const handleSignOut = async () => { await ctxSignOut(); navigate('/login'); };
-  const handleSwitchRole = async () => { try { await switchRole('student'); toast.success('Switched to Student'); } catch { toast.error('Failed.'); } };
-
-  const initials = displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'T';
   const pendingCount = submissions.filter(s => s.status === 'pending').length;
 
   if (loading) return (

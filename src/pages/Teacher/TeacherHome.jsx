@@ -3,26 +3,18 @@ import { db } from '../../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Plus, LayoutDashboard, BookOpen, Upload, LogOut, Activity,
+  Plus, LayoutDashboard, BookOpen, Upload, Activity,
   CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown,
-  BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench, User,
-  Sun, Moon
+  BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench,
 } from 'lucide-react';
 import { clearInvalidQuizzes, seedTestQuiz } from '../../utils/devTools';
-import NotificationBell from '../../components/NotificationBell';
 
 const AnimatedCounter = ({ value, duration = 1500 }) => {
   const [count, setCount] = useState(0);
@@ -58,8 +50,7 @@ const STAT_COLORS = [
 
 const TeacherHome = () => {
   const navigate = useNavigate();
-  const { currentUser, displayName, signOut: ctxSignOut, switchRole } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { currentUser, displayName } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ activeQuizzes: 0, totalQuizzes: 0, totalStudents: 0, completedSessions: 0 });
@@ -103,20 +94,6 @@ const TeacherHome = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    await ctxSignOut();
-    navigate('/login');
-  };
-
-  const handleSwitchRole = async () => {
-    try {
-      await switchRole('student');
-      toast.success('Switched to Student mode');
-    } catch {
-      toast.error('Failed to switch role.');
-    }
-  };
-
   const handleSelectType = (type) => {
     setQuizModalOpen(false);
     navigate('/teacher/create-quiz', { state: { quizType: type } });
@@ -157,8 +134,6 @@ const TeacherHome = () => {
     if (h < 24) return `${Math.floor(h)}h ago`;
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-
-  const initials = displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'T';
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">

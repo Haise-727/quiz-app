@@ -5,30 +5,22 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  PlayCircle, BookOpen, BarChart2, TrendingUp, LogOut,
-  Trophy, Clock, Target, ChevronRight, Star, School, User,
-  Sun, Moon, Users, Hash, Loader2, GraduationCap,
+  PlayCircle, BookOpen, BarChart2, TrendingUp,
+  Trophy, Clock, Target, ChevronRight, Star,
+  Users, Hash, Loader2, GraduationCap,
 } from 'lucide-react';
 import { joinClassByCode, getStudentClasses } from '../../utils/classHelpers';
-import NotificationBell from '../../components/NotificationBell';
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
-  const { currentUser: user, signOut: ctxSignOut, displayName, switchRole } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { currentUser: user, displayName } = useAuth();
 
   const [data, setData] = useState({
     recentResults: [],
@@ -89,20 +81,6 @@ const StudentDashboard = () => {
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  const handleSignOut = async () => {
-    await ctxSignOut();
-    navigate('/login');
-  };
-
-  const handleSwitchRole = async () => {
-    try {
-      await switchRole('teacher');
-      toast.success('Switched to Teacher mode');
-    } catch {
-      toast.error('Failed to switch role.');
-    }
-  };
-
   const handleJoinClass = async (e) => {
     e.preventDefault();
     if (!classCode.trim()) return;
@@ -135,8 +113,6 @@ const StudentDashboard = () => {
     return ts.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const initials = (displayName || user?.displayName || user?.email || 'S')
-    .split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const greeting = displayName || user?.displayName || user?.email?.split('@')[0] || 'Student';
 
   if (loading) return (
@@ -146,9 +122,6 @@ const StudentDashboard = () => {
   );
 
   const { stats, recentResults } = data;
-
-  const scoreColor = pct => pct >= 80 ? 'text-green-600' : pct >= 60 ? 'text-blue-600' : pct >= 40 ? 'text-amber-600' : 'text-red-600';
-  const scoreBg   = pct => pct >= 80 ? 'success' : pct >= 60 ? 'info' : pct >= 40 ? 'warning' : 'destructive';
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

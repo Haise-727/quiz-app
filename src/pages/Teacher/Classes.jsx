@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -16,7 +15,7 @@ import {
   addQuizToClass, removeQuizFromClass, getClassEnrollments,
 } from '../../utils/classHelpers';
 import {
-  ArrowLeft, Plus, Users, BookOpen, Hash, Trash2, Edit2,
+  Plus, Users, BookOpen, Hash, Trash2, Edit2,
   Copy, Check, ChevronDown, ChevronUp, Loader2, GraduationCap,
 } from 'lucide-react';
 
@@ -56,7 +55,6 @@ const CopyButton = ({ text }) => {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 const Classes = () => {
-  const navigate  = useNavigate();
   const { currentUser, displayName } = useAuth();
 
   const [classes,   setClasses]   = useState([]);

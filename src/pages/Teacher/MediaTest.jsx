@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import ImageKit from 'imagekit-javascript';
 
 // Initialize the ImageKit SDK once with your public keys.
@@ -65,7 +64,6 @@ const MediaPreview = ({ file }) => {
 // Main MediaTest Component
 // =================================================================
 const MediaTest = () => {
-  const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);

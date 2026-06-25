@@ -302,7 +302,7 @@ const GuestTakeQuiz = () => {
   const matched = 'px-4 py-2.5 rounded-xl font-medium cursor-default text-center shadow-sm text-white bg-[hsl(var(--primary))] flex items-center gap-2 text-sm';
 
   // Timer color
-  const timerColor = timeLeft <= 10 ? 'bg-red-500/20 text-red-650 border-red-500/30' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))]';
+  const timerColor = timeLeft <= 10 ? 'bg-red-500/20 text-red-600 border-red-500/30' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))]';
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
@@ -472,7 +472,7 @@ const GuestTakeQuiz = () => {
 
                {(currentQ.type === 'VISUAL_COMPREHENSION' || currentQ.type === 'LISTENING_COMPREHENSION') && (
                 <div className="flex flex-col gap-6">
-                  {(currentQ.visualData?.subQuestions || currentQ.listeningData?.subQuestions).map((subQ, si) => (
+                  {(currentQ.visualData?.subQuestions || currentQ.listeningData?.subQuestions || []).map((subQ, si) => (
                     <div key={subQ.id} className="border-t border-[hsl(var(--border))] pt-5">
                       <p className="font-semibold mb-3 text-[hsl(var(--foreground))]">{si + 1}. {subQ.questionText}</p>
                       {subQ.type === 'MCQ' && (

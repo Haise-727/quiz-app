@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Save, Loader2, User, Mail, Shield, Calendar, RefreshCw } from 'lucide-react';
+import { Save, Loader2, User, Mail, Shield, Calendar, RefreshCw } from 'lucide-react';
 
 const Profile = () => {
-  const navigate = useNavigate();
   const { currentUser, displayName, userRole, updateDisplayName, switchRole } = useAuth();
 
   const [name, setName]       = useState(displayName || currentUser?.displayName || '');
@@ -48,7 +44,6 @@ const Profile = () => {
     } catch { toast.error('Failed to switch role.'); setSwitching(false); }
   };
 
-  const backPath = userRole === 'teacher' ? '/teacher/home' : '/student/dashboard';
   const roleLabel = userRole === 'teacher' ? 'Teacher' : 'Student';
 
   return (

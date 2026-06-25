@@ -441,7 +441,6 @@ const useCountUp = (target, duration = 1500) => {
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!target) return;
-    let start = 0;
     const end = parseInt(target, 10);
     if (isNaN(end) || end <= 0) {
       setCount(0);

@@ -106,7 +106,7 @@ const NotificationBell = () => {
           )}
 
           {unreadCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-red-550 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-[#e85a19]">
+            <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-[#e85a19]">
               {unreadCount}
             </span>
           )}
@@ -137,7 +137,7 @@ const NotificationBell = () => {
               <p className="text-xs">No notifications yet</p>
             </div>
           ) : (
-            notifications.map((n, idx) => (
+            notifications.map((n) => (
               <DropdownMenuItem
                 key={n.id}
                 onClick={() => handleNotificationClick(n)}

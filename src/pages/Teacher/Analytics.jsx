@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,15 +11,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  ArrowLeft, Users, Trophy, TrendingUp, Clock,
+  Users, Trophy, TrendingUp, Clock,
   Download, ChevronUp, ChevronDown, ChevronsUpDown,
-  LogOut, GraduationCap, User, AlertCircle, CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 
 const DistTooltip = ({ active, payload, label }) => {
@@ -39,7 +34,7 @@ const QuestionTooltip = ({ active, payload }) => {
     <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-xl px-3 py-2 shadow-lg text-sm max-w-[220px]">
       <p className="font-bold">{d.name}</p>
       <p className="text-[hsl(var(--muted-foreground))] text-xs leading-snug mb-1.5">{d.label}</p>
-      <p className={`font-semibold ${d.passRate >= 70 ? 'text-green-600' : d.passRate >= 40 ? 'text-amber-600' : 'text-red-650'}`}>
+      <p className={`font-semibold ${d.passRate >= 70 ? 'text-green-600' : d.passRate >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
         {d.passRate}% pass rate
       </p>
     </div>
@@ -55,8 +50,7 @@ const SortIcon = ({ col, sortBy, sortDir }) => {
 // ── Main page ─────────────────────────────────────────────────────────────────
 const Analytics = () => {
   const { quizId } = useParams();
-  const navigate = useNavigate();
-  const { currentUser, displayName, signOut: ctxSignOut, switchRole } = useAuth();
+  const { currentUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [quiz, setQuiz] = useState(null);
@@ -167,9 +161,6 @@ const Analytics = () => {
     a.click(); URL.revokeObjectURL(url);
   };
 
-  const handleSignOut   = async () => { await ctxSignOut(); navigate('/login'); };
-  const handleSwitch    = async () => { try { await switchRole('student'); } catch {} };
-  const initials = displayName ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'T';
   const fmtDate = ts => ts?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) ?? '—';
 
   if (loading) return (

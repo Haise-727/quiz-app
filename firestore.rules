@@ -8,6 +8,7 @@ service cloud.firestore {
       return request.auth != null;
     }
     function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
     }
     function hasRole(role) {
       return isSignedIn() &&
@@ -19,8 +20,8 @@ service cloud.firestore {
     // Only the owner can write their own profile.
     match /users/{userId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
       allow delete: if false;
     }
 
@@ -31,10 +32,10 @@ service cloud.firestore {
     // - Only the creator can update or delete.
     match /quizzes/{quizId} {
       allow read:   if resource.data.active == true ||
-                       (isSignedIn() && isOwner(resource.data.createdBy));
+                       isOwner(resource.data.createdBy);
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && isOwner(resource.data.createdBy);
-      allow delete: if isSignedIn() && isOwner(resource.data.createdBy);
+      allow update: if isOwner(resource.data.createdBy);
+      allow delete: if isOwner(resource.data.createdBy);
     }
 
     // ── quiz_results ──────────────────────────────────────────────────────────
@@ -45,11 +46,51 @@ service cloud.firestore {
     // - Nobody can delete results.
     match /quiz_results/{resultId} {
       allow create: if true;   // guests + students
-      allow read:   if isSignedIn() && (
-                       isOwner(resource.data.userId) ||
-                       isOwner(resource.data.teacherId)
-                    );
-      allow update: if isSignedIn() && isOwner(resource.data.teacherId);
+      allow read:   if isOwner(resource.data.userId) ||
+                       isOwner(resource.data.teacherId);
+      allow update: if isOwner(resource.data.teacherId);
+      allow delete: if false;
+    }
+
+    // ── classes ───────────────────────────────────────────────────────────────
+    // - Any signed-in user can read (students need to look up a class by join code).
+    // - Only the creating teacher can create/update/delete their own class.
+    match /classes/{classId} {
+      allow read:   if isSignedIn();
+      allow create: if isOwner(request.resource.data.teacherId);
+      allow update: if isOwner(resource.data.teacherId);
+      allow delete: if isOwner(resource.data.teacherId);
+    }
+
+    // ── class_enrollments ─────────────────────────────────────────────────────
+    // - A student can create their own enrollment (joining a class).
+    // - The enrolled student or the owning teacher can read/delete it.
+    match /class_enrollments/{enrollmentId} {
+      allow create: if isOwner(request.resource.data.studentId);
+      allow read:   if isOwner(resource.data.studentId) ||
+                       get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.teacherId == request.auth.uid;
+      allow delete: if isOwner(resource.data.studentId) ||
+                       get(/databases/$(database)/documents/classes/$(resource.data.classId)).data.teacherId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ── question_bank ─────────────────────────────────────────────────────────
+    // Personal per-teacher saved questions — only the owning teacher can touch theirs.
+    match /question_bank/{itemId} {
+      allow read:   if isOwner(resource.data.teacherId);
+      allow create: if isOwner(request.resource.data.teacherId);
+      allow delete: if isOwner(resource.data.teacherId);
+      allow update: if false;
+    }
+
+    // ── notifications ─────────────────────────────────────────────────────────
+    // - Any signed-in user can create a notification for another user (e.g. teacher
+    //   notifying a student that their submission was graded).
+    // - Only the recipient can read/mark their own notifications as read.
+    match /notifications/{notificationId} {
+      allow read:   if isOwner(resource.data.userId);
+      allow create: if isSignedIn();
+      allow update: if isOwner(resource.data.userId);
       allow delete: if false;
     }
   }

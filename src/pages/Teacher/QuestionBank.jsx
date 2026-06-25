@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getBankQuestions, deleteBankQuestion } from '../../utils/questionBankHelpers';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -130,7 +129,7 @@ const QuestionPreview = ({ question }) => {
       );
 
     case 'VISUAL_COMPREHENSION':
-    case 'LISTENING_COMPREHENSION':
+    case 'LISTENING_COMPREHENSION': {
       const sqs = question.visualData?.subQuestions || question.listeningData?.subQuestions || [];
       return (
         <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700 flex flex-col gap-2">
@@ -145,6 +144,7 @@ const QuestionPreview = ({ question }) => {
           </div>
         </div>
       );
+    }
 
     default:
       return null;
@@ -152,7 +152,6 @@ const QuestionPreview = ({ question }) => {
 };
 
 const QuestionBank = () => {
-  const navigate = useNavigate();
   const { currentUser } = useAuth();
 
   const [questions, setQuestions] = useState([]);
@@ -310,7 +309,7 @@ const QuestionBank = () => {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleDeleteQuestion(q.id, q.questionText)}
-                            className="text-[hsl(var(--muted-foreground))] hover:text-red-650 hover:bg-red-50 dark:hover:bg-red-950/20 shrink-0 self-start p-2 rounded-xl"
+                            className="text-[hsl(var(--muted-foreground))] hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 shrink-0 self-start p-2 rounded-xl"
                             title="Delete question from bank"
                           >
                             <Trash2 className="w-4 h-4" />

@@ -42,7 +42,7 @@ const CreateQuiz = () => {
     const location = useLocation();
     const { currentUser } = useAuth();
 
-    const [quizType, setQuizType] = useState(location.state?.quizType || 'MIXED');
+    const [quizType] = useState(location.state?.quizType || 'MIXED');
     const [userDisplayName, setUserDisplayName] = useState('');
     const [loading, setLoading] = useState(true);
     const [quizTitle, setQuizTitle] = useState('');
@@ -50,7 +50,7 @@ const CreateQuiz = () => {
     const [quizSubject, setQuizSubject] = useState('');
     const [quizTags, setQuizTags] = useState([]);
     const [tagInput, setTagInput] = useState('');
-    const [questions, setQuestions] = useState([generateNewQuestion('MCQ')]);
+    const [questions, setQuestions] = useState([generateNewQuestion(location.state?.quizType && location.state.quizType !== 'MIXED' ? location.state.quizType : 'MCQ')]);
     const [isPublished, setIsPublished] = useState(false);
     const [generatedCode, setGeneratedCode] = useState('');
     const [error, setError] = useState('');
@@ -173,7 +173,7 @@ const CreateQuiz = () => {
                 } else {
                     setError('No image found on clipboard.');
                 }
-            } catch (err) {
+            } catch {
                 setError('Could not read image from clipboard. Please grant permission or try uploading.');
             }
         }
@@ -677,7 +677,7 @@ const CreateQuiz = () => {
                                                 handleEditMedia(target);
                                             }}
                                         /> : <button className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'reorderItemMedia', itemIndex: iIndex})}><FaPhotoVideo/></button>}<input type="text" value={item.text} onChange={e => handleReorderItemChange(qIndex, iIndex, e.target.value)} placeholder="Item text" className="form-control"/></div><button type="button" className="remove-item-btn" onClick={() => handleRemoveReorderItem(qIndex, iIndex)} disabled={q.reorderData.items.length <= 1}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddReorderItem(qIndex)}><FaPlus/> Add Item</button></div>}
-                                        {(q.type === 'VISUAL_COMPREHENSION' || q.type === 'LISTENING_COMPREHENSION') && <div className="comprehension-container"><h4 style={{marginTop: '1.5rem'}}>Follow-up Questions</h4>{(q.visualData?.subQuestions || q.listeningData?.subQuestions).map((subQ, subQIndex) => (<div key={subQ.id} className="sub-question-card"><div className="sub-question-header"><h5>Question {subQIndex + 1} ({subQ.type})</h5><button className="remove-item-btn" onClick={() => handleRemoveSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex)}><FaTimes/></button></div><input type="text" value={subQ.questionText} onChange={(e) => handleSubQuestionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, 'questionText', e.target.value)} className="form-control" placeholder="Sub-question text"/>{subQ.type === 'MCQ' && subQ.mcqData && <div className="options-container" style={{paddingTop: '1rem'}}>{subQ.mcqData.options.map((opt, oIndex) => (<div key={opt.id} className="option-item"><input type="checkbox" className="form-check-input" checked={subQ.mcqData.correctOptions.includes(opt.id)} onChange={() => handleSubMCQCorrectToggle(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex)} /><input type="text" value={opt.text} onChange={(e) => handleSubMCQOptionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex, e.target.value)} placeholder={`Option ${oIndex + 1}`} className="form-control" /></div>))}</div>}</div>))}<div className="sub-question-add-buttons"><button type="button" className="add-item-btn" onClick={() => handleAddSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', 'MCQ')}><FaPlus/> Add MCQ</button></div></div>}
+                                        {(q.type === 'VISUAL_COMPREHENSION' || q.type === 'LISTENING_COMPREHENSION') && <div className="comprehension-container"><h4 style={{marginTop: '1.5rem'}}>Follow-up Questions</h4>{(q.visualData?.subQuestions || q.listeningData?.subQuestions || []).map((subQ, subQIndex) => (<div key={subQ.id} className="sub-question-card"><div className="sub-question-header"><h5>Question {subQIndex + 1} ({subQ.type})</h5><button className="remove-item-btn" onClick={() => handleRemoveSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex)}><FaTimes/></button></div><input type="text" value={subQ.questionText} onChange={(e) => handleSubQuestionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, 'questionText', e.target.value)} className="form-control" placeholder="Sub-question text"/>{subQ.type === 'MCQ' && subQ.mcqData && <div className="options-container" style={{paddingTop: '1rem'}}>{subQ.mcqData.options.map((opt, oIndex) => (<div key={opt.id} className="option-item"><input type="checkbox" className="form-check-input" checked={subQ.mcqData.correctOptions.includes(opt.id)} onChange={() => handleSubMCQCorrectToggle(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex)} /><input type="text" value={opt.text} onChange={(e) => handleSubMCQOptionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex, e.target.value)} placeholder={`Option ${oIndex + 1}`} className="form-control" /></div>))}</div>}</div>))}<div className="sub-question-add-buttons"><button type="button" className="add-item-btn" onClick={() => handleAddSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', 'MCQ')}><FaPlus/> Add MCQ</button></div></div>}
                                     </div>
                                 </motion.div>
                             ))}
