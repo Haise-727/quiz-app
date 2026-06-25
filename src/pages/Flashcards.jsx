@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   ChevronLeft, ChevronRight, RotateCcw, Home,
-  CheckCircle2, BookOpen, Trophy, Shuffle,
+  CheckCircle2, BookOpen, Trophy, Shuffle, Volume2, VolumeX,
 } from 'lucide-react';
+import { playClick, playCorrect, playComplete, isSoundEnabled, toggleSound } from '../utils/sounds';
 
 // ── Derive the "back" content for each question type ─────────────────────────
 const getBack = (q) => {
@@ -21,6 +22,8 @@ const getBack = (q) => {
       });
       return { label: 'Correct Answer', content: answers.join(' · ') };
     }
+    case 'TRUE_FALSE':
+      return { label: 'Correct Answer', content: q.trueFalseData.correctAnswer ? 'True' : 'False' };
     case 'FILL_IN_THE_BLANK':
       return { label: 'Answer', content: q.fillBlankData.answers.map(a => a.text).join(' / ') };
     case 'MATCH_THE_FOLLOWING':
@@ -93,6 +96,7 @@ const Flashcards = () => {
   // 'unseen' | 'know' | 'learning'
   const [status, setStatus] = useState({});
   const [done, setDone] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
 
   useEffect(() => {
     const load = async () => {
@@ -129,11 +133,12 @@ const Flashcards = () => {
   const progress = total ? Math.round((knowCount / total) * 100) : 0;
 
   const markAndNext = (mark) => {
+    if (mark === 'know') playCorrect(); else playClick();
     setStatus(s => ({ ...s, [currentIndex]: mark }));
     setIsFlipped(false);
     setTimeout(() => {
       if (index < cards.length - 1) setIndex(i => i + 1);
-      else setDone(true);
+      else { playComplete(); setDone(true); }
     }, 150);
   };
 
@@ -228,9 +233,15 @@ const Flashcards = () => {
           <p className="text-xs text-[hsl(var(--primary))] uppercase tracking-widest font-semibold mb-0.5">Flashcards</p>
           <p className="text-sm font-bold text-[hsl(var(--foreground))]/70 truncate max-w-48">{quiz.title}</p>
         </div>
-        <button onClick={shuffleCards} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors cursor-pointer bg-transparent border-0" title="Shuffle">
-          <Shuffle className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSoundOn(toggleSound())} title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+            className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors cursor-pointer bg-transparent border-0">
+            {soundOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          </button>
+          <button onClick={shuffleCards} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors cursor-pointer bg-transparent border-0" title="Shuffle">
+            <Shuffle className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Progress */}
@@ -255,7 +266,7 @@ const Flashcards = () => {
         <motion.div key={`${currentIndex}-${index}`}
           initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
           transition={{ duration: 0.2 }} className="relative z-10 w-full max-w-2xl mb-8">
-          <FlipCard question={q} isFlipped={isFlipped} onFlip={() => setIsFlipped(f => !f)} />
+          <FlipCard question={q} isFlipped={isFlipped} onFlip={() => { playClick(); setIsFlipped(f => !f); }} />
         </motion.div>
       </AnimatePresence>
 
@@ -279,11 +290,11 @@ const Flashcards = () => {
               className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/50 disabled:opacity-20">
               <ChevronLeft className="w-5 h-5" />
             </Button>
-            <Button onClick={() => setIsFlipped(true)}
+            <Button onClick={() => { playClick(); setIsFlipped(true); }}
               className="px-8 bg-[hsl(var(--primary))] text-white border-0 hover:bg-[hsl(var(--primary-hover))] font-semibold">
               Flip Card
             </Button>
-            <Button onClick={() => { setIsFlipped(false); if (index < cards.length - 1) setIndex(i => i + 1); else setDone(true); }}
+            <Button onClick={() => { setIsFlipped(false); if (index < cards.length - 1) setIndex(i => i + 1); else { playComplete(); setDone(true); } }}
               variant="ghost" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/50">
               <ChevronRight className="w-5 h-5" />
             </Button>

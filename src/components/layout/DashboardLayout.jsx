@@ -30,8 +30,11 @@ import {
   ChevronRight,
   LogOut,
   Sparkles,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import NotificationBell from '../NotificationBell';
+import { isSoundEnabled, toggleSound } from '../../utils/sounds';
 
 const DashboardLayout = ({ children }) => {
   const navigate = useNavigate();
@@ -39,6 +42,7 @@ const DashboardLayout = ({ children }) => {
   const { currentUser, userRole, signOut: ctxSignOut, switchRole, displayName } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -258,6 +262,16 @@ const DashboardLayout = ({ children }) => {
 
           <div className="flex items-center gap-3">
             <NotificationBell />
+
+            {/* Sound Toggle */}
+            <button
+              onClick={() => setSoundOn(toggleSound())}
+              className="w-8 h-8 rounded-interactive bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted))]/80 text-[hsl(var(--foreground))] flex items-center justify-center transition-colors border border-[hsl(var(--border))] cursor-pointer"
+              aria-label="Toggle Sound"
+              title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+            >
+              {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
 
             {/* Theme Toggle */}
             <button

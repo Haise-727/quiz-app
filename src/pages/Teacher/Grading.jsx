@@ -23,6 +23,10 @@ import {
 const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => {
   const renderUserAnswer = () => {
     const ua = answer.userAnswer;
+    if (originalQuestion.type === 'TRUE_FALSE') {
+      if (typeof ua !== 'boolean') return <span className="italic text-[hsl(var(--muted-foreground))]">No answer provided.</span>;
+      return <span>{ua ? 'True' : 'False'}</span>;
+    }
     if ((!ua && typeof ua !== 'string') || (Array.isArray(ua) && ua.length === 0))
       return <span className="italic text-[hsl(var(--muted-foreground))]">No answer provided.</span>;
     switch (originalQuestion.type) {

@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Plus, LayoutDashboard, BookOpen, Upload, Activity,
-  CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown,
+  CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown, ToggleLeft,
   BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench,
 } from 'lucide-react';
 import { clearInvalidQuizzes, seedTestQuiz } from '../../utils/devTools';
@@ -30,15 +30,16 @@ const AnimatedCounter = ({ value, duration = 1500 }) => {
 };
 
 const QUIZ_TYPES = [
-  { type: 'MCQ',                   icon: CheckSquare, label: 'Multiple Choice',      desc: 'Classic auto-graded choices.' },
-  { type: 'FILL_IN_THE_BLANK',     icon: AlignLeft,   label: 'Fill in the Blank',    desc: 'Short, specific answers.' },
-  { type: 'PARAGRAPH',             icon: BookOpen,    label: 'Paragraph',            desc: 'Long-form, manual grading.' },
-  { type: 'MATCH_THE_FOLLOWING',   icon: GitCompare,  label: 'Match the Following',  desc: 'Connect pairs correctly.' },
-  { type: 'CATEGORIZE',            icon: Grid3X3,     label: 'Categorize Items',     desc: 'Sort into groups.' },
-  { type: 'REORDER',               icon: ArrowUpDown, label: 'Reorder Sequence',     desc: 'Arrange in correct order.' },
-  { type: 'READING_COMPREHENSION', icon: BookMarked,  label: 'Comprehension',        desc: 'Passage with follow-ups.' },
-  { type: 'LABELING',              icon: Image,       label: 'Image Labeling',       desc: 'Label parts of an image.' },
-  { type: 'MIXED',                 icon: Layers,      label: 'Mixed / Custom',       desc: 'Combine all question types.' },
+  { type: 'MCQ',                    icon: CheckSquare, label: 'Multiple Choice',      desc: 'Classic auto-graded choices.' },
+  { type: 'TRUE_FALSE',             icon: ToggleLeft,  label: 'True / False',         desc: 'Quick binary questions.' },
+  { type: 'FILL_IN_THE_BLANK',      icon: AlignLeft,   label: 'Fill in the Blank',    desc: 'Short, specific answers.' },
+  { type: 'PARAGRAPH',              icon: BookOpen,    label: 'Paragraph',            desc: 'Long-form, manual grading.' },
+  { type: 'MATCH_THE_FOLLOWING',    icon: GitCompare,  label: 'Match the Following',  desc: 'Connect pairs correctly.' },
+  { type: 'CATEGORIZE',             icon: Grid3X3,     label: 'Categorize Items',     desc: 'Sort into groups.' },
+  { type: 'REORDER',                icon: ArrowUpDown, label: 'Reorder Sequence',     desc: 'Arrange in correct order.' },
+  { type: 'VISUAL_COMPREHENSION',   icon: Image,       label: 'Visual Comprehension', desc: 'Image/video with follow-ups.' },
+  { type: 'LISTENING_COMPREHENSION', icon: BookMarked, label: 'Listening Comprehension', desc: 'Audio with follow-ups.' },
+  { type: 'MIXED',                  icon: Layers,      label: 'Mixed / Custom',       desc: 'Combine all question types.' },
 ];
 
 const STAT_COLORS = [

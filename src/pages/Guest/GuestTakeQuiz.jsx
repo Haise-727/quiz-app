@@ -7,6 +7,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion, AnimatePresence } from 'framer-motion';
 import MediaRenderer from '../../components/MediaRenderer';
 import { FaGripLines, FaArrowLeft, FaArrowRight, FaCheckCircle } from 'react-icons/fa';
+import { playTick, playComplete } from '../../utils/sounds';
 
 const shuffleArray = (arr) => !arr || !Array.isArray(arr) ? [] : [...arr].sort(() => Math.random() - 0.5);
 
@@ -44,6 +45,7 @@ const GuestTakeQuiz = () => {
           try {
             switch (q.type) {
               case 'MCQ': return [];
+              case 'TRUE_FALSE': return null;
               case 'FILL_IN_THE_BLANK': case 'PARAGRAPH': return '';
               case 'MATCH_THE_FOLLOWING': return { pairs: {}, bank: shuffleArray((q.matchData?.pairs || []).map(p => ({ id: p.id, answerText: p.answer, answerMedia: p.answerMedia }))) };
               case 'REORDER': return shuffleArray(q.reorderData?.items || []);
@@ -67,7 +69,11 @@ const GuestTakeQuiz = () => {
     questionStartTimeRef.current = Date.now();
     if (timerRef.current) clearInterval(timerRef.current);
     setTimeLeft(tl);
-    timerRef.current = setInterval(() => setTimeLeft(t => { if (t <= 1) { clearInterval(timerRef.current); handleNext(true); return 0; } return t - 1; }), 1000);
+    timerRef.current = setInterval(() => setTimeLeft(t => {
+      if (t <= 1) { clearInterval(timerRef.current); handleNext(true); return 0; }
+      if (t <= 11) playTick();
+      return t - 1;
+    }), 1000);
     return () => clearInterval(timerRef.current);
   }, [currentQuestionIndex, nameSubmitted, quizSubmitted, quiz]);
 
@@ -137,6 +143,7 @@ const GuestTakeQuiz = () => {
         let pts = 0, status = 'auto_graded', correct = false;
         switch (q.type) {
           case 'MCQ': { const ci = q.mcqData.correctOptions.map(String); const si = (ua || []).map(String); if (ci.length && ci.length === si.length && ci.every(id => si.includes(id))) { pts = q.points; correct = true; } break; }
+          case 'TRUE_FALSE': { if (ua === q.trueFalseData.correctAnswer) { pts = q.points; correct = true; } break; }
           case 'FILL_IN_THE_BLANK': { if (q.fillBlankData.answers.map(a => a.text.toLowerCase()).includes((ua || '').trim().toLowerCase())) { pts = q.points; correct = true; } break; }
           case 'PARAGRAPH': { needsManual = true; status = 'pending_review'; break; }
           case 'MATCH_THE_FOLLOWING': { if (q.matchData?.pairs) { let m = 0; q.matchData.pairs.forEach(p => { if (ua?.pairs?.[p.id]?.answerText === p.answer) m++; }); pts = q.matchData.pairs.length > 0 ? Math.round((m / q.matchData.pairs.length) * q.points) : 0; if (m === q.matchData.pairs.length) correct = true; } break; }
@@ -156,6 +163,7 @@ const GuestTakeQuiz = () => {
       };
       const ref = await addDoc(collection(db, 'quiz_results'), res);
       setFinalResults({ id: ref.id, ...res });
+      playComplete();
     } catch (err) {
       console.error('Submit error:', err);
       setError('Failed to submit. Please try again.');
@@ -385,6 +393,18 @@ const GuestTakeQuiz = () => {
                       {opt.text && <span>{opt.text}</span>}
                       <MediaRenderer media={opt.media} transform="thumbnail" />
                     </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {currentQ.type === 'TRUE_FALSE' && (
+                <div className="grid grid-cols-2 gap-4">
+                  {[true, false].map(val => (
+                    <motion.button key={String(val)} type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                      onClick={() => handleAnswerChange(val)}
+                      className={`flex items-center justify-center gap-2 py-6 rounded-xl border font-bold text-lg transition-all ${currentA === val ? 'bg-[hsl(var(--primary))] text-white border-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary))]/50'}`}>
+                      {val ? 'True' : 'False'}
+                    </motion.button>
                   ))}
                 </div>
               )}

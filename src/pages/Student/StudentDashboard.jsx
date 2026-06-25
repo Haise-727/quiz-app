@@ -14,9 +14,10 @@ import { Separator } from '@/components/ui/separator';
 import {
   PlayCircle, BookOpen, BarChart2, TrendingUp,
   Trophy, Clock, Target, ChevronRight, Star,
-  Users, Hash, Loader2, GraduationCap,
+  Users, Hash, Loader2, GraduationCap, Calendar, CheckCircle2,
 } from 'lucide-react';
 import { joinClassByCode, getStudentClasses } from '../../utils/classHelpers';
+import { getQuizzesByIds, getDueStatus, formatDueDate } from '../../utils/assignmentHelpers';
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -33,6 +34,8 @@ const StudentDashboard = () => {
   const [classCode, setClassCode]   = useState('');
   const [joining, setJoining]       = useState(false);
   const [classError, setClassError] = useState('');
+  const [completedQuizIds, setCompletedQuizIds] = useState(new Set());
+  const [assignedQuizInfo, setAssignedQuizInfo] = useState({}); // quizId → { title, ... }
 
   // ── Data fetchers ──────────────────────────────────────────────────────────
 
@@ -51,6 +54,7 @@ const StudentDashboard = () => {
         const pct = r.maxScore > 0 ? (r.finalScore / r.maxScore) * 100 : 0;
         totalPct += pct; if (pct > best) best = pct; time += r.timeSpent || 0;
       });
+      setCompletedQuizIds(new Set(results.map(r => r.quizId)));
       setData({
         recentResults: results.slice(0, 5),
         stats: {
@@ -73,6 +77,11 @@ const StudentDashboard = () => {
     try {
       const list = await getStudentClasses(user.uid);
       setClasses(list);
+      const allQuizIds = list.flatMap(cls => cls.quizIds || []);
+      if (allQuizIds.length) {
+        const info = await getQuizzesByIds(allQuizIds);
+        setAssignedQuizInfo(info);
+      }
     } catch { /* silent */ }
   }, [user]);
 
@@ -243,24 +252,37 @@ const StudentDashboard = () => {
                         </div>
 
                         {cls.quizIds && cls.quizIds.length > 0 ? (
-                          <div className="mt-2 pt-2 border-t border-[hsl(var(--border))]">
-                            <p className="text-[9px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-1">
+                          <div className="mt-2 pt-2 border-t border-[hsl(var(--border))] flex flex-col gap-1.5">
+                            <p className="text-[9px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-0.5">
                               {cls.quizIds.length} Assigned Quiz{cls.quizIds.length !== 1 ? 'zes' : ''}
                             </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {cls.quizIds.slice(0, 5).map(qId => (
+                            {cls.quizIds.map(qId => {
+                              const info = assignedQuizInfo[qId];
+                              const due = cls.dueDates?.[qId];
+                              const dueStatus = getDueStatus(due);
+                              const done = completedQuizIds.has(qId);
+                              return (
                                 <button
                                   key={qId}
                                   onClick={() => navigate(`/student/quiz/${qId}`)}
-                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 px-2 py-0.5 rounded-full hover:bg-[hsl(var(--primary))]/20 transition-colors cursor-pointer"
+                                  className="flex items-center gap-2 text-left text-xs px-2.5 py-1.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--primary))]/5 transition-colors cursor-pointer"
                                 >
-                                  <PlayCircle className="w-2.5 h-2.5" /> Quiz
+                                  {done
+                                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                                    : <PlayCircle className="w-3.5 h-3.5 text-[hsl(var(--primary))] shrink-0" />}
+                                  <span className="flex-1 min-w-0 truncate font-medium text-[hsl(var(--foreground))]">{info?.title || 'Quiz'}</span>
+                                  {due && (
+                                    <span className={`inline-flex items-center gap-1 shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                      dueStatus === 'overdue' ? 'bg-red-500/10 text-red-500' :
+                                      dueStatus === 'due-soon' ? 'bg-amber-500/10 text-amber-600' :
+                                      'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'
+                                    }`}>
+                                      <Calendar className="w-2.5 h-2.5" /> {formatDueDate(due)}
+                                    </span>
+                                  )}
                                 </button>
-                              ))}
-                              {cls.quizIds.length > 5 && (
-                                <span className="text-[10px] text-[hsl(var(--muted-foreground))] self-center font-medium">+{cls.quizIds.length - 5} more</span>
-                              )}
-                            </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-2 pt-2 border-t border-[hsl(var(--border))]">

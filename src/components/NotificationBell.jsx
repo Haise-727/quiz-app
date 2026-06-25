@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -6,6 +6,7 @@ import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from '../utils/notifications';
+import { playNotification } from '../utils/sounds';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +23,20 @@ const NotificationBell = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [notifications, setNotifications] = useState([]);
+  const seenIds = useRef(null);
 
   useEffect(() => {
     if (!currentUser) return;
 
     // Set up real-time listener for notifications
     const unsubscribe = listenToNotifications(currentUser.uid, (list) => {
+      // Only chime for notifications that weren't present on the previous snapshot —
+      // avoids playing a sound for pre-existing unread items on initial load.
+      if (seenIds.current) {
+        const isNew = list.some(n => !n.read && !seenIds.current.has(n.id));
+        if (isNew) playNotification();
+      }
+      seenIds.current = new Set(list.map(n => n.id));
       setNotifications(list);
     });
 

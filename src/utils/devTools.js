@@ -30,7 +30,7 @@ export async function seedTestQuiz(teacherUid) {
     createdBy: teacherUid,
     createdAt: serverTimestamp(),
     active: true,
-    totalPoints: 70,
+    totalPoints: 80,
     questions: [
       {
         id: 'q1',
@@ -47,6 +47,14 @@ export async function seedTestQuiz(teacherUid) {
           ],
           correctOptions: ['b'],
         },
+      },
+      {
+        id: 'q1b',
+        type: 'TRUE_FALSE',
+        questionText: 'The Great Wall of China is visible from space with the naked eye.',
+        points: 10,
+        timeLimit: 20,
+        trueFalseData: { correctAnswer: false },
       },
       {
         id: 'q2',

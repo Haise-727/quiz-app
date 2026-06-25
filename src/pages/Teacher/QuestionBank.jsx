@@ -13,6 +13,7 @@ import {
 const QUESTION_TYPES = [
   { value: 'ALL', label: 'All Types' },
   { value: 'MCQ', label: 'Multiple Choice' },
+  { value: 'TRUE_FALSE', label: 'True / False' },
   { value: 'FILL_IN_THE_BLANK', label: 'Fill in the Blank' },
   { value: 'PARAGRAPH', label: 'Paragraph' },
   { value: 'MATCH_THE_FOLLOWING', label: 'Match the Following' },
@@ -41,6 +42,16 @@ const QuestionPreview = ({ question }) => {
               </div>
             );
           })}
+        </div>
+      );
+
+    case 'TRUE_FALSE':
+      return (
+        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700">
+          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1.5">Correct Answer</p>
+          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">
+            {question.trueFalseData?.correctAnswer ? 'True' : 'False'}
+          </Badge>
         </div>
       );
 

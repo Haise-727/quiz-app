@@ -24,6 +24,7 @@ const generateNewQuestion = (type) => {
     const baseQuestion = { id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, type, questionText: '', points: 10, timeLimit: 60, media: null, localMediaFile: null, localCropData: null };
     switch (type) {
         case 'MCQ': return { ...baseQuestion, mcqData: { options: [{ id: Date.now() + 1, text: '', media: null, localMediaFile: null, localCropData: null }, { id: Date.now() + 2, text: '', media: null, localMediaFile: null, localCropData: null }], correctOptions: [] } };
+        case 'TRUE_FALSE': return { ...baseQuestion, trueFalseData: { correctAnswer: true } };
         case 'FILL_IN_THE_BLANK': return { ...baseQuestion, fillBlankData: { answers: [{ text: '' }], caseSensitive: false } };
         case 'PARAGRAPH': return { ...baseQuestion, paragraphData: { keywords: [{ text: '' }] } };
         case 'MATCH_THE_FOLLOWING': return { ...baseQuestion, points: 20, matchData: { pairs: [{ id: Date.now(), prompt: '', promptMedia: null, promptLocalMediaFile: null, promptLocalCropData: null, answer: '', answerMedia: null, answerLocalMediaFile: null, answerLocalCropData: null }] } };
@@ -585,6 +586,7 @@ const CreateQuiz = () => {
                                             {quizType === 'MIXED' && (
                                                 <select value={q.type} onChange={(e) => handleQuestionTypeChange(qIndex, e.target.value)} className="question-type-select">
                                                     <option value="MCQ">Multiple Choice</option>
+                                                    <option value="TRUE_FALSE">True / False</option>
                                                     <option value="FILL_IN_THE_BLANK">Fill in the Blank</option>
                                                     <option value="PARAGRAPH">Paragraph</option>
                                                     <option value="MATCH_THE_FOLLOWING">Match the Following</option>
@@ -644,6 +646,7 @@ const CreateQuiz = () => {
                                                 handleEditMedia(target);
                                             }}
                                         />) : (<button type="button" className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'mcqOptionMedia', oIndex })}><FaPhotoVideo/></button>)}<button className="remove-item-btn" onClick={() => handleRemoveMCQOption(qIndex, oIndex)} disabled={q.mcqData.options.length <= 2}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddMCQOption(qIndex)}><FaPlus/> Add Option</button></div>}
+                                        {q.type === 'TRUE_FALSE' && q.trueFalseData && <div className="options-container"><h4>Correct Answer</h4><div className="option-item" style={{ gap: '1.5rem' }}><label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}><input type="radio" name={`tf-${q.id}`} checked={q.trueFalseData.correctAnswer === true} onChange={() => handleQuestionChange(qIndex, 'trueFalseData', { correctAnswer: true })} /> True</label><label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}><input type="radio" name={`tf-${q.id}`} checked={q.trueFalseData.correctAnswer === false} onChange={() => handleQuestionChange(qIndex, 'trueFalseData', { correctAnswer: false })} /> False</label></div></div>}
                                         {q.type === 'FILL_IN_THE_BLANK' && q.fillBlankData && <div className="options-container"><h4>Accepted Answers (Case Insensitive)</h4>{q.fillBlankData.answers.map((ans, ansIndex) => (<div key={ansIndex} className="option-item"><input type="text" value={ans.text} onChange={(e) => handleFillBlankAnswerChange(qIndex, ansIndex, e.target.value)} placeholder="Accepted answer" className="form-control" /><button className="remove-item-btn" onClick={() => handleRemoveFillBlankAnswer(qIndex, ansIndex)} disabled={q.fillBlankData.answers.length <= 1}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddFillBlankAnswer(qIndex)}><FaPlus/> Add Answer</button></div>}
                                         {q.type === 'PARAGRAPH' && q.paragraphData && <div className="options-container"><h4>Grading Keywords (Optional)</h4><p className="input-instruction">Provide keywords to help with grading.</p>{q.paragraphData.keywords.map((key, keyIndex) => (<div key={keyIndex} className="option-item"><input type="text" value={key.text} onChange={(e) => handleParagraphKeywordChange(qIndex, keyIndex, e.target.value)} placeholder="Keyword for grading" className="form-control" /><button className="remove-item-btn" onClick={() => handleRemoveParagraphKeyword(qIndex, keyIndex)}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddParagraphKeyword(qIndex)}><FaPlus/> Add Keyword</button></div>}
                                         {q.type === 'MATCH_THE_FOLLOWING' && q.matchData && <div className="match-following-container"><h4>Matching Pairs</h4>{q.matchData.pairs.map((pair, pIndex) => (<div key={pair.id} className="match-pair-item"><FaGripLines/><div className="match-column">{(pair.promptMedia || pair.promptLocalMediaFile) ? <MediaPreview
@@ -721,6 +724,7 @@ const CreateQuiz = () => {
                             >
                                 <option value="ALL">All Types</option>
                                 <option value="MCQ">Multiple Choice</option>
+                                <option value="TRUE_FALSE">True / False</option>
                                 <option value="FILL_IN_THE_BLANK">Fill in the Blank</option>
                                 <option value="PARAGRAPH">Paragraph</option>
                                 <option value="MATCH_THE_FOLLOWING">Match the Following</option>

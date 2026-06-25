@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   CheckCircle2, XCircle, ChevronLeft, ChevronRight,
-  RotateCcw, BookOpen, Eye, Home, Trophy,
+  RotateCcw, BookOpen, Eye, Home, Trophy, Volume2, VolumeX,
 } from 'lucide-react';
+import { playCorrect, playWrong, playComplete, isSoundEnabled, toggleSound } from '../utils/sounds';
 
 // ── Correct answer renderer ───────────────────────────────────────────────────
 const CorrectAnswer = ({ q }) => {
@@ -23,6 +24,8 @@ const CorrectAnswer = ({ q }) => {
           })}
         </div>
       );
+    case 'TRUE_FALSE':
+      return <p className="font-semibold text-[hsl(var(--primary))]">✓ {q.trueFalseData.correctAnswer ? 'True' : 'False'}</p>;
     case 'FILL_IN_THE_BLANK':
       return <p className="font-semibold text-[hsl(var(--primary))]">✓ {q.fillBlankData.answers.map(a => a.text).join(' / ')}</p>;
     case 'MATCH_THE_FOLLOWING':
@@ -74,6 +77,7 @@ const Practice = () => {
   const [fillInput, setFillInput] = useState('');
   const [done, setDone] = useState(false);
   const [direction, setDirection] = useState(1);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
 
   useEffect(() => {
     const load = async () => {
@@ -108,6 +112,8 @@ const Practice = () => {
   const scorePct = quiz ? Math.round((score / quiz.questions.length) * 100) : 0;
 
   const answer = (updates) => {
+    if (updates.correct === true) playCorrect();
+    else if (updates.correct === false) playWrong();
     setResults(prev => { const n = [...prev]; n[index] = { ...n[index], answered: true, ...updates }; return n; });
   };
 
@@ -124,12 +130,18 @@ const Practice = () => {
     answer({ correct, selected: fillInput.trim() });
   };
 
+  const handleTrueFalse = (val) => {
+    if (r.answered) return;
+    answer({ correct: val === q.trueFalseData.correctAnswer, selected: val });
+  };
+
   const handleReveal = () => { if (!r.answered) answer({ correct: null, selected: null }); };
 
   const goNext = () => {
     if (index < quiz.questions.length - 1) {
       setDirection(1); setIndex(i => i + 1); setFillInput('');
     } else {
+      playComplete();
       setDone(true);
     }
   };
@@ -215,9 +227,15 @@ const Practice = () => {
           <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-widest font-semibold mb-0.5">Practice Mode</p>
           <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] truncate max-w-48">{quiz.title}</p>
         </div>
-        <Badge variant="outline" className="bg-[hsl(var(--muted))]/50 border-[hsl(var(--border))] text-xs">
-          {index + 1}/{quiz.questions.length}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setSoundOn(toggleSound())} title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+            className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+            {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+          <Badge variant="outline" className="bg-[hsl(var(--muted))]/50 border-[hsl(var(--border))] text-xs">
+            {index + 1}/{quiz.questions.length}
+          </Badge>
+        </div>
       </div>
 
       {/* Progress */}
@@ -275,6 +293,36 @@ const Practice = () => {
             </div>
           )}
 
+          {/* True / False */}
+          {q.type === 'TRUE_FALSE' && (
+            <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-3">
+                {[true, false].map(val => {
+                  const isSelected = r.selected === val;
+                  const isCorrectVal = q.trueFalseData.correctAnswer === val;
+                  let cls = 'border-[hsl(var(--border))] bg-transparent hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/40';
+                  if (r.answered) {
+                    if (isCorrectVal) cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
+                    else if (isSelected) cls = 'border-red-500 bg-red-500/5 text-red-400';
+                    else cls = 'border-[hsl(var(--border))] bg-transparent opacity-40';
+                  }
+                  return (
+                    <button key={String(val)} disabled={r.answered} onClick={() => handleTrueFalse(val)}
+                      className={`flex items-center justify-center gap-2 py-3 rounded-md border font-bold text-sm transition-all ${r.answered ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
+                      {val ? 'True' : 'False'}
+                    </button>
+                  );
+                })}
+              </div>
+              {r.answered && (
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  className={`mt-1 px-3 py-2 rounded-md text-xs font-semibold ${r.correct ? 'bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                  {r.correct ? 'Correct!' : 'Not quite — the correct answer is highlighted.'}
+                </motion.div>
+              )}
+            </div>
+          )}
+
           {/* Fill in blank */}
           {q.type === 'FILL_IN_THE_BLANK' && (
             <div className="flex flex-col gap-2">
@@ -300,7 +348,7 @@ const Practice = () => {
           )}
 
           {/* Other types */}
-          {!['MCQ', 'FILL_IN_THE_BLANK'].includes(q.type) && (
+          {!['MCQ', 'TRUE_FALSE', 'FILL_IN_THE_BLANK'].includes(q.type) && (
             <div>
               {!r.answered ? (
                 <Button onClick={handleReveal} variant="outline" className="gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] text-xs py-1.5 px-3">

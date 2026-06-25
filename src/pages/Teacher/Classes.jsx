@@ -15,8 +15,11 @@ import {
   addQuizToClass, removeQuizFromClass, getClassEnrollments,
 } from '../../utils/classHelpers';
 import {
+  setQuizDueDate, getDueStatus, formatDueDate, getCompletionCount,
+} from '../../utils/assignmentHelpers';
+import {
   Plus, Users, BookOpen, Hash, Trash2, Edit2,
-  Copy, Check, ChevronDown, ChevronUp, Loader2, GraduationCap,
+  Copy, Check, ChevronDown, ChevronUp, Loader2, GraduationCap, Calendar, X,
 } from 'lucide-react';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -73,6 +76,9 @@ const Classes = () => {
   // Enrollments cache: classId → [enrollment]
   const [enrollments, setEnrollments] = useState({});
 
+  // Completion counts cache: classId → { quizId: completedCount }
+  const [completions, setCompletions] = useState({});
+
   // ── Fetch ──
 
   const loadClasses = useCallback(async () => {
@@ -100,6 +106,17 @@ const Classes = () => {
     try {
       const list = await getClassEnrollments(classId);
       setEnrollments(prev => ({ ...prev, [classId]: list }));
+
+      const cls = classes.find(c => c.id === classId);
+      const quizIds = cls?.quizIds || [];
+      const studentIds = list.map(e => e.studentId);
+      if (quizIds.length && studentIds.length) {
+        const counts = {};
+        await Promise.all(quizIds.map(async qId => {
+          counts[qId] = await getCompletionCount(qId, studentIds);
+        }));
+        setCompletions(prev => ({ ...prev, [classId]: counts }));
+      }
     } catch {
       toast.error('Could not load student list.');
     }
@@ -321,6 +338,39 @@ const Classes = () => {
                                   </div>
                                 )}
                               </div>
+
+                              {/* Assignment progress */}
+                              {cls.quizIds?.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-[hsl(var(--border))]">
+                                  <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide mb-3">
+                                    Assignment Progress
+                                  </p>
+                                  <div className="flex flex-col gap-2">
+                                    {cls.quizIds.map(qId => {
+                                      const quizInfo = quizzes.find(q => q.id === qId);
+                                      const due = cls.dueDates?.[qId];
+                                      const dueStatus = getDueStatus(due);
+                                      const total = enrollments[cls.id]?.length ?? 0;
+                                      const done = completions[cls.id]?.[qId];
+                                      return (
+                                        <div key={qId} className="flex items-center justify-between gap-3 bg-[hsl(var(--muted))]/30 border border-[hsl(var(--border))] rounded-lg px-3 py-2">
+                                          <p className="text-sm font-medium text-[hsl(var(--foreground))] truncate flex-1">{quizInfo?.title || 'Quiz'}</p>
+                                          <div className="flex items-center gap-2 shrink-0">
+                                            {due && (
+                                              <Badge variant={dueStatus === 'overdue' ? 'destructive' : dueStatus === 'due-soon' ? 'warning' : 'secondary'} className="text-[10px] gap-1">
+                                                <Calendar className="w-2.5 h-2.5" /> {formatDueDate(due)}
+                                              </Badge>
+                                            )}
+                                            <span className="text-xs text-[hsl(var(--muted-foreground))] font-medium">
+                                              {done === undefined ? <Loader2 className="w-3 h-3 animate-spin inline" /> : `${done}/${total} done`}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </motion.div>
                           )}
                         </AnimatePresence>
@@ -387,34 +437,73 @@ const Classes = () => {
               </p>
             ) : quizzes.map(quiz => {
               const assigned = (assignModal.cls?.quizIds || []).includes(quiz.id);
+              const dueDate = assignModal.cls?.dueDates?.[quiz.id] || '';
               return (
-                <button
-                  key={quiz.id}
-                  onClick={() => {
-                    handleToggleQuiz(assignModal.cls.id, quiz.id, assignModal.cls?.quizIds || []);
-                    // Optimistically update local assignModal.cls
-                    setAssignModal(prev => {
-                      const ids = prev.cls.quizIds || [];
-                      const nextIds = assigned ? ids.filter(id => id !== quiz.id) : [...ids, quiz.id];
-                      return { ...prev, cls: { ...prev.cls, quizIds: nextIds } };
-                    });
-                  }}
+                <div key={quiz.id}
                   className={[
-                    'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all duration-150',
+                    'rounded-xl border transition-all duration-150',
                     assigned
-                      ? 'border-[hsl(var(--primary))]/40 bg-[hsl(var(--primary))]/5 text-[hsl(var(--foreground))]'
-                      : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))]/30 hover:text-[hsl(var(--foreground))]'
+                      ? 'border-[hsl(var(--primary))]/40 bg-[hsl(var(--primary))]/5'
+                      : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30'
                   ].join(' ')}
                 >
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${assigned ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : 'border-[hsl(var(--border))]'}`}>
-                    {assigned && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{quiz.title}</p>
-                    <p className="text-xs truncate opacity-60">{quiz.questions?.length || 0} questions · {quiz.totalPoints || 0} pts</p>
-                  </div>
-                  {assigned && <Badge className="shrink-0 bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border-[hsl(var(--primary))]/20 text-[10px]">Assigned</Badge>}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleToggleQuiz(assignModal.cls.id, quiz.id, assignModal.cls?.quizIds || []);
+                      // Optimistically update local assignModal.cls
+                      setAssignModal(prev => {
+                        const ids = prev.cls.quizIds || [];
+                        const nextIds = assigned ? ids.filter(id => id !== quiz.id) : [...ids, quiz.id];
+                        return { ...prev, cls: { ...prev.cls, quizIds: nextIds } };
+                      });
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer ${assigned ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'}`}
+                  >
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${assigned ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : 'border-[hsl(var(--border))]'}`}>
+                      {assigned && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{quiz.title}</p>
+                      <p className="text-xs truncate opacity-60">{quiz.questions?.length || 0} questions · {quiz.totalPoints || 0} pts</p>
+                    </div>
+                    {assigned && <Badge className="shrink-0 bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border-[hsl(var(--primary))]/20 text-[10px]">Assigned</Badge>}
+                  </button>
+
+                  {assigned && (
+                    <div className="flex items-center gap-2 px-4 pb-3 -mt-1">
+                      <Calendar className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))] shrink-0" />
+                      <input
+                        type="date"
+                        value={dueDate ? dueDate.slice(0, 10) : ''}
+                        onChange={async (e) => {
+                          const iso = e.target.value ? new Date(e.target.value).toISOString() : null;
+                          setAssignModal(prev => ({ ...prev, cls: { ...prev.cls, dueDates: { ...prev.cls.dueDates, [quiz.id]: iso } } }));
+                          try { await setQuizDueDate(assignModal.cls.id, quiz.id, iso); }
+                          catch { toast.error('Failed to set due date.'); }
+                        }}
+                        className="text-xs bg-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-md px-2 py-1 text-[hsl(var(--foreground))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--primary))]"
+                      />
+                      {dueDate && (
+                        <button
+                          type="button"
+                          title="Clear due date"
+                          onClick={async () => {
+                            setAssignModal(prev => ({ ...prev, cls: { ...prev.cls, dueDates: { ...prev.cls.dueDates, [quiz.id]: null } } }));
+                            try { await setQuizDueDate(assignModal.cls.id, quiz.id, null); }
+                            catch { toast.error('Failed to clear due date.'); }
+                          }}
+                          className="text-[hsl(var(--muted-foreground))] hover:text-red-500 transition-colors cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <span className="text-[11px] text-[hsl(var(--muted-foreground))]">
+                        {dueDate ? 'Due date' : 'No due date — optional'}
+                      </span>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
