@@ -12,22 +12,22 @@ import { FaGoogle } from 'react-icons/fa';
 import { Eye, EyeOff, GraduationCap, BookOpen, ArrowLeft, Loader2 } from 'lucide-react';
 
 // ── Role picker card ──────────────────────────────────────────────────────────
-const RoleCard = ({ role, icon: Icon, label, desc, selected, accentColor, onClick }) => (
+const RoleCard = ({ role, icon: Icon, label, desc, selected, onClick }) => (
   <button
     type="button"
     onClick={onClick}
     className={`
-      group flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all duration-200 text-left w-full
+      group flex flex-col items-center gap-3 p-5 rounded-xl border-2 transition-all duration-200 text-left w-full cursor-pointer
       ${selected
-        ? `border-current bg-current/5`
-        : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] hover:border-current hover:bg-current/5'
+        ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]'
+        : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--muted))]/60'
       }
     `}
-    style={{ color: selected ? accentColor : undefined }}
   >
     <div
-      className="w-12 h-12 rounded-xl flex items-center justify-center text-white transition-all"
-      style={{ backgroundColor: accentColor }}
+      className={`w-12 h-12 rounded-xl flex items-center justify-center text-white transition-all ${
+        selected ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]/20'
+      }`}
     >
       <Icon className="w-6 h-6" />
     </div>
@@ -39,8 +39,7 @@ const RoleCard = ({ role, icon: Icon, label, desc, selected, accentColor, onClic
       <motion.div
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
-        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs"
-        style={{ backgroundColor: accentColor }}
+        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs bg-[hsl(var(--primary))]"
       >
         ✓
       </motion.div>
@@ -50,50 +49,47 @@ const RoleCard = ({ role, icon: Icon, label, desc, selected, accentColor, onClic
 
 // ── Role selection modal (for new Google users) ────────────────────────────────
 const RoleSelectionModal = ({ user, onSelect, loading }) => (
-  <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
     <motion.div
-      initial={{ scale: 0.9, opacity: 0, y: 16 }}
+      initial={{ scale: 0.95, opacity: 0, y: 16 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      className="w-full max-w-md"
     >
-      <Card className="w-full max-w-md shadow-2xl border-0 bg-[#0d0d20] text-white overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-20 -left-20 w-60 h-60 rounded-full bg-[#4776e6]/20 blur-3xl" />
-          <div className="absolute -bottom-20 -right-20 w-60 h-60 rounded-full bg-[#8b5cf6]/20 blur-3xl" />
-        </div>
+      <Card className="w-full shadow-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] overflow-hidden rounded-2xl">
         <CardHeader className="relative text-center pb-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#4776e6] to-[#8b5cf6] mx-auto mb-3 flex items-center justify-center text-2xl">
-            👋
+          <div className="w-14 h-14 rounded-2xl bg-[hsl(var(--primary))]/10 mx-auto mb-3 flex items-center justify-center text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
+            <GraduationCap className="w-7 h-7" />
           </div>
-          <CardTitle className="text-white text-2xl">One last step</CardTitle>
-          <CardDescription className="text-white/50 text-base">
+          <CardTitle className="text-[hsl(var(--foreground))] text-2xl">One last step</CardTitle>
+          <CardDescription className="text-[hsl(var(--muted-foreground))] text-base">
             How do you use Quizlike, {user?.displayName?.split(' ')[0] || 'friend'}?
           </CardDescription>
         </CardHeader>
         <CardContent className="relative flex flex-col gap-3 pb-6">
           <div className="grid grid-cols-2 gap-3">
             {[
-              { role: 'student', icon: GraduationCap, label: 'Student', desc: 'Join & take quizzes', color: '#4776e6' },
-              { role: 'teacher', icon: BookOpen,      label: 'Teacher', desc: 'Create & host quizzes', color: '#e85a19' },
-            ].map(({ role, icon: Icon, label, desc, color }) => (
+              { role: 'student', icon: GraduationCap, label: 'Student', desc: 'Join & take quizzes', colorClass: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+              { role: 'teacher', icon: BookOpen,      label: 'Teacher', desc: 'Create & host quizzes', colorClass: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
+            ].map(({ role, icon: Icon, label, desc, colorClass }) => (
               <button
                 key={role}
                 onClick={() => onSelect(role)}
                 disabled={loading}
-                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border-2 border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all disabled:opacity-50"
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 hover:bg-[hsl(var(--muted))]/70 hover:border-[hsl(var(--primary))]/50 transition-all disabled:opacity-50 cursor-pointer"
               >
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: color }}>
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${colorClass} border`}>
                   <Icon className="w-7 h-7" />
                 </div>
                 <div className="text-center">
-                  <p className="font-bold text-white">{label}</p>
-                  <p className="text-white/40 text-xs mt-0.5">{desc}</p>
+                  <p className="font-bold text-[hsl(var(--foreground))]">{label}</p>
+                  <p className="text-[hsl(var(--muted-foreground))] text-xs mt-0.5">{desc}</p>
                 </div>
               </button>
             ))}
           </div>
           {loading && (
-            <div className="flex items-center justify-center gap-2 text-white/50 text-sm pt-2">
+            <div className="flex items-center justify-center gap-2 text-[hsl(var(--muted-foreground))] text-sm pt-2">
               <Loader2 className="w-4 h-4 animate-spin" />
               Setting up your account...
             </div>
@@ -162,7 +158,7 @@ const Login = () => {
         selectedRole,
         pendingGoogleUser.displayName || pendingGoogleUser.email.split('@')[0]
       );
-      toast.success('Account created! Welcome to Quizlike 🎉');
+      toast.success('Account created! Welcome to Quizlike.');
       goHome(selectedRole);
     } catch {
       setError('Failed to set up account. Please try again.');
@@ -196,7 +192,7 @@ const Login = () => {
     setError(''); setLoading(true);
     try {
       await signUpWithEmail(email, password, name, role);
-      toast.success('Account created! Welcome to Quizlike 🎉');
+      toast.success('Account created! Welcome to Quizlike.');
       goHome(role);
     } catch (err) {
       setError(handleAuthError(err));
@@ -211,28 +207,29 @@ const Login = () => {
         <RoleSelectionModal user={pendingGoogleUser} onSelect={handleRoleSelect} loading={roleLoading} />
       )}
 
-      <div className="relative min-h-screen w-screen flex items-center justify-center bg-[#0d0d20] overflow-hidden p-4">
-        {/* Background blobs */}
+      <div className="relative min-h-screen w-screen flex items-center justify-center bg-[hsl(var(--background))] text-[hsl(var(--foreground))] overflow-hidden p-4">
+        {/* Background grid and blobs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#4776e6]/10 blur-[120px]" />
-          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[#8b5cf6]/10 blur-[120px]" />
+          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
+          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
+          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
         </div>
 
         <div className="relative z-10 w-full max-w-md flex flex-col gap-6">
 
           {/* Logo */}
           <Link to="/" className="flex items-center justify-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4776e6] to-[#8b5cf6] flex items-center justify-center text-white font-black text-base shadow-lg">Q</div>
-            <span className="text-white font-bold text-2xl tracking-tight">Quizlike</span>
+            <div className="w-10 h-10 rounded-xl bg-[hsl(var(--primary))] flex items-center justify-center text-white font-black text-base shadow-sm">Q</div>
+            <span className="text-[hsl(var(--foreground))] font-bold text-2xl tracking-tight">Quizlike</span>
           </Link>
 
           {/* Card */}
-          <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl text-white">
+          <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm text-[hsl(var(--foreground))] rounded-2xl overflow-hidden">
             <CardHeader className="pb-4">
-              <CardTitle className="text-white text-2xl text-center">
-                {tab === 'signin' ? 'Welcome back 👋' : 'Join Quizlike ✨'}
+              <CardTitle className="text-[hsl(var(--foreground))] text-2xl text-center">
+                {tab === 'signin' ? 'Welcome back' : 'Join Quizlike'}
               </CardTitle>
-              <CardDescription className="text-white/40 text-center">
+              <CardDescription className="text-[hsl(var(--muted-foreground))] text-center">
                 {tab === 'signin'
                   ? 'Sign in to continue your journey'
                   : 'Create your free account today'}
@@ -246,20 +243,21 @@ const Login = () => {
                 size="lg"
                 onClick={handleGoogle}
                 disabled={loading}
-                className="w-full bg-white text-gray-800 border-0 hover:bg-gray-50 hover:text-gray-900 font-semibold shadow-sm"
+                className="w-full font-semibold border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 hover:bg-[hsl(var(--muted))]/85 text-[hsl(var(--foreground))] shadow-sm flex items-center justify-center gap-2.5"
               >
-                {loading
-                  ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : <FaGoogle className="text-[#4285f4]" />
-                }
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[hsl(var(--foreground))]" />
+                ) : (
+                  <FaGoogle className="text-[#4285f4]" />
+                )}
                 Continue with Google
               </Button>
 
               {/* Divider */}
               <div className="flex items-center gap-3">
-                <Separator className="flex-1 bg-white/10" />
-                <span className="text-white/30 text-xs font-medium">or continue with email</span>
-                <Separator className="flex-1 bg-white/10" />
+                <Separator className="flex-1 bg-[hsl(var(--border))]" />
+                <span className="text-[hsl(var(--muted-foreground))] text-xs font-medium">or continue with email</span>
+                <Separator className="flex-1 bg-[hsl(var(--border))]" />
               </div>
 
               {/* Form */}
@@ -277,38 +275,37 @@ const Login = () => {
                     >
                       {/* Name */}
                       <div className="flex flex-col gap-1.5">
-                        <Label className="text-white/70">Display name</Label>
+                        <Label className="text-[hsl(var(--muted-foreground))]">Display name</Label>
                         <Input
                           placeholder="Your name"
                           value={name}
                           onChange={e => setName(e.target.value)}
-                          className="bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:border-[#6c63ff] focus-visible:ring-[#6c63ff]/30"
+                          className="bg-[hsl(var(--muted))]/30 border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))]/50 focus-visible:border-[hsl(var(--primary))] focus-visible:ring-[hsl(var(--primary))]/20"
                           autoComplete="name"
                         />
                       </div>
 
                       {/* Role */}
                       <div className="flex flex-col gap-1.5">
-                        <Label className="text-white/70">I am a...</Label>
+                        <Label className="text-[hsl(var(--muted-foreground))]">I am a...</Label>
                         <div className="grid grid-cols-2 gap-2">
                           {[
-                            { r: 'student', icon: GraduationCap, label: 'Student', color: '#4776e6' },
-                            { r: 'teacher', icon: BookOpen,      label: 'Teacher', color: '#e85a19' },
-                          ].map(({ r, icon: Icon, label, color }) => (
+                            { r: 'student', icon: GraduationCap, label: 'Student' },
+                            { r: 'teacher', icon: BookOpen,      label: 'Teacher' },
+                          ].map(({ r, icon: Icon, label }) => (
                             <button
                               key={r}
                               type="button"
                               onClick={() => setRole(r)}
-                              className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                              className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer ${
                                 role === r
-                                  ? 'text-white bg-white/10'
-                                  : 'border-white/10 text-white/40 hover:border-white/20 hover:text-white/70'
+                                  ? 'border-[hsl(var(--primary))] text-[hsl(var(--foreground))] bg-[hsl(var(--primary))]/5'
+                                  : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--muted))]/50'
                               }`}
-                              style={role === r ? { borderColor: color } : {}}
                             >
-                              <Icon className="w-4 h-4" style={role === r ? { color } : {}} />
+                              <Icon className={`w-4 h-4 ${role === r ? 'text-[hsl(var(--primary))]' : ''}`} />
                               {label}
-                              {role === r && <span className="ml-auto text-xs" style={{ color }}>✓</span>}
+                              {role === r && <span className="ml-auto text-xs text-[hsl(var(--primary))]">✓</span>}
                             </button>
                           ))}
                         </div>
@@ -319,13 +316,13 @@ const Login = () => {
 
                 {/* Email */}
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-white/70">Email</Label>
+                  <Label className="text-[hsl(var(--muted-foreground))]">Email</Label>
                   <Input
                     type="email"
                     placeholder="you@example.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:border-[#6c63ff] focus-visible:ring-[#6c63ff]/30"
+                    className="bg-[hsl(var(--muted))]/30 border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))]/50 focus-visible:border-[hsl(var(--primary))] focus-visible:ring-[hsl(var(--primary))]/20"
                     autoComplete="email"
                     required
                   />
@@ -333,21 +330,21 @@ const Login = () => {
 
                 {/* Password */}
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-white/70">Password</Label>
+                  <Label className="text-[hsl(var(--muted-foreground))]">Password</Label>
                   <div className="relative">
                     <Input
                       type={showPw ? 'text' : 'password'}
                       placeholder={tab === 'signup' ? 'Min. 6 characters' : 'Your password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      className="bg-white/5 border-white/10 text-white placeholder-white/30 focus-visible:border-[#6c63ff] focus-visible:ring-[#6c63ff]/30 pr-10"
+                      className="bg-[hsl(var(--muted))]/30 border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))]/50 focus-visible:border-[hsl(var(--primary))] focus-visible:ring-[hsl(var(--primary))]/20 pr-10"
                       autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPw(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]/50 hover:text-[hsl(var(--muted-foreground))] transition-colors"
                     >
                       {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -361,7 +358,7 @@ const Login = () => {
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
-                      className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"
+                      className="text-red-500 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-center"
                     >
                       {error}
                     </motion.p>
@@ -371,23 +368,26 @@ const Login = () => {
                 <Button
                   type="submit"
                   size="lg"
-                  variant="app"
+                  variant="default"
                   disabled={loading}
-                  className="w-full font-bold"
+                  className="w-full font-bold bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary-hover))]"
                 >
-                  {loading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                    : tab === 'signin' ? 'Sign In' : 'Create Account'
-                  }
+                  {loading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                  ) : tab === 'signin' ? (
+                    'Sign In'
+                  ) : (
+                    'Create Account'
+                  )}
                 </Button>
               </form>
 
               {/* Tab toggle */}
-              <p className="text-center text-white/40 text-sm">
+              <p className="text-center text-[hsl(var(--muted-foreground))] text-sm">
                 {tab === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
                 <button
                   onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setError(''); }}
-                  className="text-[#8b5cf6] hover:text-[#a78bfa] font-semibold transition-colors"
+                  className="text-[hsl(var(--primary))] hover:underline font-semibold transition-colors cursor-pointer bg-transparent border-0"
                 >
                   {tab === 'signin' ? 'Sign Up Free' : 'Sign In'}
                 </button>
@@ -396,7 +396,7 @@ const Login = () => {
           </Card>
 
           {/* Back link */}
-          <Link to="/" className="flex items-center justify-center gap-1.5 text-white/30 hover:text-white/60 text-sm transition-colors">
+          <Link to="/" className="flex items-center justify-center gap-1.5 text-[hsl(var(--muted-foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" />
             Back to home
           </Link>

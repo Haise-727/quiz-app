@@ -22,12 +22,11 @@ import {
   LogOut, GraduationCap, User, AlertCircle, CheckCircle2,
 } from 'lucide-react';
 
-// ── Custom chart tooltips ─────────────────────────────────────────────────────
 const DistTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-[hsl(var(--border))] rounded-xl px-3 py-2 shadow-lg text-sm">
-      <p className="font-bold text-[hsl(var(--foreground))]">{label}</p>
+    <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-xl px-3 py-2 shadow-lg text-sm">
+      <p className="font-bold">{label}</p>
       <p className="text-[hsl(var(--muted-foreground))]">{payload[0].value} student{payload[0].value !== 1 ? 's' : ''}</p>
     </div>
   );
@@ -37,10 +36,10 @@ const QuestionTooltip = ({ active, payload }) => {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="bg-white border border-[hsl(var(--border))] rounded-xl px-3 py-2 shadow-lg text-sm max-w-[220px]">
-      <p className="font-bold text-[hsl(var(--foreground))]">{d.name}</p>
+    <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-xl px-3 py-2 shadow-lg text-sm max-w-[220px]">
+      <p className="font-bold">{d.name}</p>
       <p className="text-[hsl(var(--muted-foreground))] text-xs leading-snug mb-1.5">{d.label}</p>
-      <p className={`font-semibold ${d.passRate >= 70 ? 'text-green-600' : d.passRate >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
+      <p className={`font-semibold ${d.passRate >= 70 ? 'text-green-600' : d.passRate >= 40 ? 'text-amber-600' : 'text-red-650'}`}>
         {d.passRate}% pass rate
       </p>
     </div>
@@ -116,11 +115,11 @@ const Analytics = () => {
     ? Math.round(completed.filter(s => s.pct >= 60).length / completed.length * 100) : 0;
 
   const scoreDistData = [
-    { name: '0–20%',   min: 0,  max: 20,  color: '#ef4444' },
+    { name: '0–20%',   min: 0,  max: 20,  color: 'hsl(var(--destructive))' },
     { name: '21–40%',  min: 21, max: 40,  color: '#f97316' },
     { name: '41–60%',  min: 41, max: 60,  color: '#f59e0b' },
     { name: '61–80%',  min: 61, max: 80,  color: '#3b82f6' },
-    { name: '81–100%', min: 81, max: 101, color: '#22c55e' },
+    { name: '81–100%', min: 81, max: 101, color: 'hsl(var(--primary))' },
   ].map(b => ({ ...b, count: completed.filter(s => s.pct >= b.min && s.pct < b.max).length }));
 
   const perQuestionData = quiz?.questions?.map((q, i) => {
@@ -174,61 +173,28 @@ const Analytics = () => {
   const fmtDate = ts => ts?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) ?? '—';
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen w-screen bg-gradient-to-br from-[#f12711] to-[#f5af19]">
-      <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+    <div className="flex items-center justify-center min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
     </div>
   );
 
   return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-[#f12711] via-[#e85a19] to-[#f5af19] relative overflow-x-hidden">
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 20% 80%,rgba(0,0,0,0.1) 0%,transparent 60%)' }} />
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
-        <button onClick={() => navigate('/teacher/your-quizzes')}
-          className="flex items-center gap-2 text-white/70 hover:text-white text-sm font-medium transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Your Quizzes
-        </button>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-white/20 text-white bg-white/10 hidden md:flex">🏫 Teacher</Badge>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Avatar className="w-9 h-9 border-2 border-white/20 cursor-pointer hover:border-white/50 transition-colors">
-                <AvatarFallback className="bg-white/20 text-white font-bold text-sm">{initials}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel className="font-normal">
-                <p className="font-semibold">{displayName || 'Teacher'}</p>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">Teacher account</p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')} className="gap-2 cursor-pointer">
-                <User className="w-4 h-4" /> My Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSwitch} className="gap-2 cursor-pointer">
-                <GraduationCap className="w-4 h-4 text-[#4776e6]" /> Switch to Student
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-red-600 focus:text-red-600">
-                <LogOut className="w-4 h-4" /> Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <div className="relative z-10 px-6 md:px-10 pb-6">
+    <div className="w-full relative">
+      {/* Hero / Page Title */}
+      <div className="pb-6">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow">Analytics 📈</h1>
-          <p className="text-white/70 mt-1 font-semibold">{quiz?.title}</p>
+          <h1 className="text-3xl font-black text-[hsl(var(--foreground))]">Analytics</h1>
+          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-sm font-semibold">{quiz?.title}</p>
         </motion.div>
       </div>
 
       {/* Main card */}
-      <div className="relative z-10 mx-4 md:mx-10 mb-10 rounded-3xl bg-[#f8fafc] shadow-2xl overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ duration: 0.3, delay: 0.05 }}
+        className="relative z-10 mb-10 rounded-[12px] bg-[hsl(var(--card))] border border-[hsl(var(--border))] overflow-hidden"
+      >
         <div className="p-6 md:p-8 flex flex-col gap-8">
 
           {error && (
@@ -241,17 +207,16 @@ const Analytics = () => {
           <section>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { icon: Users,      label: 'Total Submissions', value: subs.length,      color: 'from-[#e85a19] to-[#f5af19]' },
-                { icon: TrendingUp, label: 'Average Score',     value: `${avgScore}%`,   color: 'from-[#4776e6] to-[#6366f1]' },
-                { icon: Trophy,     label: 'Pass Rate (≥60%)',  value: `${passRate}%`,   color: 'from-[#10b981] to-[#059669]' },
-                { icon: Clock,      label: 'Pending Review',    value: pending.length,   color: pending.length > 0 ? 'from-[#f59e0b] to-[#d97706]' : 'from-gray-400 to-gray-500' },
-              ].map(({ icon: Icon, label, value, color }, i) => (
+                { icon: Users,      label: 'Total Submissions', value: subs.length,      borderColor: 'border-t-emerald-500', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
+                { icon: TrendingUp, label: 'Average Score',     value: `${avgScore}%`,   borderColor: 'border-t-blue-500', iconBg: 'bg-blue-500/10', iconColor: 'text-blue-500' },
+                { icon: Trophy,     label: 'Pass Rate (≥60%)',  value: `${passRate}%`,   borderColor: 'border-t-purple-500', iconBg: 'bg-purple-500/10', iconColor: 'text-purple-500' },
+                { icon: Clock,      label: 'Pending Review',    value: pending.length,   borderColor: pending.length > 0 ? 'border-t-amber-500' : 'border-t-[hsl(var(--border))]', iconBg: pending.length > 0 ? 'bg-amber-500/10' : 'bg-[hsl(var(--muted))]', iconColor: pending.length > 0 ? 'text-amber-500' : 'text-[hsl(var(--muted-foreground))]' },
+              ].map(({ icon: Icon, label, value, borderColor, iconBg, iconColor }, i) => (
                 <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}>
-                  <Card className="border-0 shadow-md overflow-hidden">
-                    <div className={`h-1.5 bg-gradient-to-r ${color}`} />
+                  <Card className={`border border-[hsl(var(--border))] border-t-4 ${borderColor} shadow-sm overflow-hidden bg-[hsl(var(--card))] rounded-2xl`}>
                     <CardContent className="pt-4 pb-5 flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shrink-0`}>
-                        <Icon className="w-4 h-4 text-white" />
+                      <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+                        <Icon className={`w-4 h-4 ${iconColor}`} />
                       </div>
                       <div>
                         <p className="text-2xl font-black text-[hsl(var(--foreground))]">{value}</p>
@@ -269,9 +234,9 @@ const Analytics = () => {
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Score distribution */}
-              <Card className="border-0 shadow-md">
+              <Card className="border border-[hsl(var(--border))] shadow-sm bg-[hsl(var(--card))] rounded-2xl">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Score Distribution</CardTitle>
+                  <CardTitle className="text-base text-[hsl(var(--foreground))]">Score Distribution</CardTitle>
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">Completed submissions only</p>
                 </CardHeader>
                 <CardContent>
@@ -282,9 +247,9 @@ const Analytics = () => {
                   ) : (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={scoreDistData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} allowDecimals={false} />
                         <Tooltip content={<DistTooltip />} />
                         <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                           {scoreDistData.map((e, i) => <Cell key={i} fill={e.color} />)}
@@ -296,9 +261,9 @@ const Analytics = () => {
               </Card>
 
               {/* Per-question pass rate */}
-              <Card className="border-0 shadow-md">
+              <Card className="border border-[hsl(var(--border))] shadow-sm bg-[hsl(var(--card))] rounded-2xl">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Pass Rate per Question</CardTitle>
+                  <CardTitle className="text-base text-[hsl(var(--foreground))]">Pass Rate per Question</CardTitle>
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">% of students who answered correctly</p>
                 </CardHeader>
                 <CardContent>
@@ -309,13 +274,13 @@ const Analytics = () => {
                   ) : (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={perQuestionData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                        <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={v => `${v}%`} />
                         <Tooltip content={<QuestionTooltip />} />
                         <Bar dataKey="passRate" radius={[6, 6, 0, 0]}>
                           {perQuestionData.map((e, i) => (
-                            <Cell key={i} fill={e.passRate >= 70 ? '#22c55e' : e.passRate >= 40 ? '#f59e0b' : '#ef4444'} />
+                            <Cell key={i} fill={e.passRate >= 70 ? 'hsl(var(--primary))' : e.passRate >= 40 ? '#f59e0b' : 'hsl(var(--destructive))'} />
                           ))}
                         </Bar>
                       </BarChart>
@@ -346,7 +311,7 @@ const Analytics = () => {
                 <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Students haven't taken this quiz yet.</p>
               </div>
             ) : (
-              <Card className="border-0 shadow-md overflow-hidden">
+              <Card className="border border-[hsl(var(--border))] shadow-sm bg-[hsl(var(--card))] rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -374,7 +339,7 @@ const Analytics = () => {
                         <tr key={s.id} className={`border-b border-[hsl(var(--border))] transition-colors hover:bg-[hsl(var(--muted))]/30 ${i === sorted.length - 1 ? 'border-0' : ''}`}>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${s.status === 'completed' ? 'bg-gradient-to-br from-[#e85a19] to-[#f5af19]' : 'bg-amber-400'}`}>
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${s.status === 'completed' ? 'bg-[hsl(var(--primary))]' : 'bg-amber-400'}`}>
                                 {s.userName.charAt(0).toUpperCase()}
                               </div>
                               <div>
@@ -387,7 +352,7 @@ const Analytics = () => {
                             {s.displayScore}<span className="text-[hsl(var(--muted-foreground))] font-normal">/{s.maxScore}</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`font-bold ${s.pct >= 80 ? 'text-green-600' : s.pct >= 60 ? 'text-blue-600' : s.pct >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
+                            <span className={`font-bold ${s.pct >= 80 ? 'text-emerald-500' : s.pct >= 60 ? 'text-blue-500' : s.pct >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
                               {s.pct}%
                             </span>
                           </td>
@@ -407,7 +372,7 @@ const Analytics = () => {
           </section>
 
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

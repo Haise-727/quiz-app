@@ -6,19 +6,19 @@ import { PhotoProvider } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
 import './index.css';
 import App from './App.jsx';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { Toaster } from '@/components/ui/sonner';
-
-import 'tui-image-editor/dist/tui-image-editor.css';
-import 'tui-color-picker/dist/tui-color-picker.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <PhotoProvider>
-          <App />
-          <Toaster position="top-right" richColors />
-        </PhotoProvider>
+        <ThemeProvider>
+          <PhotoProvider>
+            <App />
+            <Toaster position="top-right" richColors />
+          </PhotoProvider>
+        </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
