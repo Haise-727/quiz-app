@@ -126,7 +126,7 @@ const Landing = () => {
     { icon: Layers, label: '7 Question Types', desc: 'From MCQ to Match, Categorize, Reorder & Comprehension' },
     { icon: Zap, label: 'Real-time Results', desc: 'Instant feedback, scoring, and auto-grading' },
     { icon: Sparkles, label: 'Guest Mode', desc: 'Join and play quizzes instantly with a game PIN' },
-    { icon: Trophy, label: 'Instant Leaderboards', desc: 'Earn points and compete live with speed bonuses' },
+    { icon: Trophy, label: 'Instant Leaderboards', desc: 'Earn points and compete live with classmates' },
     { icon: Smartphone, label: 'Mobile Friendly', desc: 'Fully responsive UI optimized for student devices' },
     { icon: GraduationCap, label: 'Teacher Analytics', desc: 'Track class performance and customize grading' }
   ];

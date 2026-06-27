@@ -32,6 +32,7 @@ const PlaySession = () => {
   const [timeLeft, setTimeLeft] = useState(null);
   const [selected, setSelected] = useState(null);
   const [fillInput, setFillInput] = useState('');
+  const [mcqSelection, setMcqSelection] = useState([]);
   const [answered, setAnswered] = useState(false);
   const [lastResult, setLastResult] = useState(null); // { correct, points }
 
@@ -84,7 +85,7 @@ const PlaySession = () => {
 
   // Reset per-question state when the question changes
   useEffect(() => {
-    setSelected(null); setFillInput(''); setAnswered(false); setLastResult(null);
+    setSelected(null); setFillInput(''); setMcqSelection([]); setAnswered(false); setLastResult(null);
     questionStartRef.current = Date.now();
   }, [session?.currentQuestionIndex]);
 
@@ -112,6 +113,8 @@ const PlaySession = () => {
     if (session?.state === 'ended') playComplete();
   }, [session?.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const isMultiSelect = currentQuestion?.type === 'MCQ' && (currentQuestion.mcqData?.correctOptions?.length || 0) > 1;
+
   const handleAnswer = async (answer) => {
     if (answered || !currentQuestion) return;
     setAnswered(true);
@@ -120,6 +123,16 @@ const PlaySession = () => {
     try {
       await submitAnswer(pinRef.current, session.currentQuestionIndex, playerIdRef.current, answer, currentQuestion, timeTaken);
     } catch { toast.error('Failed to submit answer.'); setAnswered(false); }
+  };
+
+  const toggleMcqOption = (optId) => {
+    if (answered) return;
+    setMcqSelection(prev => prev.includes(optId) ? prev.filter(id => id !== optId) : [...prev, optId]);
+  };
+
+  const handleMcqClick = (optId) => {
+    if (isMultiSelect) { toggleMcqOption(optId); return; }
+    handleAnswer([optId]);
   };
 
   const players = session?.players ? Object.entries(session.players).map(([id, p]) => ({ id, ...p })) : [];
@@ -219,16 +232,29 @@ const PlaySession = () => {
             <>
               {currentQuestion.type === 'MCQ' && (
                 <div className="flex flex-col gap-3">
-                  {currentQuestion.mcqData.options.map(opt => (
-                    <button key={opt.id} disabled={answered} onClick={() => handleAnswer(opt.id)}
-                      className={`px-5 py-4 rounded-xl border-2 text-left font-semibold transition-colors ${
-                        answered
-                          ? selected === opt.id ? 'border-[#8b5cf6] bg-[#8b5cf6]/15 cursor-default' : 'border-white/10 bg-white/5 opacity-40 cursor-default'
-                          : 'border-white/20 bg-white/5 hover:border-[#8b5cf6] hover:bg-[#8b5cf6]/10 cursor-pointer'
-                      }`}>
-                      {opt.text}
-                    </button>
-                  ))}
+                  {isMultiSelect && !answered && (
+                    <p className="text-xs text-white/40 uppercase tracking-wide font-semibold -mb-1">Select all that apply</p>
+                  )}
+                  {currentQuestion.mcqData.options.map(opt => {
+                    const liveSelection = answered ? selected : mcqSelection;
+                    const isPicked = (liveSelection || []).includes(opt.id);
+                    return (
+                      <button key={opt.id} disabled={answered} onClick={() => handleMcqClick(opt.id)}
+                        className={`px-5 py-4 rounded-xl border-2 text-left font-semibold transition-colors ${
+                          answered
+                            ? isPicked ? 'border-[#8b5cf6] bg-[#8b5cf6]/15 cursor-default' : 'border-white/10 bg-white/5 opacity-40 cursor-default'
+                            : isPicked ? 'border-[#8b5cf6] bg-[#8b5cf6]/15 cursor-pointer' : 'border-white/20 bg-white/5 hover:border-[#8b5cf6] hover:bg-[#8b5cf6]/10 cursor-pointer'
+                        }`}>
+                        {opt.text}
+                      </button>
+                    );
+                  })}
+                  {isMultiSelect && !answered && (
+                    <Button onClick={() => handleAnswer(mcqSelection)} disabled={!mcqSelection.length}
+                      className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                      Submit Answer
+                    </Button>
+                  )}
                 </div>
               )}
               {currentQuestion.type === 'TRUE_FALSE' && (

@@ -25,7 +25,7 @@ import {
 // ── Question review card ──────────────────────────────────────────────────────
 const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
   const isPending = studentAnswerData.status === 'pending_review';
-  const isCorrect = !isPending && studentAnswerData.pointsAwarded >= originalQuestion.points;
+  const isCorrect = !isPending && !!studentAnswerData.isCorrect;
   const isPartial = !isPending && !isCorrect && studentAnswerData.pointsAwarded > 0;
   const mainMedia = originalQuestion.visualData?.mainMedia || originalQuestion.listeningData?.mainMedia || originalQuestion.media;
 
@@ -508,10 +508,10 @@ const YourResults = () => {
                 {(() => {
                   const filtered = reviewQuiz.questions
                     .map((q, i) => ({ q, ans: selectedResult.answers[i], origIndex: i }))
-                    .filter(({ q, ans }) => {
+                    .filter(({ ans }) => {
                       if (!showWrongOnly) return true;
                       const isPending = ans?.status === 'pending_review';
-                      const isCorrect = !isPending && ans?.pointsAwarded >= q.points;
+                      const isCorrect = !isPending && !!ans?.isCorrect;
                       return !isCorrect;
                     });
                   

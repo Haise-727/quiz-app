@@ -75,6 +75,7 @@ const Practice = () => {
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState([]);
   const [fillInput, setFillInput] = useState('');
+  const [mcqSelection, setMcqSelection] = useState([]);
   const [done, setDone] = useState(false);
   const [direction, setDirection] = useState(1);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
@@ -117,11 +118,24 @@ const Practice = () => {
     setResults(prev => { const n = [...prev]; n[index] = { ...n[index], answered: true, ...updates }; return n; });
   };
 
-  const handleMCQ = (optId) => {
+  const isMultiSelect = (q.mcqData?.correctOptions?.length || 0) > 1;
+
+  const toggleMcqOption = (optId) => {
     if (r.answered) return;
+    setMcqSelection(prev => prev.includes(optId) ? prev.filter(id => id !== optId) : [...prev, optId]);
+  };
+
+  const submitMcq = (selectedIds) => {
+    if (r.answered || !selectedIds.length) return;
     const correctIds = q.mcqData.correctOptions.map(String);
-    const isCorrect = correctIds.length === 1 && correctIds.includes(String(optId));
-    answer({ correct: isCorrect, selected: optId });
+    const given = selectedIds.map(String);
+    const isCorrect = correctIds.length > 0 && correctIds.length === given.length && correctIds.every(id => given.includes(id));
+    answer({ correct: isCorrect, selected: selectedIds });
+  };
+
+  const handleMCQ = (optId) => {
+    if (isMultiSelect) { toggleMcqOption(optId); return; }
+    submitMcq([optId]);
   };
 
   const handleFill = () => {
@@ -139,7 +153,7 @@ const Practice = () => {
 
   const goNext = () => {
     if (index < quiz.questions.length - 1) {
-      setDirection(1); setIndex(i => i + 1); setFillInput('');
+      setDirection(1); setIndex(i => i + 1); setFillInput(''); setMcqSelection([]);
     } else {
       playComplete();
       setDone(true);
@@ -147,7 +161,11 @@ const Practice = () => {
   };
 
   const goPrev = () => {
-    if (index > 0) { setDirection(-1); setIndex(i => i - 1); setFillInput(results[index - 1]?.selected || ''); }
+    if (index > 0) {
+      setDirection(-1); setIndex(i => i - 1); setMcqSelection([]);
+      const prevSelected = results[index - 1]?.selected;
+      setFillInput(typeof prevSelected === 'string' ? prevSelected : '');
+    }
   };
 
   const reset = () => {
@@ -263,27 +281,40 @@ const Practice = () => {
           {/* MCQ */}
           {q.type === 'MCQ' && (
             <div className="flex flex-col gap-2">
+              {isMultiSelect && !r.answered && (
+                <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold -mt-1 mb-1">Select all that apply</p>
+              )}
               {q.mcqData.options.map(opt => {
-                const isSelected = r.selected === opt.id;
+                const liveSelection = r.answered ? r.selected : mcqSelection;
+                const isSelected = (liveSelection || []).includes(opt.id);
                 const isCorrectOpt = q.mcqData.correctOptions.includes(opt.id);
                 let cls = 'border-[hsl(var(--border))] bg-transparent hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/40';
                 if (r.answered) {
                   if (isCorrectOpt) cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
                   else if (isSelected) cls = 'border-red-500 bg-red-500/5 text-red-400';
                   else cls = 'border-[hsl(var(--border))] bg-transparent opacity-40';
+                } else if (isSelected) {
+                  cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
                 }
                 return (
                   <button key={opt.id} disabled={r.answered}
                     onClick={() => handleMCQ(opt.id)}
                     className={`flex items-center gap-3 p-3 rounded-md border text-xs text-left transition-all ${r.answered ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
-                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${r.answered && isCorrectOpt ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : r.answered && isSelected ? 'border-red-500 bg-red-500' : 'border-[hsl(var(--border))]'}`}>
+                    <div className={`w-4 h-4 ${isMultiSelect ? 'rounded' : 'rounded-full'} border flex items-center justify-center shrink-0 transition-all ${r.answered && isCorrectOpt ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : r.answered && isSelected ? 'border-red-500 bg-red-500' : isSelected ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : 'border-[hsl(var(--border))]'}`}>
                       {r.answered && isCorrectOpt && <CheckCircle2 className="w-2.5 h-2.5 text-[hsl(var(--primary-foreground))]" />}
                       {r.answered && isSelected && !isCorrectOpt && <XCircle className="w-2.5 h-2.5 text-white" />}
+                      {!r.answered && isSelected && <CheckCircle2 className="w-2.5 h-2.5 text-[hsl(var(--primary-foreground))]" />}
                     </div>
                     <span className="font-medium">{opt.text}</span>
                   </button>
                 );
               })}
+              {isMultiSelect && !r.answered && (
+                <Button onClick={() => submitMcq(mcqSelection)} disabled={!mcqSelection.length}
+                  className="mt-1 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-hover))] text-[hsl(var(--primary-foreground))] border-0">
+                  Submit Answer
+                </Button>
+              )}
               {r.answered && (
                 <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
                   className={`mt-2 px-3 py-2 rounded-md text-xs font-semibold ${r.correct ? 'bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>

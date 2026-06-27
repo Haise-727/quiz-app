@@ -143,7 +143,7 @@ const TakeQuiz = () => {
     if (quizSubmitted || !user) return;
     recordTimeSpent(); setQuizSubmitted(true); clearInterval(timerRef.current); setError('');
     try {
-      let total = 0, bonus = 0, needsManual = false;
+      let total = 0, needsManual = false;
       const detailed = quiz.questions.map((q, i) => {
         const ua = answers[i];
         let pts = 0, status = 'auto_graded', correct = false;
@@ -158,11 +158,9 @@ const TakeQuiz = () => {
           case 'VISUAL_COMPREHENSION': case 'LISTENING_COMPREHENSION': { const sqs = q.visualData?.subQuestions || q.listeningData?.subQuestions; let sp = 0; if (sqs) { sqs.forEach((sq, si) => { if (sq.type === 'MCQ') { const ci = sq.mcqData.correctOptions.map(String); const sl = (ua[si] || []).map(String); if (ci.length && ci.length === sl.length && ci.every(id => sl.includes(id))) sp += sq.points || 5; } }); pts = sp; if (sp === q.points) correct = true; } break; }
         }
         total += pts;
-        if (correct) { const tt = timeSpent[i] || q.timeLimit; const tl = parseInt(q.timeLimit, 10); if (tt < tl) bonus += Math.ceil((q.points * 0.2) * (1 - tt / tl)); }
         return { type: q.type, questionText: q.questionText, userAnswer: JSON.parse(JSON.stringify(ua)), pointsAwarded: pts, status, isCorrect: correct };
       });
-      const final = total + bonus;
-      const res = { quizId, userId: user.uid, quizTitle: quiz.title, status: needsManual ? 'pending' : 'completed', score: total, bonus, finalScore: final, maxScore: quiz.totalPoints, completedAt: serverTimestamp(), answers: detailed, teacherId: quiz.createdBy };
+      const res = { quizId, userId: user.uid, quizTitle: quiz.title, status: needsManual ? 'pending' : 'completed', score: total, finalScore: total, maxScore: quiz.totalPoints, completedAt: serverTimestamp(), answers: detailed, teacherId: quiz.createdBy };
       const ref = await addDoc(collection(db, 'quiz_results'), res);
       setFinalResults({ id: ref.id, ...res });
       playComplete();
@@ -237,13 +235,10 @@ const TakeQuiz = () => {
           <p className="text-sm text-[hsl(var(--muted-foreground))] mt-2 mb-8">Great work!</p>
           <div>
             <h2 className="text-xl font-bold text-[hsl(var(--foreground))] mb-4">Your Results</h2>
-            <div className="my-6 p-4 bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))] rounded-xl text-base flex justify-center gap-8 text-[hsl(var(--muted-foreground))]">
-              <div>Base Score: <span className="font-semibold text-[hsl(var(--foreground))]">{finalResults.score} / {finalResults.maxScore}</span></div>
-              <div>Speed Bonus: <span className="font-bold text-[hsl(var(--primary))]">+{finalResults.bonus}</span></div>
-            </div>
             <div className="w-[180px] h-[180px] mx-auto rounded-full bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] flex flex-col justify-center items-center my-8">
-              <span className="text-xs font-semibold uppercase tracking-wider opacity-80 -mb-1">Final Score</span>
+              <span className="text-xs font-semibold uppercase tracking-wider opacity-80 -mb-1">Score</span>
               <span className="text-[4.2rem] font-black leading-tight">{finalResults.finalScore}</span>
+              <span className="text-sm font-semibold opacity-70 -mt-1">/ {finalResults.maxScore}</span>
             </div>
             {finalResults.status === 'pending' && <p className="mt-6 text-sm text-red-600 bg-red-500/10 p-4 rounded-xl border border-red-500/20">Some questions require manual grading by your teacher.</p>}
           </div>

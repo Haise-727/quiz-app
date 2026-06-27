@@ -206,10 +206,18 @@ const Grading = () => {
     if (!selectedSub) return;
     setSaving(true);
     const total = selectedSub.answers.reduce((s, a) => s + (a.pointsAwarded || 0), 0);
-    const updatedAnswers = selectedSub.answers.map(a => ({ ...a, status: 'manually_graded', pointsAwarded: a.pointsAwarded ?? 0 }));
+    // isCorrect is recomputed here (not just left as whatever auto-grading set) because
+    // PARAGRAPH questions never get a real isCorrect from auto-grading - they're always
+    // pending_review until a teacher scores them here. Without this, a fully-marked essay
+    // would still show as "Incorrect" everywhere that trusts isCorrect.
+    const updatedAnswers = selectedSub.answers.map((a, i) => {
+      const maxPts = quizDetails.questions[i]?.points ?? 0;
+      const pts = a.pointsAwarded ?? 0;
+      return { ...a, status: 'manually_graded', pointsAwarded: pts, isCorrect: maxPts > 0 && pts >= maxPts };
+    });
     try {
       await updateDoc(doc(db, 'quiz_results', selectedSub.id), {
-        score: total, finalScore: total + (selectedSub.bonus || 0), answers: updatedAnswers, status: 'completed',
+        score: total, finalScore: total, answers: updatedAnswers, status: 'completed',
       });
       toast.success('Grade saved!');
 
@@ -218,7 +226,7 @@ const Grading = () => {
         try {
           await createNotification(
             selectedSub.userId,
-            `Your quiz "${quizDetails.title}" has been graded! Final Score: ${total + (selectedSub.bonus || 0)}/${selectedSub.maxScore}`,
+            `Your quiz "${quizDetails.title}" has been graded! Final Score: ${total}/${selectedSub.maxScore}`,
             'grade_released',
             { quizId, resultId: selectedSub.id }
           );

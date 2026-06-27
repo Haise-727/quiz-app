@@ -137,7 +137,7 @@ const GuestTakeQuiz = () => {
     if (quizSubmitted) return;
     recordTime(); setQuizSubmitted(true); clearInterval(timerRef.current);
     try {
-      let total = 0, bonus = 0, needsManual = false;
+      let total = 0, needsManual = false;
       const detailed = quiz.questions.map((q, i) => {
         const ua = answers[i];
         let pts = 0, status = 'auto_graded', correct = false;
@@ -151,13 +151,12 @@ const GuestTakeQuiz = () => {
           case 'REORDER': { if (ua?.every((it, idx) => it.id === q.reorderData.items[idx].id)) { pts = q.points; correct = true; } break; }
         }
         total += pts;
-        if (correct) { const tt = timeSpent[i] || q.timeLimit; const tl = parseInt(q.timeLimit, 10); if (tt < tl) bonus += Math.ceil((q.points * 0.2) * (1 - tt / tl)); }
         return { type: q.type, questionText: q.questionText, userAnswer: JSON.parse(JSON.stringify(ua)), pointsAwarded: pts, status, isCorrect: correct };
       });
       const res = {
         quizId, userId: guestIdRef.current, username: guestName.trim() || 'Guest',
         quizTitle: quiz.title, status: needsManual ? 'pending' : 'completed',
-        score: total, bonus, finalScore: total + bonus, maxScore: quiz.totalPoints,
+        score: total, finalScore: total, maxScore: quiz.totalPoints,
         completedAt: serverTimestamp(), answers: detailed, teacherId: quiz.createdBy,
         isGuest: true,
       };
@@ -261,17 +260,6 @@ const GuestTakeQuiz = () => {
             <span className="text-xs font-semibold opacity-70 uppercase tracking-wider">Final Score</span>
             <span className="text-5xl font-black leading-tight">{finalResults.finalScore}</span>
             <span className="text-xs opacity-60">/ {finalResults.maxScore}</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-8 text-sm">
-            <div className="bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))] rounded-xl p-3">
-              <div className="font-black text-xl text-[hsl(var(--primary))]">{finalResults.score}</div>
-              <div className="text-[hsl(var(--muted-foreground))]">Base score</div>
-            </div>
-            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
-              <div className="font-black text-xl text-green-600 dark:text-green-400">{finalResults.bonus}</div>
-              <div className="text-[hsl(var(--muted-foreground))]">Speed bonus</div>
-            </div>
           </div>
 
           {finalResults.status === 'pending' && (

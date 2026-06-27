@@ -118,7 +118,7 @@ const Analytics = () => {
 
   const perQuestionData = quiz?.questions?.map((q, i) => {
     const n = completed.length;
-    const correct = n ? completed.filter(s => (s.answers?.[i]?.pointsAwarded ?? 0) >= q.points).length : 0;
+    const correct = n ? completed.filter(s => !!s.answers?.[i]?.isCorrect).length : 0;
     const passRate = n ? Math.round((correct / n) * 100) : 0;
     return {
       name: `Q${i + 1}`,
