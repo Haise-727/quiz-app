@@ -49,8 +49,13 @@ export const formatDueDate = (dueDateISO) => {
 /**
  * Count how many of the given students have at least one submission for a quiz.
  * Used by the teacher's class view to show "X / Y completed".
+ *
+ * teacherId must be included in the query itself (not just checked in the
+ * Firestore rule) - Firestore rejects list queries outright if the security
+ * rule can't be proven satisfied from the query's own where clauses, even
+ * though every matching doc does have the right teacherId.
  */
-export const getCompletionCount = async (quizId, studentIds) => {
+export const getCompletionCount = async (quizId, studentIds, teacherId) => {
   if (!studentIds.length) return 0;
   let completed = new Set();
   for (let i = 0; i < studentIds.length; i += 30) {
@@ -58,6 +63,7 @@ export const getCompletionCount = async (quizId, studentIds) => {
     const snap = await getDocs(query(
       collection(db, 'quiz_results'),
       where('quizId', '==', quizId),
+      where('teacherId', '==', teacherId),
       where('userId', 'in', batch),
     ));
     snap.forEach(d => completed.add(d.data().userId));

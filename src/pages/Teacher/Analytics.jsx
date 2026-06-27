@@ -69,8 +69,12 @@ const Analytics = () => {
       }
       setQuiz({ id: quizSnap.id, ...quizSnap.data() });
 
+      // teacherId must be included in the query itself (not just checked in rules) -
+      // Firestore rejects list queries outright if the security rule can't be proven
+      // satisfied from the query's own where clauses, even though every matching doc
+      // does have the right teacherId.
       const subsSnap = await getDocs(
-        query(collection(db, 'quiz_results'), where('quizId', '==', quizId))
+        query(collection(db, 'quiz_results'), where('quizId', '==', quizId), where('teacherId', '==', currentUser.uid))
       );
       const raw = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 

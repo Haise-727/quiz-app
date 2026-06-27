@@ -113,7 +113,7 @@ const Classes = () => {
       if (quizIds.length && studentIds.length) {
         const counts = {};
         await Promise.all(quizIds.map(async qId => {
-          counts[qId] = await getCompletionCount(qId, studentIds);
+          counts[qId] = await getCompletionCount(qId, studentIds, currentUser.uid);
         }));
         setCompletions(prev => ({ ...prev, [classId]: counts }));
       }
