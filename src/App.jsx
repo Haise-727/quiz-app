@@ -88,6 +88,7 @@ function App() {
         {/* ── Teacher (must be logged in as teacher) ── */}
         <Route path="/teacher/home"              element={<ProtectedRoute role="teacher"><DashboardLayout><TeacherHome /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/create-quiz"       element={<ProtectedRoute role="teacher"><DashboardLayout><CreateQuiz /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/edit-quiz/:quizId"  element={<ProtectedRoute role="teacher"><DashboardLayout><CreateQuiz /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/your-quizzes"      element={<ProtectedRoute role="teacher"><DashboardLayout><YourQuizzes /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/classes"           element={<ProtectedRoute role="teacher"><DashboardLayout><Classes /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/question-bank"     element={<ProtectedRoute role="teacher"><DashboardLayout><QuestionBank /></DashboardLayout></ProtectedRoute>} />

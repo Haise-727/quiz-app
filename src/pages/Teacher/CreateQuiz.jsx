@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { collection, addDoc, updateDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../../styles/Teacher/CreateQuiz.css';
 import { FaTrashAlt, FaPlus, FaClipboard, FaTimes, FaArrowLeft, FaPhotoVideo, FaGripLines, FaSave, FaLaptop, FaPaste, FaEdit, FaDatabase } from 'react-icons/fa';
@@ -43,11 +43,15 @@ const UploadChoiceModal = ({ onChoice, onClose }) => ( <div className="upload-ch
 const CreateQuiz = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { quizId } = useParams();
+    const isEditMode = !!quizId;
     const { currentUser } = useAuth();
 
-    const [quizType] = useState(location.state?.quizType || 'MIXED');
+    const [quizType, setQuizType] = useState(location.state?.quizType || 'MIXED');
     const [userDisplayName, setUserDisplayName] = useState('');
     const [loading, setLoading] = useState(true);
+    const [fetchingQuiz, setFetchingQuiz] = useState(isEditMode);
+    const [originalQuiz, setOriginalQuiz] = useState(null);
     const [quizTitle, setQuizTitle] = useState('');
     const [quizDescription, setQuizDescription] = useState('');
     const [quizSubject, setQuizSubject] = useState('');
@@ -76,7 +80,10 @@ const CreateQuiz = () => {
     // Restore an unsaved draft (e.g. after an accidental refresh) once on mount.
     // Local media File selections can't survive localStorage (not serializable),
     // so only text/structure is recovered - already-uploaded media URLs are kept.
+    // Skipped entirely in edit mode - a leftover "create new" draft shouldn't
+    // clobber the quiz actually being edited.
     useEffect(() => {
+        if (isEditMode) return;
         if (draftRestoredRef.current) return;
         draftRestoredRef.current = true;
         try {
@@ -96,7 +103,9 @@ const CreateQuiz = () => {
     }, []);
 
     // Autosave the draft to localStorage so a refresh doesn't lose progress.
+    // Skipped in edit mode - see restore effect above for why.
     useEffect(() => {
+        if (isEditMode) return;
         const hasContent = quizTitle.trim() || questions.some(q => q.questionText?.trim());
         if (!hasContent) return;
         const timer = setTimeout(() => {
@@ -123,6 +132,43 @@ const CreateQuiz = () => {
             setLoading(false);
         }
     }, [currentUser]);
+
+    // Edit mode: load the existing quiz and populate the form. Older quizzes may
+    // predate fields like subject/tags/quizType - all default safely when absent.
+    useEffect(() => {
+        if (!isEditMode || !currentUser) return;
+        const fetchQuiz = async () => {
+            setFetchingQuiz(true);
+            try {
+                const snap = await getDoc(doc(db, 'quizzes', quizId));
+                if (!snap.exists()) {
+                    toast.error('Quiz not found.');
+                    navigate('/teacher/your-quizzes');
+                    return;
+                }
+                const data = snap.data();
+                if (data.createdBy !== currentUser.uid) {
+                    toast.error("You don't have permission to edit this quiz.");
+                    navigate('/teacher/your-quizzes');
+                    return;
+                }
+                setOriginalQuiz(data);
+                setQuizTitle(data.title || '');
+                setQuizDescription(data.description || '');
+                setQuizSubject(data.subject || '');
+                setQuizTags(data.tags || []);
+                setQuizType(data.quizType || 'MIXED');
+                setQuestions(data.questions?.length ? data.questions : [generateNewQuestion('MCQ')]);
+            } catch (err) {
+                console.error('Error loading quiz for edit:', err);
+                toast.error('Failed to load quiz.');
+                navigate('/teacher/your-quizzes');
+            } finally {
+                setFetchingQuiz(false);
+            }
+        };
+        fetchQuiz();
+    }, [isEditMode, quizId, currentUser, navigate]);
 
     // NEW: Effect to control body scroll when modal is open
     useEffect(() => {
@@ -484,6 +530,24 @@ const CreateQuiz = () => {
             const cleanup = (qs) => { qs.forEach(q => { delete q.localMediaFile; delete q.localCropData; if(q.mcqData) q.mcqData.options.forEach(opt => { delete opt.localMediaFile; delete opt.localCropData; }); if(q.matchData) q.matchData.pairs.forEach(p => { delete p.promptLocalMediaFile; delete p.promptLocalCropData; delete p.answerLocalMediaFile; delete p.answerLocalCropData; }); if(q.categorizeData) q.categorizeData.items.forEach(item => { delete item.localMediaFile; delete item.localCropData; }); if(q.reorderData) q.reorderData.items.forEach(item => { delete item.localMediaFile; delete item.localCropData; }); if(q.visualData) { delete q.visualData.localMainMediaFile; delete q.visualData.localCropData; } if(q.listeningData) { delete q.listeningData.localMainMediaFile; } }); };
             cleanup(questionsToSave);
 
+            const totalPoints = questions.reduce((sum, q) => sum + (parseInt(q.points, 10) || 0), 0);
+
+            if (isEditMode) {
+                await updateDoc(doc(db, 'quizzes', quizId), {
+                    title: quizTitle,
+                    description: quizDescription,
+                    subject: quizSubject.trim(),
+                    tags: quizTags,
+                    quizType,
+                    questions: questionsToSave,
+                    totalPoints,
+                    updatedAt: serverTimestamp(),
+                });
+                toast.success('Quiz updated!');
+                navigate('/teacher/your-quizzes');
+                return;
+            }
+
             const quizData = {
                 title: quizTitle,
                 description: quizDescription,
@@ -496,7 +560,7 @@ const CreateQuiz = () => {
                 createdAt: serverTimestamp(),
                 active: true,
                 questions: questionsToSave,
-                totalPoints: questions.reduce((sum, q) => sum + (parseInt(q.points, 10) || 0), 0)
+                totalPoints,
             };
 
             await addDoc(collection(db, "quizzes"), quizData);
@@ -505,14 +569,14 @@ const CreateQuiz = () => {
             localStorage.removeItem(DRAFT_KEY);
 
         } catch (e) {
-            console.error("Error publishing:", e);
-            setError(`An error occurred during publishing: ${e.message || 'Unknown error'}. Please try again.`);
+            console.error(isEditMode ? "Error saving changes:" : "Error publishing:", e);
+            setError(`An error occurred while ${isEditMode ? 'saving changes' : 'publishing'}: ${e.message || 'Unknown error'}. Please try again.`);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    if (loading) return <div className="loading-screen">Loading...</div>;
+    if (loading || fetchingQuiz) return <div className="loading-screen">Loading...</div>;
 
     return (
         <div className="create-quiz-container">
@@ -537,10 +601,19 @@ const CreateQuiz = () => {
                 {!isPublished ? (
                     <>
                         <div className="create-quiz-header">
-                            <button onClick={() => navigate('/teacher/home')} className="back-btn"><FaArrowLeft /> Dashboard</button>
-                            <h2>Create New Quiz</h2>
+                            <button onClick={() => navigate(isEditMode ? '/teacher/your-quizzes' : '/teacher/home')} className="back-btn">
+                                <FaArrowLeft /> {isEditMode ? 'Your Quizzes' : 'Dashboard'}
+                            </button>
+                            <h2>
+                                {isEditMode ? 'Edit Quiz' : 'Create New Quiz'}
+                                {isEditMode && originalQuiz?.code && (
+                                    <span style={{ marginLeft: '0.75rem', fontSize: '0.85rem', fontWeight: 600, opacity: 0.6, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                                        {originalQuiz.code}
+                                    </span>
+                                )}
+                            </h2>
                             <button onClick={handlePublishQuiz} className="publish-quiz-btn" disabled={isSubmitting}>
-                                <FaSave /> {isSubmitting ? 'Publishing...' : 'Publish'}
+                                <FaSave /> {isSubmitting ? (isEditMode ? 'Saving...' : 'Publishing...') : (isEditMode ? 'Save Changes' : 'Publish')}
                             </button>
                         </div>
                         {error && <div className="error-message"><FaTimes/> {error}</div>}

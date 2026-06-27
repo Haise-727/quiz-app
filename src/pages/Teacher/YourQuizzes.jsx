@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
-  Plus, Eye, Trash2, Copy, Share2,
+  Plus, Eye, Trash2, Copy, Share2, Pencil,
   BookOpen, MoreVertical,
   ToggleLeft, ToggleRight, ClipboardList, BarChart2, Search,
   Zap, CreditCard, Radio, Loader2,
@@ -255,6 +255,9 @@ const YourQuizzes = () => {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/teacher/edit-quiz/${quiz.id}`)} className="px-2.5" title="Edit Quiz">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
                         <Button size="sm" variant="outline" onClick={() => setDetailsQuiz(quiz)} className="flex-1 gap-1.5">
                           <Eye className="w-3.5 h-3.5" /> Preview
                         </Button>
