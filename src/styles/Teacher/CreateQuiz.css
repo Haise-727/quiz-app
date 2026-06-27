@@ -275,6 +275,11 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 .close-modal-btn-simple:hover { color: hsl(var(--foreground)); }
 
 /* === IMAGE EDITOR MODAL STYLES === */
+/* .cropper-modal-overlay had no rules at all - without position:fixed it rendered as a normal
+   in-flow flex sibling of .create-quiz-content (which is display:flex), squeezing the actual
+   editor into a narrow column since this overlay's 90vw-wide child forced it to claim most of
+   the row's width. */
+.cropper-modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; animation: fade-in 0.2s ease-out; }
 .image-editor-modal-content { padding: 0; display: flex; flex-direction: column; height: 95vh; max-height: 900px; width: 90vw; max-width: 1200px; background-color: #0F1117; border: 1px solid hsl(var(--border)); overflow: hidden; }
 .image-editor-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; background-color: #181B23; border-bottom: 1px solid hsl(var(--border)); color: hsl(var(--foreground)); }
 .image-editor-header h3 { margin: 0; font-size: 1.5rem; color: hsl(var(--foreground)); font-weight: 700; }

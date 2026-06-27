@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import '../../styles/Teacher/CreateQuiz.css';
 import { FaTrashAlt, FaPlus, FaClipboard, FaTimes, FaArrowLeft, FaPhotoVideo, FaGripLines, FaSave, FaLaptop, FaPaste, FaEdit, FaDatabase } from 'react-icons/fa';
 import { toast } from 'sonner';
-import { saveToBank, getBankQuestions } from '../../utils/questionBankHelpers';
+import { saveToBank, getBankQuestions, cleanQuestionForFirestore } from '../../utils/questionBankHelpers';
 import ImageKit from 'imagekit-javascript';
 import MediaPreview from '../../components/MediaPreview';
 import ImageEditorModal from '../../components/ImageEditorModal';
@@ -19,6 +19,8 @@ const imagekit = new ImageKit({
     urlEndpoint: import.meta.env.VITE_URL_ENDPOINT,
     authenticationEndpoint: `${import.meta.env.VITE_API_URL || ''}/api/auth`
 });
+
+const DRAFT_KEY = 'quizlike_create_quiz_draft';
 
 const generateNewQuestion = (type) => {
     const baseQuestion = { id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, type, questionText: '', points: 10, timeLimit: 60, media: null, localMediaFile: null, localCropData: null };
@@ -69,6 +71,44 @@ const CreateQuiz = () => {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [mediaTarget, setMediaTarget] = useState(null);
     const hiddenFileInput = useRef(null);
+    const draftRestoredRef = useRef(false);
+
+    // Restore an unsaved draft (e.g. after an accidental refresh) once on mount.
+    // Local media File selections can't survive localStorage (not serializable),
+    // so only text/structure is recovered - already-uploaded media URLs are kept.
+    useEffect(() => {
+        if (draftRestoredRef.current) return;
+        draftRestoredRef.current = true;
+        try {
+            const saved = localStorage.getItem(DRAFT_KEY);
+            if (!saved) return;
+            const draft = JSON.parse(saved);
+            if (!draft?.questions?.length) return;
+            setQuizTitle(draft.quizTitle || '');
+            setQuizDescription(draft.quizDescription || '');
+            setQuizSubject(draft.quizSubject || '');
+            setQuizTags(draft.quizTags || []);
+            setQuestions(draft.questions);
+            toast.info('Restored your unsaved quiz draft.', {
+                action: { label: 'Discard', onClick: () => { localStorage.removeItem(DRAFT_KEY); window.location.reload(); } },
+            });
+        } catch { /* corrupt or unreadable draft - ignore */ }
+    }, []);
+
+    // Autosave the draft to localStorage so a refresh doesn't lose progress.
+    useEffect(() => {
+        const hasContent = quizTitle.trim() || questions.some(q => q.questionText?.trim());
+        if (!hasContent) return;
+        const timer = setTimeout(() => {
+            try {
+                const cleanedQuestions = questions.map(q => cleanQuestionForFirestore(q));
+                localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                    quizTitle, quizDescription, quizSubject, quizTags, questions: cleanedQuestions, savedAt: Date.now(),
+                }));
+            } catch { /* storage full or serialization issue - skip this save */ }
+        }, 800);
+        return () => clearTimeout(timer);
+    }, [quizTitle, quizDescription, quizSubject, quizTags, questions]);
 
     useEffect(() => {
         if (currentUser) {
@@ -462,6 +502,7 @@ const CreateQuiz = () => {
             await addDoc(collection(db, "quizzes"), quizData);
             setGeneratedCode(quizData.code);
             setIsPublished(true);
+            localStorage.removeItem(DRAFT_KEY);
 
         } catch (e) {
             console.error("Error publishing:", e);
