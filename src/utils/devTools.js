@@ -23,6 +23,15 @@ export async function clearInvalidQuizzes(teacherUid) {
   return invalid.length;
 }
 
+/** Deletes every quiz_result belonging to quizzes this teacher owns. Irreversible. */
+export async function clearAllQuizResults(teacherUid) {
+  const snap = await getDocs(
+    query(collection(db, 'quiz_results'), where('teacherId', '==', teacherUid))
+  );
+  await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'quiz_results', d.id))));
+  return snap.size;
+}
+
 export async function seedTestQuiz(teacherUid) {
   const quiz = {
     title: 'All-Types Test Quiz',

@@ -43,13 +43,13 @@ service cloud.firestore {
     // - A signed-in student can read their own results.
     // - The quiz's teacher can read all results for their quiz.
     // - Only the teacher can UPDATE a result (for manual grading).
-    // - Nobody can delete results.
+    // - Only the quiz's teacher can delete results (e.g. clearing test data).
     match /quiz_results/{resultId} {
       allow create: if true;   // guests + students
       allow read:   if isOwner(resource.data.userId) ||
                        isOwner(resource.data.teacherId);
       allow update: if isOwner(resource.data.teacherId);
-      allow delete: if false;
+      allow delete: if isOwner(resource.data.teacherId);
     }
 
     // ── classes ───────────────────────────────────────────────────────────────

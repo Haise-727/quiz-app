@@ -8,13 +8,13 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
   Plus, LayoutDashboard, BookOpen, Activity, Radio,
   CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown, ToggleLeft,
   BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench,
 } from 'lucide-react';
-import { clearInvalidQuizzes, seedTestQuiz } from '../../utils/devTools';
+import { clearInvalidQuizzes, seedTestQuiz, clearAllQuizResults } from '../../utils/devTools';
 
 const AnimatedCounter = ({ value, duration = 1500 }) => {
   const [count, setCount] = useState(0);
@@ -57,7 +57,8 @@ const TeacherHome = () => {
   const [stats, setStats] = useState({ activeQuizzes: 0, totalQuizzes: 0, totalStudents: 0, completedSessions: 0 });
   const [recentActivity, setRecentActivity] = useState([]);
   const [quizModalOpen, setQuizModalOpen] = useState(false);
-  const [devLoading, setDevLoading] = useState(null); // 'clear' | 'seed' | null
+  const [devLoading, setDevLoading] = useState(null); // 'clear' | 'seed' | 'clearResults' | null
+  const [confirmClearResults, setConfirmClearResults] = useState(false);
   const fetched = useRef(false);
 
   useEffect(() => {
@@ -122,6 +123,21 @@ const TeacherHome = () => {
       fetchData();
     } catch {
       toast.error('Failed to seed test quiz.');
+    } finally {
+      setDevLoading(null);
+    }
+  };
+
+  const handleClearResults = async () => {
+    setConfirmClearResults(false);
+    setDevLoading('clearResults');
+    try {
+      const count = await clearAllQuizResults(currentUser.uid);
+      toast.success(`Deleted ${count} quiz result${count !== 1 ? 's' : ''}.`);
+      fetched.current = false;
+      fetchData();
+    } catch {
+      toast.error('Failed to clear quiz results. Make sure firestore.rules has been published with delete permission for quiz_results.');
     } finally {
       setDevLoading(null);
     }
@@ -296,8 +312,22 @@ const TeacherHome = () => {
                     }
                     Seed Test Quiz (All Types)
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={devLoading === 'clearResults'}
+                    onClick={() => setConfirmClearResults(true)}
+                    className="w-full gap-2 border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30"
+                  >
+                    {devLoading === 'clearResults'
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Trash2 className="w-3.5 h-3.5" />
+                    }
+                    Clear All Quiz Results
+                  </Button>
                   <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-2 leading-relaxed">
                     Clear Invalid removes outdated schemas. Seed creates a test quiz with all 7 question types.
+                    Clear All Quiz Results permanently deletes every submission/review for your quizzes.
                   </p>
                 </div>
               </Card>
@@ -329,6 +359,24 @@ const TeacherHome = () => {
               </button>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm: Clear All Quiz Results */}
+      <Dialog open={confirmClearResults} onOpenChange={setConfirmClearResults}>
+        <DialogContent className="max-w-sm bg-[hsl(var(--card))] border-[hsl(var(--border))]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[hsl(var(--foreground))]">
+              <Trash2 className="w-5 h-5 text-red-500" /> Clear All Quiz Results?
+            </DialogTitle>
+            <DialogDescription>
+              This permanently deletes every submission and review for all of your quizzes - students will lose access to their past results. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmClearResults(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleClearResults}>Delete Everything</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
