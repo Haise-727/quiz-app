@@ -161,6 +161,9 @@ const Landing = () => {
           <span className="text-[hsl(var(--foreground))] font-bold text-xl tracking-tight">Quizlike</span>
         </div>
         <div className="flex items-center gap-4">
+          <Link to="/play" className="text-[hsl(var(--foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors">
+            🔴 Play Live
+          </Link>
           {currentUser ? (
             <button
               onClick={() => navigate(userRole === 'teacher' ? '/teacher/home' : '/student/dashboard')}

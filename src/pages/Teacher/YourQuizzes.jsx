@@ -21,8 +21,9 @@ import {
   Plus, Eye, Trash2, Copy, Share2,
   BookOpen, MoreVertical,
   ToggleLeft, ToggleRight, ClipboardList, BarChart2, Search,
-  Zap, CreditCard,
+  Zap, CreditCard, Radio, Loader2,
 } from 'lucide-react';
+import { createLiveSession } from '../../utils/liveSession';
 
 // ── Question preview inside details modal ──────────────────────────────────────
 const QuestionPreview = ({ question, index }) => {
@@ -110,6 +111,20 @@ const YourQuizzes = () => {
   const handleCopyCode = async (code) => {
     try { await navigator.clipboard.writeText(code); toast.success('Quiz code copied!'); }
     catch { toast.error('Failed to copy code.'); }
+  };
+
+  const [hostingId, setHostingId] = useState(null);
+
+  const handleHostLive = async (quiz) => {
+    setHostingId(quiz.id);
+    try {
+      const pin = await createLiveSession(quiz, currentUser.uid);
+      navigate(`/teacher/host/${pin}`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to start live session.');
+    } finally {
+      setHostingId(null);
+    }
   };
 
   const handleToggle = async (quiz) => {
@@ -230,6 +245,13 @@ const YourQuizzes = () => {
                           </button>
                         </div>
                       </div>
+
+                      {/* Host live */}
+                      <Button size="sm" onClick={() => handleHostLive(quiz)} disabled={hostingId === quiz.id}
+                        className="w-full gap-1.5 mb-2 bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                        {hostingId === quiz.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Radio className="w-3.5 h-3.5" />}
+                        Host Live Game
+                      </Button>
 
                       {/* Actions */}
                       <div className="flex items-center gap-2">

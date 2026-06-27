@@ -14,6 +14,7 @@ import Grading from './pages/Teacher/Grading';
 import Analytics from './pages/Teacher/Analytics';
 import Classes from './pages/Teacher/Classes';
 import QuestionBank from './pages/Teacher/QuestionBank';
+import HostSession from './pages/Teacher/HostSession';
 
 import StudentDashboard from './pages/Student/StudentDashboard';
 import AttendQuiz from './pages/Student/AttendQuiz';
@@ -24,6 +25,7 @@ import Profile from './pages/Profile';
 import Browse from './pages/Browse';
 import Practice from './pages/Practice';
 import Flashcards from './pages/Flashcards';
+import PlaySession from './pages/PlaySession';
 import NotFound from './pages/NotFound';
 
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -80,6 +82,8 @@ function App() {
         <Route path="/quiz/:quizId"        element={<GuestTakeQuiz />} />
         <Route path="/practice/:quizId"    element={<Practice />} />
         <Route path="/flashcards/:quizId"  element={<Flashcards />} />
+        <Route path="/play"                element={<PlaySession />} />
+        <Route path="/play/:pin"           element={<PlaySession />} />
 
         {/* ── Teacher (must be logged in as teacher) ── */}
         <Route path="/teacher/home"              element={<ProtectedRoute role="teacher"><DashboardLayout><TeacherHome /></DashboardLayout></ProtectedRoute>} />
@@ -89,6 +93,7 @@ function App() {
         <Route path="/teacher/question-bank"     element={<ProtectedRoute role="teacher"><DashboardLayout><QuestionBank /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/grading/:quizId"    element={<ProtectedRoute role="teacher"><DashboardLayout><Grading /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/analytics/:quizId" element={<ProtectedRoute role="teacher"><DashboardLayout><Analytics /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/host/:pin"         element={<ProtectedRoute role="teacher"><HostSession /></ProtectedRoute>} />
 
         {/* ── Shared (any authenticated user) ── */}
         <Route path="/profile" element={<ProtectedRoute><DashboardLayout><Profile /></DashboardLayout></ProtectedRoute>} />

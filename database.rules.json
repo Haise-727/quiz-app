@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "sessions": {
+      ".read": true,
+      ".write": true,
+      "$pin": {
+        ".validate": "newData.hasChildren(['quizId', 'hostId', 'state']) || !newData.exists()"
+      }
+    }
+  }
+}
