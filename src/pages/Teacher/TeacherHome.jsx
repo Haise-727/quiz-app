@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
-  Plus, LayoutDashboard, BookOpen, Activity,
+  Plus, LayoutDashboard, BookOpen, Activity, Radio,
   CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown, ToggleLeft,
   BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench,
 } from 'lucide-react';
@@ -187,6 +187,7 @@ const TeacherHome = () => {
               >
                 {[
                   { icon: Plus, label: 'Create Quiz', desc: 'Build a new assessment', onClick: () => setQuizModalOpen(true) },
+                  { icon: Radio, label: 'Host Live Game', desc: 'Run a real-time session', onClick: () => navigate('/teacher/your-quizzes') },
                   { icon: LayoutDashboard, label: 'Your Quizzes', desc: 'Manage & grade quizzes', onClick: () => navigate('/teacher/your-quizzes') },
                   { icon: GraduationCap, label: 'My Classes', desc: 'Manage classes & rosters', onClick: () => navigate('/teacher/classes') },
                   { icon: BookOpen, label: 'Question Bank', desc: 'Reusable questions list', onClick: () => navigate('/teacher/question-bank') },

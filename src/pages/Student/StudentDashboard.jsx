@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   PlayCircle, BookOpen, BarChart2, TrendingUp,
   Trophy, Clock, Target, ChevronRight, Star,
-  Users, Hash, Loader2, GraduationCap, Calendar, CheckCircle2,
+  Users, Hash, Loader2, GraduationCap, Calendar, CheckCircle2, Radio,
 } from 'lucide-react';
 import { joinClassByCode, getStudentClasses } from '../../utils/classHelpers';
 import { getQuizzesByIds, getDueStatus, formatDueDate } from '../../utils/assignmentHelpers';
@@ -168,10 +168,11 @@ const StudentDashboard = () => {
                 }}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
               >
                 {[
                   { icon: PlayCircle, label: 'Join a Quiz', desc: 'Enter a code to start taking a quiz', onClick: () => navigate('/student/attend-quiz') },
+                  { icon: Radio,      label: 'Join Live Game', desc: 'Enter a PIN to play in real time', onClick: () => navigate('/play') },
                   { icon: BookOpen,   label: 'Your Results', desc: 'Review your scores and history', onClick: () => navigate('/student/results') },
                   { icon: BarChart2,  label: 'Analytics',    desc: 'View detailed performance metrics', onClick: () => navigate('/student/results') },
                 ].map(({ icon: Icon, label, desc, onClick }) => (

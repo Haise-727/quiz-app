@@ -304,6 +304,15 @@ const Landing = () => {
               ) : 'Join Quiz →'}
             </motion.button>
 
+            {/* Live game CTA */}
+            <Link
+              to="/play"
+              className="w-full py-3 rounded-xl font-bold text-sm tracking-wide text-center border-2 border-red-500/30 bg-red-500/5 text-red-500 hover:bg-red-500/10 hover:border-red-500/50 transition-all flex items-center justify-center gap-2"
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              Join a Live Game →
+            </Link>
+
             {/* Divider */}
             <div className="flex items-center gap-4 w-full">
               <div className="flex-1 h-px bg-[hsl(var(--border))]" />
