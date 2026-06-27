@@ -18,7 +18,6 @@ import {
   BookOpen,
   GraduationCap,
   Library,
-  Upload,
   PlayCircle,
   Trophy,
   BarChart2,
@@ -77,7 +76,6 @@ const DashboardLayout = ({ children }) => {
         { path: '/teacher/your-quizzes', label: 'Your Quizzes', icon: BookOpen },
         { path: '/teacher/classes', label: 'My Classes', icon: GraduationCap },
         { path: '/teacher/question-bank', label: 'Question Bank', icon: Library },
-        { path: '/teacher/media-test', label: 'Media Test', icon: Upload },
       ];
     } else {
       return [

@@ -474,14 +474,7 @@ const CreateQuiz = () => {
     if (loading) return <div className="loading-screen">Loading...</div>;
 
     return (
-        <div className="create-quiz-container relative overflow-x-hidden">
-            {/* Decorative background grid and blobs */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-                <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-                <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-            </div>
-
+        <div className="create-quiz-container">
             <input type="file" ref={hiddenFileInput} style={{ display: 'none' }} onChange={handleFileInputChange} accept="image/*,video/*,audio/*" />
             {isUploadModalOpen && (<UploadChoiceModal onChoice={handleUploadChoice} onClose={() => setIsUploadModalOpen(false)} />)}
 

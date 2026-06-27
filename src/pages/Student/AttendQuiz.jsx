@@ -51,16 +51,9 @@ const AttendQuiz = () => {
   );
 
   return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-x-hidden">
-      {/* Decorative background grid and blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-      </div>
-
+    <div className="w-full relative">
       {/* Hero */}
-      <div className="relative z-10 px-6 md:px-10 py-6">
+      <div className="relative z-10 pb-6">
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-3xl md:text-4xl font-black text-[hsl(var(--foreground))]">Join a Quiz</h1>
           <p className="text-[hsl(var(--muted-foreground))] mt-1">Enter a code or pick from the list below.</p>
@@ -72,9 +65,9 @@ const AttendQuiz = () => {
         initial={{ opacity: 0, y: 15 }} 
         animate={{ opacity: 1, y: 0 }} 
         transition={{ duration: 0.3, delay: 0.05 }}
-        className="relative z-10 mx-4 md:mx-10 mb-10 rounded-2xl bg-[hsl(var(--background))] border border-[hsl(var(--border))] shadow-sm overflow-hidden"
+        className="relative z-10 rounded-2xl bg-[hsl(var(--background))] border border-[hsl(var(--border))] shadow-sm overflow-hidden"
       >
-        <div className="p-6 md:p-8 flex flex-col gap-8">
+        <div className="p-4 md:p-6 flex flex-col gap-8">
 
           {/* Code join */}
           <section>

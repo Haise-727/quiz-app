@@ -10,7 +10,6 @@ import GuestTakeQuiz from './pages/Guest/GuestTakeQuiz';
 import TeacherHome from './pages/Teacher/TeacherHome';
 import CreateQuiz from './pages/Teacher/CreateQuiz';
 import YourQuizzes from './pages/Teacher/YourQuizzes';
-import MediaTest from './pages/Teacher/MediaTest';
 import Grading from './pages/Teacher/Grading';
 import Analytics from './pages/Teacher/Analytics';
 import Classes from './pages/Teacher/Classes';
@@ -86,7 +85,6 @@ function App() {
         <Route path="/teacher/home"              element={<ProtectedRoute role="teacher"><DashboardLayout><TeacherHome /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/create-quiz"       element={<ProtectedRoute role="teacher"><DashboardLayout><CreateQuiz /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/your-quizzes"      element={<ProtectedRoute role="teacher"><DashboardLayout><YourQuizzes /></DashboardLayout></ProtectedRoute>} />
-        <Route path="/teacher/media-test"        element={<ProtectedRoute role="teacher"><DashboardLayout><MediaTest /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/classes"           element={<ProtectedRoute role="teacher"><DashboardLayout><Classes /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/question-bank"     element={<ProtectedRoute role="teacher"><DashboardLayout><QuestionBank /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/grading/:quizId"    element={<ProtectedRoute role="teacher"><DashboardLayout><Grading /></DashboardLayout></ProtectedRoute>} />

@@ -164,7 +164,7 @@ const Analytics = () => {
   const fmtDate = ts => ts?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) ?? '—';
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+    <div className="w-full min-h-[60vh] flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
     </div>
   );

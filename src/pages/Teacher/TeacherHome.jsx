@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
-  Plus, LayoutDashboard, BookOpen, Upload, Activity,
+  Plus, LayoutDashboard, BookOpen, Activity,
   CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown, ToggleLeft,
   BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench,
 } from 'lucide-react';
@@ -137,7 +137,7 @@ const TeacherHome = () => {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+    <div className="w-full min-h-[60vh] flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
     </div>
   );
@@ -190,7 +190,6 @@ const TeacherHome = () => {
                   { icon: LayoutDashboard, label: 'Your Quizzes', desc: 'Manage & grade quizzes', onClick: () => navigate('/teacher/your-quizzes') },
                   { icon: GraduationCap, label: 'My Classes', desc: 'Manage classes & rosters', onClick: () => navigate('/teacher/classes') },
                   { icon: BookOpen, label: 'Question Bank', desc: 'Reusable questions list', onClick: () => navigate('/teacher/question-bank') },
-                  { icon: Upload, label: 'Media Test', desc: 'Test files & media uploads', onClick: () => navigate('/teacher/media-test') },
                 ].map(({ icon: Icon, label, desc, onClick }) => (
                   <motion.button
                     key={label}

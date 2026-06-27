@@ -125,7 +125,7 @@ const StudentDashboard = () => {
   const greeting = displayName || user?.displayName || user?.email?.split('@')[0] || 'Student';
 
   if (loading) return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex items-center justify-center">
+    <div className="w-full min-h-[60vh] flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
     </div>
   );
