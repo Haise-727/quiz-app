@@ -14,10 +14,13 @@ import ImageEditorModal from '../../components/ImageEditorModal';
 // just some testings
 
 // Initialize ImageKit globally.
+// authenticationEndpoint is always relative - /api/auth is a serverless function
+// in this same Vercel project, so a hardcoded absolute URL (VITE_API_URL) would
+// break if that domain/alias ever changes or the env var goes stale.
 const imagekit = new ImageKit({
     publicKey: import.meta.env.VITE_PUBLIC_KEY,
     urlEndpoint: import.meta.env.VITE_URL_ENDPOINT,
-    authenticationEndpoint: `${import.meta.env.VITE_API_URL || ''}/api/auth`
+    authenticationEndpoint: '/api/auth'
 });
 
 const DRAFT_KEY = 'quizlike_create_quiz_draft';
@@ -474,8 +477,8 @@ const CreateQuiz = () => {
 
         try {
             const fetchAuthParamsForUpload = async () => {
-                const authApiUrl = `${import.meta.env.VITE_API_URL || ''}/api/auth`;
-                const response = await fetch(authApiUrl);
+                // Always relative - see note on the ImageKit init above.
+                const response = await fetch('/api/auth');
                 if (!response.ok) {
                     const errorBody = await response.json();
                     throw new Error(`Authentication server failed: ${errorBody.message || response.statusText}`);

@@ -28,8 +28,11 @@ const MediaUploader = ({ onUploadSuccess }) => {
     setUploadProgress(0);
 
     try {
-      const authApiUrl = `${import.meta.env.VITE_API_URL || ''}/api/auth`;
-      const response = await fetch(authApiUrl);
+      // Always relative - /api/auth is a serverless function in this same Vercel
+      // project, so it's served from whatever domain/alias is currently loaded.
+      // A hardcoded absolute URL (VITE_API_URL) would break if that domain ever
+      // changes or the env var goes stale.
+      const response = await fetch('/api/auth');
       if (!response.ok) throw new Error(`Auth server failed: ${response.status}`);
       const authParams = await response.json();
 
