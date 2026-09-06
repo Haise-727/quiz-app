@@ -1,137 +1,150 @@
-# Quiz App – Project Overview
+# Quizlike — Architecture Deep Dive
 
-## 📄 Introduction
-This repository contains **Quiz App**, a modern web application built with **React**, **Vite**, and **Tailwind CSS** (optional). The app enables teachers to create quizzes, students to take them, and stores results in **Firebase Firestore**. It follows a component‑driven architecture with a clear separation between UI, state, and data‑access layers.
-
----
-
-## 🛠️ Tech Stack
-| Layer | Technology | Reason |
-|------|------------|--------|
-| **Framework** | **React 18** + **Vite 6** | Fast dev server, hot‑module replacement, ES‑module support |
-| **Styling** | **Tailwind CSS** (via `@tailwindcss/vite`) – optional, fallback to vanilla CSS | Utility‑first styling, theming, dark‑mode support |
-| **State Management** | React Context + custom hooks | Lightweight, no extra library overhead |
-| **Backend / Data** | **Firebase Firestore** (via `firebase` SDK) | Server‑less NoSQL store, realtime listeners |
-| **Auth** | Firebase Authentication (Email/Password) | Secure, easy integration |
-| **Build / Deploy** | Vite (dev) → static bundle, can be deployed to Vercel/Netlify |
-| **Testing** | Jest + React Testing Library (planned) |
+This document explains *how* the project is put together and why. For what the
+product does and how to run it, start with the [README](README.md).
 
 ---
 
-## 📦 Project Structure
+## Design Goals
+
+1. **No server to operate.** The team is small, so the architecture leans on
+   managed services. There is no Express app, no container, no VM — Firebase
+   provides auth and data, Vercel serves the bundle and runs one function.
+2. **Authorisation on the server, not in the UI.** Hiding a button is not
+   security. Every access rule that matters is expressed in
+   `firestore.rules`, so a modified client cannot read or write what it
+   should not.
+3. **Right database for each job.** Firestore for durable, queryable records;
+   Realtime Database for live game state that must fan out to every player in
+   under a second.
+4. **Guests are first-class.** A student should be able to take a quiz from a
+   shared link without creating an account, and the teacher should still get
+   their result.
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| Framework | React 19 + Vite 6 | Fast HMR dev loop, ES modules, minimal config |
+| Routing | React Router 7 | Nested routes and route-level access guards |
+| Styling | Tailwind CSS v4 via `@tailwindcss/vite` | Utility-first, no separate build step |
+| Components | shadcn/ui over Radix primitives | Accessible primitives, owned in-repo rather than versioned as a dependency |
+| State | React Context + custom helpers | Two pieces of global state (auth, theme); a store library would be overhead |
+| Animation | Framer Motion | Page and modal transitions |
+| Charts | Recharts | Composable React chart primitives for the analytics page |
+| Auth | Firebase Authentication | Google OAuth and email/password without running an identity service |
+| Database | Cloud Firestore | Document model matches the nested quiz/question shape; realtime listeners built in |
+| Live state | Firebase Realtime Database | Lower latency and cheaper fan-out than Firestore for ephemeral session data |
+| Media | ImageKit | CDN storage plus on-the-fly transforms; keeps large uploads out of Firestore |
+| Drag & drop | @hello-pangea/dnd | Powers Match, Reorder and Categorize question types |
+| Hosting | Vercel | Static bundle on CDN plus serverless functions from the same repo |
+
+---
+
+## Repository Layout
+
 ```
 quiz-app/
-├─ public/               # static assets (favicon, etc.)
-├─ src/                  # source code
-│  ├─ api/               # wrappers around Firebase calls
-│  ├─ components/        # reusable UI components
-│  │   ├─ ImageEditorModal.jsx
-│  │   └─ …
-│  ├─ pages/             # route‑level components (Student/, Teacher/)
-│  ├─ hooks/             # custom React hooks
-│  ├─ context/           # React Context providers
-│  ├─ utils/             # helper utilities
-│  ├─ App.jsx            # root component (router + layout)
-│  └─ main.jsx           # React entry point
-├─ .env                  # environment variables (Firebase keys)
-├─ vite.config.js        # Vite configuration (Tailwind plugin, alias)
-├─ package.json          # deps & scripts
-└─ README.md             # high‑level docs (this file is a deeper dive)
+├─ api/
+│  └─ auth.js                 # Vercel serverless function — ImageKit token signing
+├─ public/                    # static assets served as-is
+├─ src/
+│  ├─ components/
+│  │  ├─ ui/                  # shadcn/ui primitives (button, card, dialog, tabs, …)
+│  │  ├─ layout/              # DashboardLayout — shared teacher/student shell
+│  │  ├─ MediaUploader.jsx    # upload → crop → annotate → ImageKit pipeline
+│  │  ├─ MediaRenderer.jsx    # renders image/video media on questions
+│  │  ├─ ImageCropperModal.jsx / ImageEditorModal.jsx
+│  │  ├─ NotificationBell.jsx
+│  │  └─ ProtectedRoute.jsx   # route guard: auth + role enforcement
+│  ├─ contexts/
+│  │  ├─ AuthContext.jsx      # user, role, sign-in/out, switchRole
+│  │  └─ ThemeContext.jsx
+│  ├─ pages/
+│  │  ├─ Teacher/             # home, create/edit quiz, your quizzes, grading,
+│  │  │                       # analytics, classes, question bank, host session
+│  │  ├─ Student/             # dashboard, attend quiz, take quiz, results
+│  │  ├─ Guest/               # GuestTakeQuiz — no account required
+│  │  ├─ Landing.jsx  Browse.jsx  Login.jsx  Profile.jsx
+│  │  ├─ Practice.jsx  Flashcards.jsx  PlaySession.jsx  NotFound.jsx
+│  ├─ utils/                  # Firestore access helpers, not UI
+│  │  ├─ liveSession.js       # Realtime Database session lifecycle
+│  │  ├─ classHelpers.js  assignmentHelpers.js  questionBankHelpers.js
+│  │  ├─ notifications.js  sounds.js  devTools.js
+│  ├─ lib/utils.js            # cn() — clsx + tailwind-merge
+│  ├─ firebase.js             # SDK init; exports db, auth, realtimeDb, googleProvider
+│  ├─ App.jsx                 # route table
+│  └─ main.jsx                # entry point
+├─ docs/                      # technical reference, progress report, contributing
+├─ firestore.rules            # Firestore authorisation
+├─ database.rules.json        # Realtime Database authorisation
+├─ vercel.json                # SPA rewrites
+└─ vite.config.js
 ```
 
----
-
-## 🏗️ Architecture Overview
-### 1. Front‑End (React)
-- **Router** – `react-router-dom` handles navigation between `/login`, `/student`, `/teacher`, etc.
-- **Component hierarchy** – UI components are pure and stateless; state lives in Context providers (e.g., `AuthContext`, `QuizContext`).
-- **Data flow** – Components call async functions from `src/api/*` which interact with Firestore. Results are stored in Context and propagated via hooks.
-
-### 2. Backend (Firebase)
-- **Firestore collections**:
-  - `users` – user profile & role (teacher / student)
-  - `quizzes` – quiz metadata, questions, options
-  - `responses` – student answers linked to quiz ID and user ID
-- **Security Rules** – defined in `firestore.rules` to enforce role‑based read/write permissions.
-- **Auth** – Firebase Auth provides JWT tokens that are verified on the client side to identify the current user.
-
-### 3. Build / Deploy Pipeline
-1. `npm install` – installs dependencies (including `@tailwindcss/vite`).
-2. `npm run dev` – starts Vite dev server on `http://localhost:5173`.
-3. `npm run build` – creates an optimized static bundle in `dist/`.
-4. Deploy `dist/` to Vercel/Netlify or serve via any static web server.
+Note there is no `src/api/` directory — Firestore calls live in `src/utils/`,
+and `api/` at the repository root is Vercel's serverless function directory.
 
 ---
 
-## 🔄 Development Workflow
-| Step | Description |
-|------|-------------|
-| **1️⃣ Clone & Install** | `git clone <repo>` → `npm install --legacy-peer-deps` (required for some legacy deps). |
-| **2️⃣ Environment** | Create a `.env` file (copy from `.env.local.example`). Add your Firebase config variables (`VITE_FIREBASE_API_KEY`, etc.). |
-| **3️⃣ Run Dev Server** | `npm run dev`. Vite watches files and hot‑reloads on change. |
-| **4️⃣ Feature Development** | - Create a new branch `git checkout -b feat/<name>`.
-- Write UI components under `src/components/`.
-- Add API helpers under `src/api/`.
-- Update Context or hooks as needed.
-- Run `npm run lint` (optional) to keep code clean. |
-| **5️⃣ Test (future)** | Add Jest tests under `src/__tests__/`. Run `npm test`. |
-| **6️⃣ PR & Merge** | Open a PR, CI runs lint + build, then merge to `main`. |
-| **7️⃣ Deploy** | CI/CD (GitHub Actions) triggers a Vercel deployment on merge. |
+## How the Layers Talk
+
+### Frontend
+Route-level components under `src/pages/` own data fetching and call helpers in
+`src/utils/`, which wrap the Firebase SDK. Components under `src/components/ui/`
+are presentational. Global state is deliberately small: `AuthContext` holds the
+signed-in user and role, `ThemeContext` holds the theme; everything else is
+local component state or read live from Firestore.
+
+`ProtectedRoute` wraps routes that require a session. Given a `role` prop it
+also enforces that role and redirects a mismatched user to their own dashboard,
+handling the window where auth has resolved but the Firestore profile has not.
+
+### Backend
+There is no traditional backend tier. The client speaks to Firebase directly,
+and Firebase security rules are the enforcement point — `firestore.rules`
+defines per-collection read/write conditions based on the caller's UID and role,
+so authorisation cannot be bypassed by editing client code.
+
+The single custom endpoint is `api/auth.js`. ImageKit uploads must be signed
+with a private key, and a private key cannot ship to a browser, so the function
+holds it in a Vercel environment variable and returns short-lived signed upload
+parameters on request.
+
+### Database
+**Firestore** stores users, quizzes, results, classes, enrolments, the question
+bank and notifications. Questions are embedded as an array inside their quiz
+document rather than normalised into a subcollection: a quiz is always read as a
+whole, so embedding makes it one read instead of N.
+
+**Realtime Database** stores only `sessions/{pin}` — the live game. State is
+ephemeral, written on every answer by every player, and must reach all clients
+immediately, which is what RTDB is good at and what Firestore would be expensive
+for.
+
+**ImageKit** stores uploaded media; Firestore holds only the resulting URLs.
+
+### Deployment
+Push to `main` triggers a Vercel build. Vite emits a static bundle served from
+the CDN, `api/` becomes serverless functions, and `vercel.json` rewrites every
+path to `index.html` so deep links and refreshes reach the client router.
+Firebase security rules are deployed separately through the Firebase console.
 
 ---
 
-## 📋 Product Requirements Document (PRD) – High‑Level
-| # | Feature | Description | Acceptance Criteria |
-|---|---------|-------------|----------------------|
-| 1 | **User Authentication** | Teachers & students sign‑up / login with email & password. | ✅ Auth flow works; role stored in Firestore; protected routes redirect unauthenticated users. |
-| 2 | **Quiz Creation (Teacher)** | Teacher can create a quiz with title, description, multiple‑choice questions, timer, and optionally upload an image. | ✅ All fields saved; quiz appears in teacher dashboard; validation errors shown. |
-| 3 | **Quiz Taking (Student)** | Student can browse available quizzes, start one, answer questions, and submit. | ✅ Answers stored under `responses`; timer stops at 0; UI shows progress bar. |
-| 4 | **Result Summary** | After submission, student sees score, correct answers, and a summary chart. | ✅ Score calculated correctly; chart displays via Chart.js; data persisted. |
-| 5 | **Realtime Updates** | Teacher dashboard shows live count of attempts per quiz. | ✅ Firestore listener updates UI without page refresh. |
-| 6 | **Responsive Design** | App works on desktop, tablet, and mobile. | ✅ Layout adjusts; touch interactions work; no horizontal overflow. |
-| 7 | **Accessibility** | Keyboard navigation & ARIA labels for all interactive elements. | ✅ WCAG 2.1 AA compliance checklist passed. |
-| 8 | **Dark Mode** (optional) | Users can toggle a dark theme that respects OS preference. | ✅ Theme persists in `localStorage`; UI components adapt. |
+## Known Limitations
 
----
-
-## 🚀 Getting Started (Quick Start)
-```bash
-# 1. Clone the repository
-git clone https://github.com/your-org/quiz-app.git
-cd quiz-app
-
-# 2. Install dependencies (legacy peer deps required for older packages)
-npm install --legacy-peer-deps
-
-# 3. Set up environment variables
-cp .env.local.example .env
-# Edit .env and add your Firebase config values
-
-# 4. Run the development server
-npm run dev
-# Open http://localhost:5173 in your browser
-
-# 5. Build for production (optional)
-npm run build
-```
-
----
-
-## 📚 Helpful Links
-- **Vite Docs** – https://vitejs.dev/guide/
-- **Tailwind CSS** – https://tailwindcss.com/docs
-- **Firebase Docs** – https://firebase.google.com/docs
-- **React Router** – https://reactrouter.com/
-
----
-
-## 📝 Notes & Future Improvements
-- Migrate to **Tailwind v4** once stable (currently using v3).
-- Add **unit & integration tests** (Jest + React Testing Library).
-- Implement **role‑based dashboards** with admin panel.
-- Introduce **CI pipeline** (GitHub Actions) for lint, test, and preview deploys.
-- Replace legacy packages (`inflight`, `npmlog`, etc.) with modern alternatives.
-
----
-
-*This document is intended to give a new contributor a rapid understanding of the project’s purpose, architecture, and development workflow.*
+- **Realtime Database rules are permissive.** `database.rules.json` allows read
+  and write on `sessions` with only a shape check. Sessions are ephemeral and
+  PIN-scoped, and nothing graded depends on them — but a determined client could
+  write to another session's node. Tightening this to host-only writes is the
+  main outstanding security task.
+- **No automated tests.** There is no unit or integration test suite; testing
+  has been manual. This is the largest gap in the project.
+- **No CI pipeline.** Lint and build are run locally, not enforced on push.
+- **`--legacy-peer-deps` required.** `@toast-ui/react-image-editor` declares a
+  React 17 peer dependency. It works on React 19 at runtime, but installs need
+  the flag until the dependency is replaced.
+- **Analytics are per-quiz.** There is no cross-quiz or per-student trend view yet.
