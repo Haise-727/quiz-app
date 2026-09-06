@@ -1,0 +1,11 @@
+# Canonical author identities.
+# The three names below are all the same person committing from different
+# machines/git configs; this collapses them into one entry in git shortlog,
+# git log and `git blame`.
+
+Harsha VarDan M Sakamuri <justaweebwithinternet@gmail.com> <justaweebwithinternet@gmail.com>
+Harsha VarDan M Sakamuri <justaweebwithinternet@gmail.com> EroKami-727 <justaweebwithinternet@gmail.com>
+Harsha VarDan M Sakamuri <justaweebwithinternet@gmail.com> Harsha Sakamuri <justaweebwithinternet@gmail.com>
+Harsha VarDan M Sakamuri <justaweebwithinternet@gmail.com> justaweebwithinternet <justaweebwithinternet@gmail.com>
+
+Rakshith Shakkthi <rakshithshakkthi@gmail.com> rakshithshakkthi <rakshithshakkthi@gmail.com>
