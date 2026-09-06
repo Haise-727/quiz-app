@@ -1,6 +1,7 @@
-# Quiz App Collaboration Guide for Absolute Beginners
+# Contributing — Setup Guide for Beginners
 
-## Welcome to the Team!
+This is the onboarding guide for new collaborators. For what the project *is*,
+see the [README](../README.md).
 
 This guide will help you set up everything you need to collaborate on our quiz app project. Don't worry if you're new to coding or Git - we've broken everything down into simple steps.
 
