@@ -1,133 +1,148 @@
 # Quizlike — Project Progress Report
 
+**Status: feature-complete and deployed.** Live at
+https://quizlike.vercel.app — remaining work is polish, testing and the
+nice-to-haves listed at the end.
+
 ## Project Overview
-A full-stack interactive quiz platform built as a Quizzit/Kahoot clone. Teachers create and manage quizzes; students join and take them live or asynchronously. The app supports guest participation (no account needed) as well as authenticated teacher/student accounts.
+A full-stack interactive quiz platform in the Kahoot/Quizizz mould. Teachers
+create and manage quizzes and classes; students take them asynchronously or in
+live synchronised sessions. Guests can participate with no account at all.
 
 ---
 
 ## Tech Stack
 - **Frontend:** React 19, React Router 7, Vite 6
 - **Styling:** Tailwind CSS v4, shadcn/ui component system (Radix UI primitives)
-- **Backend/Database:** Firebase 11 — Firestore (persistent data), Firebase Auth (authentication), Firebase Realtime Database (installed, reserved for live game mode)
-- **Animation:** Framer Motion
-- **Charts:** Recharts
-- **Media:** ImageKit (image/video hosting), TUI Image Editor (in-browser image annotation)
-- **Utilities:** class-variance-authority, tailwind-merge, sonner (toasts), react-photo-view
+- **Backend:** Firebase Auth (Google OAuth + email/password); one Vercel
+  serverless function for signed ImageKit uploads
+- **Database:** Cloud Firestore (7 collections, role-based security rules) and
+  Firebase Realtime Database (live game sessions)
+- **Animation:** Framer Motion · **Charts:** Recharts
+- **Media:** ImageKit CDN, TUI Image Editor, react-easy-crop
+- **Drag & drop:** @hello-pangea/dnd · **Toasts:** sonner
+- **Deployment:** Vercel, auto-deploying from `main`
 
 ---
 
 ## Features Implemented
 
-### Authentication & User Management
+### Authentication & user management
 - Google OAuth sign-in via Firebase popup
 - Email/password sign-up and sign-in
-- Role-based accounts: **Teacher** and **Student**
-- Role switching — a single account can toggle between teacher and student mode
+- Role-based accounts: **Teacher** and **Student**, switchable on one account
 - Protected route system with role enforcement and race-condition handling
 - Profile page — edit display name, view account info, switch role
-- Firestore security rules — proper read/write restrictions per user type
+- Firestore security rules enforcing per-role read/write access
 
-### Quiz Creation (Teacher)
-- 7 question types supported:
-  - Multiple Choice (single and multi-select)
-  - Fill in the Blank
-  - Paragraph (manual grading)
-  - Match the Following (drag and drop)
-  - Reorder Sequence (drag and drop)
-  - Categorize Items (drag and drop)
-  - Visual/Listening Comprehension (sub-questions)
-- Rich media support on questions and answer options (images, videos via ImageKit)
-- In-browser image annotation with TUI Image Editor
-- Auto-generated unique quiz code for student join
-- Quiz activate/deactivate toggle
+### Quiz creation (teacher)
+- 9 question types: Multiple Choice (single and multi-select), True/False,
+  Fill in the Blank, Paragraph (manual grading), Match the Following,
+  Reorder, Categorize, Visual Comprehension, Listening Comprehension
+- Rich media on questions and individual answer options (images and video via
+  ImageKit)
+- In-browser image cropping and annotation before upload
+- Draft autosave, with discard option
+- **Full editing of already-published quizzes** — text, media and structure
+- Auto-generated unique join code; activate/deactivate toggle
 - Per-question time limits and point values
-- Speed bonus scoring system
+- **Question bank** — save individual questions and reuse them across quizzes
 
-### Quiz Taking
-- **Authenticated students** — full graded experience, results saved to account
-- **Guest mode** — no account required, join by code, results saved under unique guest ID
-- Timer countdown per question with auto-advance on timeout
-- Timer pulses red in final 10 seconds
-- Question dot navigation (click to jump to any question)
-- Animated slide transitions between questions
-- All 7 question types fully interactive
-- Completion screen with score breakdown (base score + speed bonus)
+### Quiz taking
+- **Authenticated students** — graded, results saved to the account
+- **Guest mode** — no account, join by code, results stored under a guest ID
+- **Live multiplayer** — see below
+- Timer countdown per question with auto-advance, pulsing in the final seconds
+- Question dot navigation, animated slide transitions
+- All question types fully interactive
+- Completion screen with score breakdown
 
-### Teacher Dashboard & Management
+### Live game engine
+- Teacher hosts a session and receives a 6-digit PIN
+- Players join a lobby from the landing page; teacher controls question reveal
+- Answers, scores and leaderboard sync in real time via Realtime Database
+- Supported live types: MCQ, True/False, Fill in the Blank — other types are
+  skipped and reported in the session summary
+- Synthesised sound effects for game events
+
+### Classes & assignments
+- Teachers create classes and enrol students
+- Assign quizzes to a class with due dates and completion tracking
+- In-app notification system with a notification bell
+
+### Teacher dashboard & management
 - Live stats: active quizzes, total quizzes, unique students, completed sessions
-- Quiz management page — search, filter, activate/deactivate, preview, delete
-- Grading interface — pending submissions sorted first, manual point entry per answer, one-click save
-- **Analytics page** per quiz:
-  - Score distribution bar chart (5 buckets, colour-coded)
-  - Per-question pass rate bar chart (green = easy, red = hard)
-  - Sortable student results table (by name, score, %, status, date)
-  - CSV export of all submissions
+- Quiz management — search, filter, activate/deactivate, preview, delete
+- Grading interface — pending submissions first, manual point entry per answer
+- **Analytics** per quiz: score distribution chart, per-question pass rate
+  chart, sortable results table, CSV export
 
-### Student Dashboard & Results
+### Student dashboard & results
 - Personal stats: quizzes taken, average score, best score, time spent
 - Recent activity feed with score badges
-- **YourResults page** — full review of every past quiz with per-question answer breakdown, correct answer reveal, partial credit display
-- Quiz join by code or browse from available list
+- **Your Results** — full review of every past attempt with per-question
+  breakdown, correct answers revealed, partial credit shown
+- **Score timeline** — line chart of scores over time
+- Join by code or browse available quizzes
 
-### Study Modes (Phase 8)
-- **Practice Mode** — public, no login required
-  - Self-paced, no timer, no score saved
-  - MCQ: click to answer → immediate correct/wrong colour feedback
-  - Fill-in-blank: type and check → shows correct answer if wrong
-  - All other types: "Reveal Answer" button with formatted correct answer
-  - Session summary at end
-- **Flashcard Mode** — public, no login required
-  - CSS 3D flip card animation (question front / answer back)
-  - Works for all 7 question types
-  - "Got It" / "Still Learning" tracking per card
-  - Shuffle cards, review only flagged cards, mastery progress bar
+### Study modes (public, no login)
+- **Practice mode** — self-paced, no timer, no score saved; immediate
+  correct/wrong feedback, "Reveal Answer" for complex types, session summary
+- **Flashcard mode** — CSS 3D flip cards, works for all question types,
+  "Got It" / "Still Learning" tracking, shuffle, review-flagged-only, mastery bar
 
-### Discovery & Sharing
-- **Browse page** — public, no login required, search across all active quizzes
-- Each quiz accessible with Play (graded), Practice, or Flashcards entry points
-- Share link copy button per quiz (teacher)
-- Quiz code displayed on all relevant pages
-
-### UI/UX
-- Consistent colour theming — orange gradient for teacher views, blue/purple for student views
-- shadcn/ui component library throughout — Cards, Badges, Dialogs, Dropdowns, Progress bars, Avatars
-- Framer Motion animations on page transitions, stat cards, modals
-- Avatar dropdown with role switch and profile link on every page
-- Responsive layout — works on mobile and desktop
-- Proper 404 page
-- Toast notifications (sonner) for all user actions
-- Loading states and empty states on all data-fetching pages
+### Discovery, sharing & UI
+- **Browse** — public search across all active quizzes
+- Play / Practice / Flashcards entry points per quiz; share-link copy button
+- **Dark mode** — full theme toggle honouring OS preference, persisted to
+  localStorage
+- Consistent theming: orange for teacher views, blue/purple for student views
+- shadcn/ui throughout; Framer Motion transitions; responsive mobile/desktop
+- Toast notifications, loading and empty states, proper 404 page
 
 ---
 
-## Pages Built (14 total)
+## Routes (22 routes across 21 page components)
 
 | Page | Route | Access |
 |---|---|---|
 | Landing | `/` | Public |
 | Browse | `/browse` | Public |
 | Login | `/login` | Public |
-| Guest Quiz | `/quiz/:id` | Public |
-| Practice Mode | `/practice/:id` | Public |
-| Flashcard Mode | `/flashcards/:id` | Public |
-| Profile | `/profile` | Any auth'd user |
+| Guest Quiz | `/quiz/:quizId` | Public |
+| Practice Mode | `/practice/:quizId` | Public |
+| Flashcard Mode | `/flashcards/:quizId` | Public |
+| Live Play | `/play`, `/play/:pin` | Public |
+| Profile | `/profile` | Any signed-in user |
 | Teacher Home | `/teacher/home` | Teacher |
 | Create Quiz | `/teacher/create-quiz` | Teacher |
+| Edit Quiz | `/teacher/edit-quiz/:quizId` | Teacher |
 | Your Quizzes | `/teacher/your-quizzes` | Teacher |
-| Grading | `/teacher/grading/:id` | Teacher |
-| Analytics | `/teacher/analytics/:id` | Teacher |
+| Classes | `/teacher/classes` | Teacher |
+| Question Bank | `/teacher/question-bank` | Teacher |
+| Grading | `/teacher/grading/:quizId` | Teacher |
+| Analytics | `/teacher/analytics/:quizId` | Teacher |
+| Host Live Session | `/teacher/host/:pin` | Teacher |
 | Student Dashboard | `/student/dashboard` | Student |
 | Attend Quiz | `/student/attend-quiz` | Student |
-| Take Quiz | `/student/quiz/:id` | Student |
+| Take Quiz | `/student/quiz/:quizId` | Student |
 | Your Results | `/student/results` | Student |
+| 404 | `*` | Public |
+
+Plus four legacy redirects kept so old links keep working.
 
 ---
 
-## Planned / Remaining
+## Remaining Work
 
-- **Live Game Engine** — real-time synchronized quiz sessions (Kahoot-style lobby, teacher-controlled question reveal, live leaderboard, end podium) — uses Firebase Realtime Database
-- **CreateQuiz improvements** — drag-to-reorder questions, duplicate question, in-page preview
-- **Score timeline** — line chart of student scores over time on YourResults
-- **Dark mode** — full theme toggle with CSS variable swap
-- **Question bank** — save and reuse individual questions across quizzes
-- **Import** — bulk question creation from CSV or Google Forms
+**Should be done before this is production-grade**
+- **Automated tests** — there is no test suite; all testing has been manual
+- **Tighten Realtime Database rules** — `sessions` is currently readable and
+  writable by any client with only a shape check
+- **CI pipeline** — run lint and build on push
+
+**Nice to have**
+- CreateQuiz: drag-to-reorder questions, duplicate question, in-page preview
+- Bulk question import from CSV or Google Forms
+- More live question types (Match, Reorder, Categorize in live mode)
+- Cross-quiz and per-student analytics trends
