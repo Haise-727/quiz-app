@@ -6,8 +6,8 @@ import '../../styles/Student/TakeQuiz.css'; // DnD attribute selectors only
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion, AnimatePresence } from 'framer-motion';
 import MediaRenderer from '../../components/MediaRenderer';
-import { FaGripLines, FaArrowLeft, FaArrowRight, FaCheckCircle } from 'react-icons/fa';
-import { playTick, playComplete } from '../../utils/sounds';
+import { FaGripLines, FaArrowLeft, FaArrowRight, FaCheckCircle, FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
+import { playTick, playComplete, playClick, isSoundEnabled, toggleSound } from '../../utils/sounds';
 
 const shuffleArray = (arr) => !arr || !Array.isArray(arr) ? [] : [...arr].sort(() => Math.random() - 0.5);
 
@@ -29,6 +29,7 @@ const GuestTakeQuiz = () => {
   const [finalResults, setFinalResults] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [direction, setDirection] = useState(0);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const timerRef = useRef(null);
   const questionStartTimeRef = useRef(null);
   const guestIdRef = useRef(generateGuestId());
@@ -102,6 +103,7 @@ const GuestTakeQuiz = () => {
 
   const handleDragEnd = ({ source: src, destination: dest }) => {
     if (!dest) return;
+    playClick();
     const q = quiz.questions[currentQuestionIndex];
     setAnswers(cur => {
       const na = JSON.parse(JSON.stringify(cur));
@@ -316,13 +318,19 @@ const GuestTakeQuiz = () => {
             <span className="text-sm font-semibold opacity-70">{quiz.title}</span>
             {guestName && <span className="text-xs opacity-40">Playing as {guestName}</span>}
           </div>
-          <motion.div
-            animate={timeLeft <= 10 ? { scale: [1, 1.1, 1] } : {}}
-            transition={{ repeat: timeLeft <= 10 ? Infinity : 0, duration: 0.8 }}
-            className={`font-black text-lg px-4 py-1.5 rounded-full border ${timerColor} transition-colors`}
-          >
-            {timeLeft}s
-          </motion.div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSoundOn(toggleSound())} title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+              className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+              {soundOn ? <FaVolumeUp className="w-4 h-4" /> : <FaVolumeMute className="w-4 h-4" />}
+            </button>
+            <motion.div
+              animate={timeLeft <= 10 ? { scale: [1, 1.1, 1] } : {}}
+              transition={{ repeat: timeLeft <= 10 ? Infinity : 0, duration: 0.8 }}
+              className={`font-black text-lg px-4 py-1.5 rounded-full border ${timerColor} transition-colors`}
+            >
+              {timeLeft}s
+            </motion.div>
+          </div>
         </div>
 
         {/* Progress */}
@@ -374,7 +382,7 @@ const GuestTakeQuiz = () => {
                   {currentQ.mcqData.options.map(opt => (
                     <motion.div key={opt.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                       className={`${optBase} ${currentA?.includes(opt.id) ? optSel : ''}`}
-                      onClick={() => handleAnswerChange(opt.id)}>
+                      onClick={() => { playClick(); handleAnswerChange(opt.id); }}>
                       <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-sm flex-shrink-0 transition-all ${currentA?.includes(opt.id) ? 'bg-[hsl(var(--primary))] border-[hsl(var(--primary))] text-white' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]'}`}>
                         {currentA?.includes(opt.id) && '✓'}
                       </div>
@@ -389,7 +397,7 @@ const GuestTakeQuiz = () => {
                 <div className="grid grid-cols-2 gap-4">
                   {[true, false].map(val => (
                     <motion.button key={String(val)} type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      onClick={() => handleAnswerChange(val)}
+                      onClick={() => { playClick(); handleAnswerChange(val); }}
                       className={`flex items-center justify-center gap-2 py-6 rounded-xl border font-bold text-lg transition-all ${currentA === val ? 'bg-[hsl(var(--primary))] text-white border-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary))]/50'}`}>
                       {val ? 'True' : 'False'}
                     </motion.button>
@@ -486,7 +494,7 @@ const GuestTakeQuiz = () => {
                       {subQ.type === 'MCQ' && (
                         <div className="grid gap-2">
                           {subQ.mcqData.options.map(opt => (
-                            <div key={opt.id} className={`flex items-center gap-3 border p-3 rounded-xl cursor-pointer transition-all text-sm ${currentA[si]?.includes(opt.id) ? 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))] text-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 bg-[hsl(var(--card))]'}`} onClick={() => handleAnswerChange(opt.id, si)}>
+                            <div key={opt.id} className={`flex items-center gap-3 border p-3 rounded-xl cursor-pointer transition-all text-sm ${currentA[si]?.includes(opt.id) ? 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))] text-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 bg-[hsl(var(--card))]'}`} onClick={() => { playClick(); handleAnswerChange(opt.id, si); }}>
                               <div className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs flex-shrink-0 ${currentA[si]?.includes(opt.id) ? 'bg-[hsl(var(--primary))] border-[hsl(var(--primary))] text-white' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'}`}>{String.fromCharCode(65 + subQ.mcqData.options.indexOf(opt))}</div>
                               <span>{opt.text}</span>
                             </div>

@@ -7,9 +7,9 @@ import '../../styles/Student/TakeQuiz.css'; // DnD attribute selectors only
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion, AnimatePresence } from 'framer-motion';
 import MediaRenderer from '../../components/MediaRenderer';
-import { FaGripLines, FaArrowLeft, FaArrowRight, FaCheckCircle, FaClipboardList } from 'react-icons/fa';
+import { FaGripLines, FaArrowLeft, FaArrowRight, FaCheckCircle, FaClipboardList, FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
 import { createNotification } from '../../utils/notifications';
-import { playTick, playComplete } from '../../utils/sounds';
+import { playTick, playComplete, playClick, isSoundEnabled, toggleSound } from '../../utils/sounds';
 
 const shuffleArray = (arr) => !arr || !Array.isArray(arr) ? [] : [...arr].sort(() => Math.random() - 0.5);
 
@@ -30,6 +30,7 @@ const TakeQuiz = () => {
   const [finalResults, setFinalResults] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [direction, setDirection] = useState(0);
+  const [soundOn, setSoundOn] = useState(isSoundEnabled());
   const timerRef = useRef(null);
   const questionStartTimeRef = useRef(null);
 
@@ -107,6 +108,7 @@ const TakeQuiz = () => {
   const handleDragEnd = (result) => {
     const { source: src, destination: dest } = result;
     if (!dest) return;
+    playClick();
     const q = quiz.questions[currentQuestionIndex];
     setAnswers(cur => {
       const na = JSON.parse(JSON.stringify(cur));
@@ -285,7 +287,13 @@ const TakeQuiz = () => {
         {/* Header */}
         <div className="relative z-10 flex justify-between items-center w-full max-w-[800px] mb-4 px-4">
           <h1 className="text-2xl font-black text-[hsl(var(--foreground))] m-0">{quiz.title}</h1>
-          <div className="font-bold text-sm bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))] px-4 py-2 rounded-full">{timeLeft}s</div>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSoundOn(toggleSound())} title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+              className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
+              {soundOn ? <FaVolumeUp className="w-4 h-4" /> : <FaVolumeMute className="w-4 h-4" />}
+            </button>
+            <div className="font-bold text-sm bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))] px-4 py-2 rounded-full">{timeLeft}s</div>
+          </div>
         </div>
 
         {/* Progress */}
@@ -307,7 +315,7 @@ const TakeQuiz = () => {
               {currentQuestion.type === 'MCQ' && (
                 <div className="grid gap-3">
                   {currentQuestion.mcqData.options.map(opt => (
-                    <motion.div key={opt.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} className={`${optionBase} ${currentAnswer?.includes(opt.id) ? optionSelected : ''}`} onClick={() => handleAnswerChange(opt.id)}>
+                    <motion.div key={opt.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} className={`${optionBase} ${currentAnswer?.includes(opt.id) ? optionSelected : ''}`} onClick={() => { playClick(); handleAnswerChange(opt.id); }}>
                       <div className={`flex items-center justify-center h-7 w-7 flex-shrink-0 border rounded-full font-semibold transition-all ${currentAnswer?.includes(opt.id) ? 'bg-[hsl(var(--primary))] text-white border-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]'}`}>
                         {currentAnswer?.includes(opt.id) && '✔'}
                       </div>
@@ -323,7 +331,7 @@ const TakeQuiz = () => {
                 <div className="grid grid-cols-2 gap-4">
                   {[true, false].map(val => (
                     <motion.button key={String(val)} type="button" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      onClick={() => handleAnswerChange(val)}
+                      onClick={() => { playClick(); handleAnswerChange(val); }}
                       className={`flex items-center justify-center gap-2 py-6 rounded-xl border font-bold text-lg transition-all ${currentAnswer === val ? 'bg-[hsl(var(--primary))] text-white border-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 text-[hsl(var(--foreground))] hover:border-[hsl(var(--primary))]/50'}`}>
                       {val ? 'True' : 'False'}
                     </motion.button>
@@ -453,7 +461,7 @@ const TakeQuiz = () => {
                         {subQ.type === 'MCQ' && (
                           <div className="grid gap-2">
                             {subQ.mcqData.options.map(opt => (
-                              <div key={opt.id} className={`flex items-center gap-3 border p-3 rounded-xl cursor-pointer transition-all ${currentAnswer[si]?.includes(opt.id) ? 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 bg-[hsl(var(--card))]'}`} onClick={() => handleAnswerChange(opt.id, si)}>
+                              <div key={opt.id} className={`flex items-center gap-3 border p-3 rounded-xl cursor-pointer transition-all ${currentAnswer[si]?.includes(opt.id) ? 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50 bg-[hsl(var(--card))]'}`} onClick={() => { playClick(); handleAnswerChange(opt.id, si); }}>
                                 <div className={`font-semibold border w-6 h-6 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${currentAnswer[si]?.includes(opt.id) ? 'bg-[hsl(var(--primary))] text-white border-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'}`}>{String.fromCharCode(65 + subQ.mcqData.options.indexOf(opt))}</div>
                                 <span>{opt.text}</span>
                               </div>
