@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Confetti from '../../components/Confetti';
+import MediaRenderer from '../../components/MediaRenderer';
 import {
   listenToSession, startGame, revealQuestion, showLeaderboard,
   nextQuestion, endGame, deleteSession, LIVE_SUPPORTED_TYPES,
@@ -16,6 +17,8 @@ import {
   Users, Play, Eye, Trophy, ChevronRight, Hash, Loader2,
   Crown, Medal, X, Clock, Copy, Check, Link2,
 } from 'lucide-react';
+
+const shuffleArray = (arr) => (Array.isArray(arr) ? [...arr].sort(() => Math.random() - 0.5) : []);
 
 const HostSession = () => {
   const [copied, setCopied] = useState(null); // 'link' | 'code' | null
@@ -70,6 +73,22 @@ const HostSession = () => {
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const currentAnswers = session?.answers?.[session.currentQuestionIndex] || {};
   const answeredCount = Object.keys(currentAnswers).length;
+
+  // The projector shows the loose pieces of a drag-and-drop question while
+  // players work. Shuffled once per question, because the stored order of a
+  // Reorder question is the answer.
+  const shuffledPieces = useMemo(() => {
+    switch (currentQuestion?.type) {
+      case 'MATCH_THE_FOLLOWING':
+        return shuffleArray(currentQuestion.matchData?.pairs).map(pair => ({ id: pair.id, text: pair.answer, media: pair.answerMedia }));
+      case 'REORDER':
+        return shuffleArray(currentQuestion.reorderData?.items);
+      case 'CATEGORIZE':
+        return shuffleArray(currentQuestion.categorizeData?.items);
+      default:
+        return [];
+    }
+  }, [currentQuestion]);
 
   // Countdown timer during 'question' state
   useEffect(() => {
@@ -230,6 +249,67 @@ const HostSession = () => {
                 <p className="text-2xl md:text-3xl font-bold leading-relaxed">{currentQuestion.questionText}</p>
               </div>
 
+              {currentQuestion.type === 'MATCH_THE_FOLLOWING' && (
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs uppercase tracking-wide font-semibold text-white/40">Prompts</p>
+                    {(currentQuestion.matchData?.pairs || []).map(pair => (
+                      <div key={pair.id} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 font-medium">
+                        <MediaRenderer media={pair.promptMedia} transform="thumbnail" className="w-10 h-10 rounded object-cover shrink-0" />
+                        <span>{pair.prompt}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs uppercase tracking-wide font-semibold text-white/40">Answers</p>
+                    <div className="flex flex-wrap gap-2">
+                      {shuffledPieces.map(card => (
+                        <span key={card.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#8b5cf6]/15 border border-[#8b5cf6]/30 text-sm font-medium">
+                          <MediaRenderer media={card.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
+                          {card.text}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentQuestion.type === 'REORDER' && (
+                <div className="mb-6">
+                  <p className="text-xs uppercase tracking-wide font-semibold text-white/40 mb-2 text-center">
+                    Put these {shuffledPieces.length} in order on your device
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {shuffledPieces.map(item => (
+                      <span key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium">
+                        <MediaRenderer media={item.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
+                        {item.text}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {currentQuestion.type === 'CATEGORIZE' && (
+                <div className="mb-6 flex flex-col gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {(currentQuestion.categorizeData?.categories || []).map(cat => (
+                      <div key={cat.id} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-center font-bold text-[#a78bfa] truncate">
+                        {cat.name}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {shuffledPieces.map(item => (
+                      <span key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#8b5cf6]/15 border border-[#8b5cf6]/30 text-sm font-medium">
+                        <MediaRenderer media={item.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
+                        {item.text}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-center gap-3 mb-8">
                 <Users className="w-4 h-4 text-white/40" />
                 <span className="text-white/60 font-medium">{answeredCount} / {players.length} answered</span>
@@ -268,6 +348,52 @@ const HostSession = () => {
                 )}
                 {currentQuestion.type === 'FILL_IN_THE_BLANK' && (
                   <p className="text-xl font-bold text-green-400">{currentQuestion.fillBlankData.answers.map(a => a.text).join(' / ')}</p>
+                )}
+                {currentQuestion.type === 'MATCH_THE_FOLLOWING' && (
+                  <div className="flex flex-col gap-2 max-w-xl mx-auto">
+                    {(currentQuestion.matchData?.pairs || []).map(pair => (
+                      <div key={pair.id} className="grid grid-cols-2 gap-2 items-stretch">
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 font-medium text-left">
+                          <MediaRenderer media={pair.promptMedia} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
+                          <span>{pair.prompt}</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-500/10 border border-green-500/40 text-green-300 font-semibold text-left">
+                          <MediaRenderer media={pair.answerMedia} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
+                          <span>{pair.answer}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {currentQuestion.type === 'REORDER' && (
+                  <div className="flex flex-col gap-2 max-w-md mx-auto">
+                    {(currentQuestion.reorderData?.items || []).map((item, i) => (
+                      <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-green-500/10 border border-green-500/40 text-green-300 text-left">
+                        <span className="font-black w-5 shrink-0">{i + 1}</span>
+                        <MediaRenderer media={item.media} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
+                        <span className="font-semibold">{item.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {currentQuestion.type === 'CATEGORIZE' && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {(currentQuestion.categorizeData?.categories || []).map(cat => (
+                      <div key={cat.id} className="rounded-xl bg-white/5 border border-green-500/30 p-3">
+                        <p className="font-bold text-[#a78bfa] mb-2 truncate">{cat.name}</p>
+                        <div className="flex flex-col gap-1.5">
+                          {(currentQuestion.categorizeData?.items || [])
+                            .filter(item => String(item.categoryId) === String(cat.id))
+                            .map(item => (
+                              <span key={item.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-300 text-sm font-medium">
+                                <MediaRenderer media={item.media} transform="thumbnail" className="w-7 h-7 rounded object-cover shrink-0" />
+                                {item.text}
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex justify-center">

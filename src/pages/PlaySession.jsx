@@ -4,17 +4,52 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Confetti from '../components/Confetti';
+import MediaRenderer from '../components/MediaRenderer';
 import {
   listenToSession, joinSession, leaveSession, submitAnswer,
   generateGuestId, LIVE_SUPPORTED_TYPES,
 } from '../utils/liveSession';
 import { playCorrect, playWrong, playComplete, playTick } from '../utils/sounds';
-import { Home, Hash, Users, Clock, CheckCircle2, XCircle, Trophy, Crown, Medal, Loader2 } from 'lucide-react';
+import { Home, Hash, Users, Clock, CheckCircle2, XCircle, Trophy, Crown, Medal, Loader2, GripVertical } from 'lucide-react';
+
+const DRAG_TYPES = ['MATCH_THE_FOLLOWING', 'REORDER', 'CATEGORIZE'];
+
+const shuffleArray = (arr) => (Array.isArray(arr) ? [...arr].sort(() => Math.random() - 0.5) : []);
+
+/**
+ * Working state for the three drag-and-drop types, rebuilt whenever the
+ * question changes. Only ids ever leave this object — see the answer shapes
+ * documented in utils/liveSession.js.
+ */
+const buildDragState = (question) => {
+  if (!question) return null;
+  switch (question.type) {
+    case 'MATCH_THE_FOLLOWING':
+      return {
+        type: question.type,
+        slots: {}, // { [promptPairId]: answer card }
+        bank: shuffleArray(question.matchData?.pairs).map(pair => ({ id: pair.id, text: pair.answer, media: pair.answerMedia })),
+      };
+    case 'REORDER':
+      return { type: question.type, order: shuffleArray(question.reorderData?.items) };
+    case 'CATEGORIZE':
+      return {
+        type: question.type,
+        columns: {
+          ...Object.fromEntries((question.categorizeData?.categories || []).map(cat => [String(cat.id), []])),
+          bank: shuffleArray(question.categorizeData?.items),
+        },
+      };
+    default:
+      return null;
+  }
+};
 
 const PlaySession = () => {
   const { pin: pinFromUrl } = useParams();
@@ -35,6 +70,8 @@ const PlaySession = () => {
   const [mcqSelection, setMcqSelection] = useState([]);
   const [answered, setAnswered] = useState(false);
   const [lastResult, setLastResult] = useState(null); // { correct, points }
+  const [dragState, setDragState] = useState(null);
+  const [dragTouched, setDragTouched] = useState(false);
 
   const playerIdRef = useRef(currentUser?.uid || null);
   const pinRef = useRef(null);
@@ -89,6 +126,13 @@ const PlaySession = () => {
     questionStartRef.current = Date.now();
   }, [session?.currentQuestionIndex]);
 
+  // The drag-and-drop board is built from the question itself, which arrives
+  // with the quiz a moment after the session does — so key it on the question.
+  useEffect(() => {
+    setDragState(buildDragState(currentQuestion));
+    setDragTouched(false);
+  }, [currentQuestion]);
+
   // Countdown
   useEffect(() => {
     if (!session || session.state !== 'question' || !session.questionStartedAt || !currentQuestion) { setTimeLeft(null); return; }
@@ -107,7 +151,8 @@ const PlaySession = () => {
       const mine = session.answers?.[session.currentQuestionIndex]?.[playerIdRef.current];
       if (mine) {
         setLastResult({ correct: mine.correct, points: mine.points });
-        mine.correct ? playCorrect() : playWrong();
+        // The drag-and-drop types can score part marks, which still feels like a win.
+        (mine.correct || mine.points > 0) ? playCorrect() : playWrong();
       }
     }
     if (session?.state === 'ended') playComplete();
@@ -135,10 +180,124 @@ const PlaySession = () => {
     handleAnswer([optId]);
   };
 
+  // ── Drag and drop (Match / Reorder / Categorize) ─────────────────────────────
+  const isDragQuestion = DRAG_TYPES.includes(currentQuestion?.type);
+
+  // dragState is rebuilt by an effect, which lands a render *after* the host
+  // moves everyone to the next question. Ignore a board that still belongs to
+  // the question before this one, or that render reads the wrong shape.
+  const board = dragState?.type === currentQuestion?.type ? dragState : null;
+
+  const handleDragEnd = ({ source, destination }) => {
+    if (!destination || answered || !currentQuestion) return;
+    setDragState(prev => {
+      if (!prev || prev.type !== currentQuestion.type) return prev;
+
+      if (currentQuestion.type === 'REORDER') {
+        const order = [...prev.order];
+        const [moved] = order.splice(source.index, 1);
+        if (!moved) return prev;
+        order.splice(destination.index, 0, moved);
+        return { ...prev, order };
+      }
+
+      if (currentQuestion.type === 'CATEGORIZE') {
+        const columns = { ...prev.columns };
+        const from = [...(columns[source.droppableId] || [])];
+        const [moved] = from.splice(source.index, 1);
+        if (!moved) return prev;
+        if (source.droppableId === destination.droppableId) {
+          from.splice(destination.index, 0, moved);
+          columns[source.droppableId] = from;
+        } else {
+          const to = [...(columns[destination.droppableId] || [])];
+          to.splice(destination.index, 0, moved);
+          columns[source.droppableId] = from;
+          columns[destination.droppableId] = to;
+        }
+        return { ...prev, columns };
+      }
+
+      // MATCH_THE_FOLLOWING — one card per prompt slot, everything else waits
+      // in the bank. Dropping onto a taken slot sends the old card back.
+      const bank = [...prev.bank];
+      const slots = { ...prev.slots };
+      let moved;
+      if (source.droppableId === 'bank') {
+        [moved] = bank.splice(source.index, 1);
+      } else {
+        moved = slots[source.droppableId];
+        delete slots[source.droppableId];
+      }
+      if (!moved) return prev;
+      if (destination.droppableId === 'bank') {
+        bank.splice(destination.index, 0, moved);
+      } else {
+        const displaced = slots[destination.droppableId];
+        if (displaced) bank.push(displaced);
+        slots[destination.droppableId] = moved;
+      }
+      return { ...prev, bank, slots };
+    });
+    setDragTouched(true);
+  };
+
+  /** Flattens the board into the serialisable shape scoreAnswer expects. */
+  const buildDragAnswer = () => {
+    if (!currentQuestion || !board) return null;
+    switch (currentQuestion.type) {
+      case 'MATCH_THE_FOLLOWING':
+        return Object.fromEntries(
+          Object.entries(board.slots).map(([pairId, card]) => [String(pairId), String(card.id)])
+        );
+      case 'REORDER':
+        return board.order.map(item => String(item.id));
+      case 'CATEGORIZE': {
+        const placed = {};
+        Object.entries(board.columns).forEach(([columnId, items]) => {
+          if (columnId === 'bank') return;
+          items.forEach(item => { placed[String(item.id)] = String(columnId); });
+        });
+        return placed;
+      }
+      default:
+        return null;
+    }
+  };
+
+  const hasDragPlacement = (() => {
+    if (!board || !currentQuestion) return false;
+    if (currentQuestion.type === 'REORDER') return true; // any order is a valid guess
+    if (currentQuestion.type === 'MATCH_THE_FOLLOWING') return Object.keys(board.slots).length > 0;
+    if (currentQuestion.type === 'CATEGORIZE') {
+      return Object.entries(board.columns).some(([columnId, items]) => columnId !== 'bank' && items.length > 0);
+    }
+    return false;
+  })();
+
+  const submitDragAnswer = () => {
+    const answer = buildDragAnswer();
+    if (answer) handleAnswer(answer);
+  };
+
+  // The host reveals the instant the clock hits zero, so lock in whatever the
+  // player has arranged rather than throwing their work away. Nothing is sent
+  // if they never touched the board — that still scores 0, as before.
+  useEffect(() => {
+    if (timeLeft !== 0 || session?.state !== 'question') return;
+    if (answered || !isDragQuestion || !dragTouched) return;
+    submitDragAnswer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft]);
+
   const players = session?.players ? Object.entries(session.players).map(([id, p]) => ({ id, ...p })) : [];
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const myRank = sortedPlayers.findIndex(p => p.id === playerIdRef.current) + 1;
   const me = players.find(p => p.id === playerIdRef.current);
+
+  // Shared class strings for the drag-and-drop boards
+  const dragCard = 'flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-[#8b5cf6]/50 bg-[#8b5cf6]/20 text-sm font-semibold select-none';
+  const dropZone = 'rounded-xl border-2 border-dashed transition-colors';
 
   // ── Join screen ──────────────────────────────────────────────────────────────
   if (!joined) {
@@ -236,8 +395,11 @@ const PlaySession = () => {
                     <p className="text-xs text-white/40 uppercase tracking-wide font-semibold -mb-1">Select all that apply</p>
                   )}
                   {currentQuestion.mcqData.options.map(opt => {
+                    // `selected` still holds the previous question's answer for the
+                    // one render before the reset effect runs, and that answer is
+                    // only an array for MCQ.
                     const liveSelection = answered ? selected : mcqSelection;
-                    const isPicked = (liveSelection || []).includes(opt.id);
+                    const isPicked = Array.isArray(liveSelection) && liveSelection.includes(opt.id);
                     return (
                       <button key={opt.id} disabled={answered} onClick={() => handleMcqClick(opt.id)}
                         className={`px-5 py-4 rounded-xl border-2 text-left font-semibold transition-colors ${
@@ -282,6 +444,171 @@ const PlaySession = () => {
                   </Button>
                 </div>
               )}
+              {currentQuestion.type === 'MATCH_THE_FOLLOWING' && board && (
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <div className="flex flex-col gap-3">
+                    {!answered && (
+                      <p className="text-xs text-white/40 uppercase tracking-wide font-semibold">Drag an answer onto each prompt</p>
+                    )}
+                    {currentQuestion.matchData.pairs.map(pair => {
+                      const card = board.slots[String(pair.id)];
+                      return (
+                        <div key={pair.id} className="grid grid-cols-2 gap-2 items-stretch">
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold">
+                            <MediaRenderer media={pair.promptMedia} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
+                            <span className="min-w-0 break-words">{pair.prompt}</span>
+                          </div>
+                          <Droppable droppableId={String(pair.id)}>
+                            {(provided, snapshot) => (
+                              <div ref={provided.innerRef} {...provided.droppableProps}
+                                className={`${dropZone} min-h-[52px] flex items-center justify-center p-1 ${snapshot.isDraggingOver ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : card ? 'border-[#8b5cf6]/40 bg-white/5' : 'border-white/20 bg-white/5'}`}>
+                                {card ? (
+                                  <Draggable draggableId={String(card.id)} index={0} isDragDisabled={answered}>
+                                    {(p) => (
+                                      <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                                        className={`${dragCard} ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>
+                                        <MediaRenderer media={card.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
+                                        <span className="min-w-0 break-words">{card.text}</span>
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                ) : (
+                                  <span className="text-xs text-white/30">Drop here</span>
+                                )}
+                                {provided.placeholder}
+                              </div>
+                            )}
+                          </Droppable>
+                        </div>
+                      );
+                    })}
+
+                    <Droppable droppableId="bank" direction="horizontal">
+                      {(provided, snapshot) => (
+                        <div ref={provided.innerRef} {...provided.droppableProps}
+                          className={`${dropZone} flex flex-wrap gap-2 p-2 min-h-[56px] ${snapshot.isDraggingOver ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : 'border-white/20 bg-white/5'}`}>
+                          {board.bank.map((card, i) => (
+                            <Draggable key={card.id} draggableId={String(card.id)} index={i} isDragDisabled={answered}>
+                              {(p) => (
+                                <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                                  className={`${dragCard} ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>
+                                  <MediaRenderer media={card.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
+                                  <span className="min-w-0 break-words">{card.text}</span>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {!board.bank.length && <span className="text-xs text-white/30 self-center px-2">Every answer is placed</span>}
+                        </div>
+                      )}
+                    </Droppable>
+
+                    {!answered && (
+                      <Button onClick={submitDragAnswer} disabled={!hasDragPlacement}
+                        className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                        Submit Answer
+                      </Button>
+                    )}
+                  </div>
+                </DragDropContext>
+              )}
+              {currentQuestion.type === 'REORDER' && board && (
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <div className="flex flex-col gap-3">
+                    {!answered && (
+                      <p className="text-xs text-white/40 uppercase tracking-wide font-semibold">Drag into the right order</p>
+                    )}
+                    <Droppable droppableId="reorder-list">
+                      {(provided) => (
+                        <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-2">
+                          {board.order.map((item, i) => (
+                            <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
+                              {(p, snapshot) => (
+                                <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                                  className={`flex items-center gap-3 px-3 py-3 rounded-xl border-2 select-none ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${snapshot.isDragging ? 'border-[#8b5cf6] bg-[#8b5cf6]/25' : 'border-white/20 bg-white/5'}`}>
+                                  <span className="w-5 text-center font-black text-white/40 text-sm shrink-0">{i + 1}</span>
+                                  <MediaRenderer media={item.media} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
+                                  <span className="flex-1 min-w-0 text-sm font-semibold break-words">{item.text}</span>
+                                  <GripVertical className="w-4 h-4 text-white/30 shrink-0" />
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                    {!answered && (
+                      <Button onClick={submitDragAnswer}
+                        className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                        Submit Answer
+                      </Button>
+                    )}
+                  </div>
+                </DragDropContext>
+              )}
+              {currentQuestion.type === 'CATEGORIZE' && board && (
+                <DragDropContext onDragEnd={handleDragEnd}>
+                  <div className="flex flex-col gap-3">
+                    {!answered && (
+                      <p className="text-xs text-white/40 uppercase tracking-wide font-semibold">Drag every item into a group</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      {currentQuestion.categorizeData.categories.map(cat => (
+                        <Droppable key={cat.id} droppableId={String(cat.id)}>
+                          {(provided, snapshot) => (
+                            <div ref={provided.innerRef} {...provided.droppableProps}
+                              className={`${dropZone} p-2 flex flex-col gap-2 min-h-[110px] ${snapshot.isDraggingOver ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : 'border-white/20 bg-white/5'}`}>
+                              <p className="text-xs font-bold text-center text-[#a78bfa] truncate">{cat.name}</p>
+                              {(board.columns[String(cat.id)] || []).map((item, i) => (
+                                <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
+                                  {(p) => (
+                                    <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                                      className={`${dragCard} ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>
+                                      <MediaRenderer media={item.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
+                                      <span className="min-w-0 break-words">{item.text}</span>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                      ))}
+                    </div>
+
+                    <Droppable droppableId="bank" direction="horizontal">
+                      {(provided, snapshot) => (
+                        <div ref={provided.innerRef} {...provided.droppableProps}
+                          className={`${dropZone} flex flex-wrap gap-2 p-2 min-h-[56px] ${snapshot.isDraggingOver ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : 'border-white/20 bg-white/5'}`}>
+                          {(board.columns.bank || []).map((item, i) => (
+                            <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
+                              {(p) => (
+                                <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
+                                  className={`${dragCard} ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>
+                                  <MediaRenderer media={item.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
+                                  <span className="min-w-0 break-words">{item.text}</span>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {!(board.columns.bank || []).length && <span className="text-xs text-white/30 self-center px-2">Every item is sorted</span>}
+                        </div>
+                      )}
+                    </Droppable>
+
+                    {!answered && (
+                      <Button onClick={submitDragAnswer} disabled={!hasDragPlacement}
+                        className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                        Submit Answer
+                      </Button>
+                    )}
+                  </div>
+                </DragDropContext>
+              )}
               {answered && (
                 <p className="text-center text-white/40 text-sm mt-5">Answer locked in — waiting for others…</p>
               )}
@@ -295,9 +622,13 @@ const PlaySession = () => {
               <>
                 {lastResult.correct
                   ? <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
-                  : <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />}
-                <h1 className="text-2xl font-black mb-1">{lastResult.correct ? 'Correct!' : 'Not quite'}</h1>
-                <p className="text-white/50 mb-2">{lastResult.correct ? `+${lastResult.points} points` : 'Better luck next time'}</p>
+                  : lastResult.points > 0
+                    ? <CheckCircle2 className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+                    : <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />}
+                <h1 className="text-2xl font-black mb-1">
+                  {lastResult.correct ? 'Correct!' : lastResult.points > 0 ? 'Partly right' : 'Not quite'}
+                </h1>
+                <p className="text-white/50 mb-2">{lastResult.points > 0 ? `+${lastResult.points} points` : 'Better luck next time'}</p>
               </>
             ) : (
               <>
