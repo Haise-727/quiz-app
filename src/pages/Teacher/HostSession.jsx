@@ -14,10 +14,11 @@ import {
 import { playComplete, playTick } from '../../utils/sounds';
 import {
   Users, Play, Eye, Trophy, ChevronRight, Hash, Loader2,
-  Crown, Medal, X, Clock,
+  Crown, Medal, X, Clock, Copy, Check, Link2,
 } from 'lucide-react';
 
 const HostSession = () => {
+  const [copied, setCopied] = useState(null); // 'link' | 'code' | null
   const { pin } = useParams();
   const navigate = useNavigate();
 
@@ -26,6 +27,22 @@ const HostSession = () => {
   const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
   const tickedRef = useRef(false);
+
+  // Direct join link for this session, so the teacher can share a URL
+  // rather than reading the code out loud.
+  const joinUrl = `${window.location.origin}/play/${pin}`;
+
+  const handleCopy = async (value, kind) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
+      toast.success(kind === 'link' ? 'Join link copied' : 'Game code copied');
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      // Clipboard needs a secure context; fall back to showing the value.
+      toast.error('Could not copy. Share this instead: ' + value);
+    }
+  };
 
   // Load quiz + subscribe to session
   useEffect(() => {
@@ -144,10 +161,36 @@ const HostSession = () => {
           {/* ── Lobby ── */}
           {session.state === 'lobby' && (
             <motion.div key="lobby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
-              <p className="text-white/50 mb-2 mt-8">Players join at <strong className="text-white">your-app-url</strong> with code</p>
-              <div className="flex items-center justify-center gap-3 mb-10">
+              <p className="text-white/50 mb-2 mt-8">Players join with this code</p>
+              <div className="flex items-center justify-center gap-3 mb-4">
                 <Hash className="w-10 h-10 text-[#a78bfa]" />
                 <span className="text-6xl md:text-7xl font-black tracking-widest text-white">{pin}</span>
+              </div>
+
+              {/* Share: a direct join link, plus the code on its own */}
+              <div className="flex flex-col items-center gap-3 mb-10">
+                <div className="flex items-center gap-2 max-w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                  <Link2 className="w-4 h-4 text-white/40 shrink-0" />
+                  <span className="text-sm text-white/70 truncate font-mono">{joinUrl}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => handleCopy(joinUrl, 'link')}
+                    variant="outline"
+                    className="gap-2 border-white/20 text-white bg-white/5 hover:bg-white/10"
+                  >
+                    {copied === 'link' ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                    {copied === 'link' ? 'Link copied' : 'Copy join link'}
+                  </Button>
+                  <Button
+                    onClick={() => handleCopy(pin, 'code')}
+                    variant="outline"
+                    className="gap-2 border-white/20 text-white bg-white/5 hover:bg-white/10"
+                  >
+                    {copied === 'code' ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                    {copied === 'code' ? 'Code copied' : 'Copy code'}
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-10 min-h-[60px]">
