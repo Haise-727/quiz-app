@@ -6,10 +6,9 @@ export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme-preference');
     if (saved === 'dark' || saved === 'light') return saved;
-    // Fallback to system preference
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
+    // Default to light for everyone. We deliberately do not follow the OS
+    // dark-mode setting: the app should look the same on a first visit
+    // regardless of the device, and users can still toggle to dark.
     return 'light';
   });
 
