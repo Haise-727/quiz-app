@@ -296,22 +296,22 @@ const PlaySession = () => {
   const me = players.find(p => p.id === playerIdRef.current);
 
   // Shared class strings for the drag-and-drop boards
-  const dragCard = 'flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-[#8b5cf6]/50 bg-[#8b5cf6]/20 text-sm font-semibold select-none';
+  const dragCard = 'flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-[hsl(var(--primary))]/50 bg-[hsl(var(--primary))]/20 text-sm font-semibold select-none';
   const dropZone = 'rounded-xl border-2 border-dashed transition-colors';
 
   // ── Join screen ──────────────────────────────────────────────────────────────
   if (!joined) {
     return (
-      <div className="min-h-screen w-screen bg-[#0d0d20] text-white flex items-center justify-center p-4"
-        style={{ background: 'radial-gradient(ellipse at 50% 30%,rgba(71,118,230,0.12) 0%,#0d0d20 70%)' }}>
+      <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex items-center justify-center p-4"
+        style={{ background: 'radial-gradient(ellipse at 50% 30%, hsl(var(--primary) / 0.12) 0%, hsl(var(--background)) 70%)' }}>
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
           <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4776e6] to-[#8b5cf6] flex items-center justify-center font-black text-sm">Q</div>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white flex items-center justify-center font-black text-sm">Q</div>
             <span className="font-bold text-lg">Quizlike Live</span>
           </Link>
 
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-8">
-            <Hash className="w-8 h-8 text-[#a78bfa] mx-auto mb-3" />
+          <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-3xl p-8">
+            <Hash className="w-8 h-8 text-[hsl(var(--primary))] mx-auto mb-3" />
             <h1 className="text-xl font-bold text-center mb-6">Join Live Game</h1>
 
             <div className="flex flex-col gap-4">
@@ -320,7 +320,7 @@ const PlaySession = () => {
                 value={pinInput}
                 onChange={e => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
-                className="bg-white/5 border-white/20 text-white text-center text-2xl font-mono tracking-widest placeholder:text-white/30"
+                className="bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] text-center text-2xl font-mono tracking-widest placeholder:text-[hsl(var(--muted-foreground))]"
               />
               <Input
                 placeholder="Your name"
@@ -328,11 +328,11 @@ const PlaySession = () => {
                 onChange={e => setNameInput(e.target.value)}
                 maxLength={24}
                 onKeyDown={e => e.key === 'Enter' && handleJoin()}
-                className="bg-white/5 border-white/20 text-white placeholder:text-white/30"
+                className="bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]"
               />
-              {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+              {error && <p className="text-[hsl(var(--destructive))] text-sm text-center">{error}</p>}
               <Button onClick={handleJoin} disabled={joining} size="lg"
-                className="gap-2 bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                className="gap-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
                 {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
                 Join Game
               </Button>
@@ -344,17 +344,17 @@ const PlaySession = () => {
   }
 
   if (!session) return (
-    <div className="min-h-screen w-screen bg-[#0d0d20] flex items-center justify-center">
-      <Loader2 className="w-8 h-8 text-white/40 animate-spin" />
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex items-center justify-center">
+      <Loader2 className="w-8 h-8 text-[hsl(var(--muted-foreground))] animate-spin" />
     </div>
   );
 
   // ── Joined: render by state ──────────────────────────────────────────────────
   return (
-    <div className="min-h-screen w-screen bg-[#0d0d20] text-white flex flex-col items-center py-8 px-4 relative overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse at 50% 0%,rgba(139,92,246,0.12) 0%,#0d0d20 60%)' }}>
+    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex flex-col items-center py-8 px-4 relative overflow-hidden"
+      style={{ background: 'radial-gradient(ellipse at 50% 0%, hsl(var(--primary) / 0.12) 0%, hsl(var(--background)) 60%)' }}>
 
-      <Link to="/" className="absolute top-5 left-5 text-white/40 hover:text-white/70 transition-colors">
+      <Link to="/" className="absolute top-5 left-5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
         <Home className="w-5 h-5" />
       </Link>
 
@@ -362,12 +362,12 @@ const PlaySession = () => {
 
         {session.state === 'lobby' && (
           <motion.div key="lobby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center mt-16">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#4776e6] to-[#8b5cf6] flex items-center justify-center font-black text-xl mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white flex items-center justify-center font-black text-xl mx-auto mb-4">
               {(nameInput || 'P').charAt(0).toUpperCase()}
             </div>
             <h1 className="text-2xl font-bold mb-1">You're in!</h1>
-            <p className="text-white/40 mb-8">Waiting for the host to start…</p>
-            <div className="flex items-center justify-center gap-2 text-white/50">
+            <p className="text-[hsl(var(--muted-foreground))] mb-8">Waiting for the host to start…</p>
+            <div className="flex items-center justify-center gap-2 text-[hsl(var(--muted-foreground))]">
               <Users className="w-4 h-4" /> {players.length} player{players.length !== 1 ? 's' : ''} joined
             </div>
           </motion.div>
@@ -376,15 +376,15 @@ const PlaySession = () => {
         {session.state === 'question' && currentQuestion && (
           <motion.div key="question" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-lg">
             <div className="flex items-center justify-between mb-5">
-              <Badge variant="outline" className="border-white/20 text-white bg-white/10 text-xs">
+              <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))] text-xs">
                 Q{session.currentQuestionIndex + 1}/{playableQuestions.length}
               </Badge>
-              <div className={`flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border text-sm ${timeLeft <= 10 ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-white/10 text-white border-white/20'}`}>
+              <div className={`flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border text-sm ${timeLeft <= 10 ? 'bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))] border-[hsl(var(--destructive))]/30' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border-[hsl(var(--border))]'}`}>
                 <Clock className="w-3.5 h-3.5" /> {timeLeft ?? '–'}s
               </div>
             </div>
 
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-5">
+            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6 mb-5">
               <p className="text-lg font-bold leading-relaxed">{currentQuestion.questionText}</p>
             </div>
 
@@ -392,7 +392,7 @@ const PlaySession = () => {
               {currentQuestion.type === 'MCQ' && (
                 <div className="flex flex-col gap-3">
                   {isMultiSelect && !answered && (
-                    <p className="text-xs text-white/40 uppercase tracking-wide font-semibold -mb-1">Select all that apply</p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold -mb-1">Select all that apply</p>
                   )}
                   {currentQuestion.mcqData.options.map(opt => {
                     // `selected` still holds the previous question's answer for the
@@ -404,8 +404,8 @@ const PlaySession = () => {
                       <button key={opt.id} disabled={answered} onClick={() => handleMcqClick(opt.id)}
                         className={`px-5 py-4 rounded-xl border-2 text-left font-semibold transition-colors ${
                           answered
-                            ? isPicked ? 'border-[#8b5cf6] bg-[#8b5cf6]/15 cursor-default' : 'border-white/10 bg-white/5 opacity-40 cursor-default'
-                            : isPicked ? 'border-[#8b5cf6] bg-[#8b5cf6]/15 cursor-pointer' : 'border-white/20 bg-white/5 hover:border-[#8b5cf6] hover:bg-[#8b5cf6]/10 cursor-pointer'
+                            ? isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-default' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] opacity-40 cursor-default'
+                            : isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-pointer' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10 cursor-pointer'
                         }`}>
                         {opt.text}
                       </button>
@@ -413,7 +413,7 @@ const PlaySession = () => {
                   })}
                   {isMultiSelect && !answered && (
                     <Button onClick={() => handleAnswer(mcqSelection)} disabled={!mcqSelection.length}
-                      className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                      className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
                       Submit Answer
                     </Button>
                   )}
@@ -422,11 +422,11 @@ const PlaySession = () => {
               {currentQuestion.type === 'TRUE_FALSE' && (
                 <div className="grid grid-cols-2 gap-3">
                   <button disabled={answered} onClick={() => handleAnswer(true)}
-                    className={`py-8 rounded-xl border-2 font-black text-xl text-green-300 transition-colors ${answered ? (selected === true ? 'border-green-400 bg-green-500/25' : 'border-green-500/20 bg-green-500/5 opacity-40') + ' cursor-default' : 'border-green-500/40 bg-green-500/10 hover:bg-green-500/20 cursor-pointer'}`}>
+                    className={`py-8 rounded-xl border-2 font-black text-xl text-emerald-600 dark:text-emerald-300 transition-colors ${answered ? (selected === true ? 'border-emerald-400 bg-emerald-500/25' : 'border-emerald-500/20 bg-emerald-500/5 opacity-40') + ' cursor-default' : 'border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer'}`}>
                     TRUE
                   </button>
                   <button disabled={answered} onClick={() => handleAnswer(false)}
-                    className={`py-8 rounded-xl border-2 font-black text-xl text-red-300 transition-colors ${answered ? (selected === false ? 'border-red-400 bg-red-500/25' : 'border-red-500/20 bg-red-500/5 opacity-40') + ' cursor-default' : 'border-red-500/40 bg-red-500/10 hover:bg-red-500/20 cursor-pointer'}`}>
+                    className={`py-8 rounded-xl border-2 font-black text-xl text-[hsl(var(--destructive))] transition-colors ${answered ? (selected === false ? 'border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/25' : 'border-[hsl(var(--destructive))]/20 bg-[hsl(var(--destructive))]/5 opacity-40') + ' cursor-default' : 'border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 hover:bg-[hsl(var(--destructive))]/20 cursor-pointer'}`}>
                     FALSE
                   </button>
                 </div>
@@ -437,9 +437,9 @@ const PlaySession = () => {
                     onKeyDown={e => e.key === 'Enter' && handleAnswer(fillInput)}
                     disabled={answered}
                     placeholder="Type your answer…"
-                    className="bg-white/5 border-white/20 text-white placeholder:text-white/30 disabled:opacity-60" />
+                    className="bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] disabled:opacity-60" />
                   <Button onClick={() => handleAnswer(fillInput)} disabled={!fillInput.trim() || answered}
-                    className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 shrink-0">
+                    className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 shrink-0">
                     Submit
                   </Button>
                 </div>
@@ -448,20 +448,20 @@ const PlaySession = () => {
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <div className="flex flex-col gap-3">
                     {!answered && (
-                      <p className="text-xs text-white/40 uppercase tracking-wide font-semibold">Drag an answer onto each prompt</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">Drag an answer onto each prompt</p>
                     )}
                     {currentQuestion.matchData.pairs.map(pair => {
                       const card = board.slots[String(pair.id)];
                       return (
                         <div key={pair.id} className="grid grid-cols-2 gap-2 items-stretch">
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold">
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-sm font-semibold">
                             <MediaRenderer media={pair.promptMedia} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
                             <span className="min-w-0 break-words">{pair.prompt}</span>
                           </div>
                           <Droppable droppableId={String(pair.id)}>
                             {(provided, snapshot) => (
                               <div ref={provided.innerRef} {...provided.droppableProps}
-                                className={`${dropZone} min-h-[52px] flex items-center justify-center p-1 ${snapshot.isDraggingOver ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : card ? 'border-[#8b5cf6]/40 bg-white/5' : 'border-white/20 bg-white/5'}`}>
+                                className={`${dropZone} min-h-[52px] flex items-center justify-center p-1 ${snapshot.isDraggingOver ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : card ? 'border-[hsl(var(--primary))]/40 bg-[hsl(var(--card))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
                                 {card ? (
                                   <Draggable draggableId={String(card.id)} index={0} isDragDisabled={answered}>
                                     {(p) => (
@@ -473,7 +473,7 @@ const PlaySession = () => {
                                     )}
                                   </Draggable>
                                 ) : (
-                                  <span className="text-xs text-white/30">Drop here</span>
+                                  <span className="text-xs text-[hsl(var(--muted-foreground))]">Drop here</span>
                                 )}
                                 {provided.placeholder}
                               </div>
@@ -486,7 +486,7 @@ const PlaySession = () => {
                     <Droppable droppableId="bank" direction="horizontal">
                       {(provided, snapshot) => (
                         <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`${dropZone} flex flex-wrap gap-2 p-2 min-h-[56px] ${snapshot.isDraggingOver ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : 'border-white/20 bg-white/5'}`}>
+                          className={`${dropZone} flex flex-wrap gap-2 p-2 min-h-[56px] ${snapshot.isDraggingOver ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
                           {board.bank.map((card, i) => (
                             <Draggable key={card.id} draggableId={String(card.id)} index={i} isDragDisabled={answered}>
                               {(p) => (
@@ -499,14 +499,14 @@ const PlaySession = () => {
                             </Draggable>
                           ))}
                           {provided.placeholder}
-                          {!board.bank.length && <span className="text-xs text-white/30 self-center px-2">Every answer is placed</span>}
+                          {!board.bank.length && <span className="text-xs text-[hsl(var(--muted-foreground))] self-center px-2">Every answer is placed</span>}
                         </div>
                       )}
                     </Droppable>
 
                     {!answered && (
                       <Button onClick={submitDragAnswer} disabled={!hasDragPlacement}
-                        className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                        className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
                         Submit Answer
                       </Button>
                     )}
@@ -517,7 +517,7 @@ const PlaySession = () => {
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <div className="flex flex-col gap-3">
                     {!answered && (
-                      <p className="text-xs text-white/40 uppercase tracking-wide font-semibold">Drag into the right order</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">Drag into the right order</p>
                     )}
                     <Droppable droppableId="reorder-list">
                       {(provided) => (
@@ -526,11 +526,11 @@ const PlaySession = () => {
                             <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
                               {(p, snapshot) => (
                                 <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
-                                  className={`flex items-center gap-3 px-3 py-3 rounded-xl border-2 select-none ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${snapshot.isDragging ? 'border-[#8b5cf6] bg-[#8b5cf6]/25' : 'border-white/20 bg-white/5'}`}>
-                                  <span className="w-5 text-center font-black text-white/40 text-sm shrink-0">{i + 1}</span>
+                                  className={`flex items-center gap-3 px-3 py-3 rounded-xl border-2 select-none ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${snapshot.isDragging ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/25' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
+                                  <span className="w-5 text-center font-black text-[hsl(var(--muted-foreground))] text-sm shrink-0">{i + 1}</span>
                                   <MediaRenderer media={item.media} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
                                   <span className="flex-1 min-w-0 text-sm font-semibold break-words">{item.text}</span>
-                                  <GripVertical className="w-4 h-4 text-white/30 shrink-0" />
+                                  <GripVertical className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0" />
                                 </div>
                               )}
                             </Draggable>
@@ -541,7 +541,7 @@ const PlaySession = () => {
                     </Droppable>
                     {!answered && (
                       <Button onClick={submitDragAnswer}
-                        className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                        className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
                         Submit Answer
                       </Button>
                     )}
@@ -552,15 +552,15 @@ const PlaySession = () => {
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <div className="flex flex-col gap-3">
                     {!answered && (
-                      <p className="text-xs text-white/40 uppercase tracking-wide font-semibold">Drag every item into a group</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">Drag every item into a group</p>
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       {currentQuestion.categorizeData.categories.map(cat => (
                         <Droppable key={cat.id} droppableId={String(cat.id)}>
                           {(provided, snapshot) => (
                             <div ref={provided.innerRef} {...provided.droppableProps}
-                              className={`${dropZone} p-2 flex flex-col gap-2 min-h-[110px] ${snapshot.isDraggingOver ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : 'border-white/20 bg-white/5'}`}>
-                              <p className="text-xs font-bold text-center text-[#a78bfa] truncate">{cat.name}</p>
+                              className={`${dropZone} p-2 flex flex-col gap-2 min-h-[110px] ${snapshot.isDraggingOver ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
+                              <p className="text-xs font-bold text-center text-[hsl(var(--primary))] truncate">{cat.name}</p>
                               {(board.columns[String(cat.id)] || []).map((item, i) => (
                                 <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
                                   {(p) => (
@@ -582,7 +582,7 @@ const PlaySession = () => {
                     <Droppable droppableId="bank" direction="horizontal">
                       {(provided, snapshot) => (
                         <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`${dropZone} flex flex-wrap gap-2 p-2 min-h-[56px] ${snapshot.isDraggingOver ? 'border-[#8b5cf6] bg-[#8b5cf6]/10' : 'border-white/20 bg-white/5'}`}>
+                          className={`${dropZone} flex flex-wrap gap-2 p-2 min-h-[56px] ${snapshot.isDraggingOver ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
                           {(board.columns.bank || []).map((item, i) => (
                             <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
                               {(p) => (
@@ -595,14 +595,14 @@ const PlaySession = () => {
                             </Draggable>
                           ))}
                           {provided.placeholder}
-                          {!(board.columns.bank || []).length && <span className="text-xs text-white/30 self-center px-2">Every item is sorted</span>}
+                          {!(board.columns.bank || []).length && <span className="text-xs text-[hsl(var(--muted-foreground))] self-center px-2">Every item is sorted</span>}
                         </div>
                       )}
                     </Droppable>
 
                     {!answered && (
                       <Button onClick={submitDragAnswer} disabled={!hasDragPlacement}
-                        className="bg-gradient-to-r from-[#4776e6] to-[#8b5cf6] text-white border-0 hover:opacity-90">
+                        className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
                         Submit Answer
                       </Button>
                     )}
@@ -610,7 +610,7 @@ const PlaySession = () => {
                 </DragDropContext>
               )}
               {answered && (
-                <p className="text-center text-white/40 text-sm mt-5">Answer locked in — waiting for others…</p>
+                <p className="text-center text-[hsl(var(--muted-foreground))] text-sm mt-5">Answer locked in — waiting for others…</p>
               )}
             </>
           </motion.div>
@@ -621,20 +621,20 @@ const PlaySession = () => {
             {lastResult ? (
               <>
                 {lastResult.correct
-                  ? <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                  ? <CheckCircle2 className="w-16 h-16 text-emerald-600 dark:text-emerald-400 mx-auto mb-4" />
                   : lastResult.points > 0
                     ? <CheckCircle2 className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-                    : <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />}
+                    : <XCircle className="w-16 h-16 text-[hsl(var(--destructive))] mx-auto mb-4" />}
                 <h1 className="text-2xl font-black mb-1">
                   {lastResult.correct ? 'Correct!' : lastResult.points > 0 ? 'Partly right' : 'Not quite'}
                 </h1>
-                <p className="text-white/50 mb-2">{lastResult.points > 0 ? `+${lastResult.points} points` : 'Better luck next time'}</p>
+                <p className="text-[hsl(var(--muted-foreground))] mb-2">{lastResult.points > 0 ? `+${lastResult.points} points` : 'Better luck next time'}</p>
               </>
             ) : (
               <>
-                <XCircle className="w-16 h-16 text-white/20 mx-auto mb-4" />
+                <XCircle className="w-16 h-16 text-[hsl(var(--muted-foreground))] mx-auto mb-4" />
                 <h1 className="text-2xl font-black mb-1">Time's up!</h1>
-                <p className="text-white/50">You didn't answer in time.</p>
+                <p className="text-[hsl(var(--muted-foreground))]">You didn't answer in time.</p>
               </>
             )}
           </motion.div>
@@ -643,11 +643,11 @@ const PlaySession = () => {
         {session.state === 'leaderboard' && (
           <motion.div key="leaderboard" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md">
             <h2 className="text-xl font-black text-center mb-2">Leaderboard</h2>
-            <p className="text-center text-white/40 text-sm mb-6">You're #{myRank} with {me?.score ?? 0} points</p>
+            <p className="text-center text-[hsl(var(--muted-foreground))] text-sm mb-6">You're #{myRank} with {me?.score ?? 0} points</p>
             <div className="flex flex-col gap-2">
               {sortedPlayers.slice(0, 5).map((p, i) => (
-                <div key={p.id} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl ${p.id === playerIdRef.current ? 'bg-[#8b5cf6]/15 border border-[#8b5cf6]/40' : 'bg-white/5 border border-white/10'}`}>
-                  <span className="font-black w-5 text-white/50">{i + 1}</span>
+                <div key={p.id} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl ${p.id === playerIdRef.current ? 'bg-[hsl(var(--primary))]/15 border border-[hsl(var(--primary))]/40' : 'bg-[hsl(var(--card))] border border-[hsl(var(--border))]'}`}>
+                  <span className="font-black w-5 text-[hsl(var(--muted-foreground))]">{i + 1}</span>
                   <span className="flex-1 font-semibold truncate">{p.name}</span>
                   <span className="font-black">{p.score}</span>
                 </div>
@@ -663,13 +663,13 @@ const PlaySession = () => {
             <h1 className="text-2xl font-black mb-1">Game Over!</h1>
             <div className="flex items-center justify-center gap-2 mb-1">
               {myRank === 1 && <Crown className="w-5 h-5 text-amber-400" />}
-              {myRank === 2 && <Medal className="w-5 h-5 text-slate-300" />}
+              {myRank === 2 && <Medal className="w-5 h-5 text-slate-400" />}
               {myRank === 3 && <Medal className="w-5 h-5 text-amber-700" />}
-              <p className="text-white/70 font-semibold">You finished #{myRank} of {players.length}</p>
+              <p className="text-[hsl(var(--foreground))] font-semibold">You finished #{myRank} of {players.length}</p>
             </div>
             <p className="text-3xl font-black mb-8">{me?.score ?? 0} pts</p>
             <Link to="/">
-              <Button size="lg" className="gap-2 bg-white/10 border border-white/20 text-white hover:bg-white/20">
+              <Button size="lg" className="gap-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/70">
                 <Home className="w-4 h-4" /> Back Home
               </Button>
             </Link>
