@@ -38,10 +38,16 @@ const Browse = () => {
     }
   };
 
-  // Derive sorted unique subjects from all fetched quizzes
+  // Derive sorted unique subjects from all fetched quizzes.
+  // 'All' is the sentinel for "no filter", so a quiz whose subject is
+  // literally "All" must not also appear as its own chip - that rendered
+  // the filter twice and gave React duplicate keys.
   const subjects = useMemo(() => {
     const set = new Set();
-    quizzes.forEach(q => { if (q.subject && q.subject.trim()) set.add(q.subject.trim()); });
+    quizzes.forEach(q => {
+      const subject = q.subject?.trim();
+      if (subject && subject.toLowerCase() !== 'all') set.add(subject);
+    });
     return ['All', ...Array.from(set).sort()];
   }, [quizzes]);
 
