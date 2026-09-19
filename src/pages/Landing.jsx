@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, getDocs, getCountFromServer } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -28,24 +28,6 @@ const Landing = () => {
   const navigate = useNavigate();
   const { currentUser, userRole } = useAuth();
   const { theme, toggleTheme } = useTheme();
-
-  const [quizCount, setQuizCount] = useState(null);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const coll = collection(db, 'quizzes');
-        const snapshot = await getCountFromServer(coll);
-        setQuizCount(snapshot.data().count);
-      } catch (err) {
-        console.error('Error fetching total quiz count:', err);
-        setQuizCount(120); // Graceful fallback
-      }
-    };
-    fetchStats();
-  }, []);
-
-  const animatedCount = useCountUp(quizCount || 0, 1500);
 
   const handleChange = (i, val) => {
     const char = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(-1);
@@ -195,17 +177,6 @@ const Landing = () => {
         
         {/* Hero Entry Section */}
         <div className="flex flex-col items-center gap-8 w-full max-w-2xl">
-          {/* Badge & Live Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex items-center gap-2.5 bg-[hsl(var(--muted))]/50 border border-[hsl(var(--border))] rounded-full px-4.5 py-2 text-sm text-[hsl(var(--foreground))]/75 shadow-sm"
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
-            <span>Over <strong className="text-[hsl(var(--foreground))] font-extrabold">{animatedCount.toLocaleString()}</strong> quizzes created live!</span>
-          </motion.div>
-
           {/* Headline */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -446,40 +417,6 @@ const Landing = () => {
       </footer>
     </div>
   );
-};
-
-// Count up helper hook
-const useCountUp = (target, duration = 1500) => {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!target) return;
-    const end = parseInt(target, 10);
-    if (isNaN(end) || end <= 0) {
-      setCount(0);
-      return;
-    }
-    const startTime = performance.now();
-    let animationFrame;
-
-    const animate = (currentTime) => {
-      const elapsedTime = currentTime - startTime;
-      const progress = Math.min(elapsedTime / duration, 1);
-      const easedProgress = progress * (2 - progress); // Ease out quad
-      const currentCount = Math.floor(easedProgress * end);
-      setCount(currentCount);
-
-      if (progress < 1) {
-        animationFrame = requestAnimationFrame(animate);
-      } else {
-        setCount(end);
-      }
-    };
-
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [target, duration]);
-
-  return count;
 };
 
 export default Landing;
