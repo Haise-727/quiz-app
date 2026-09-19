@@ -1,174 +1,167 @@
+<div align="center">
+
 # Quizlike
 
-A full-stack interactive quiz platform. Teachers build quizzes with nine
-question types, publish them to classes, and run them either as self-paced
-assignments or as live Kahoot-style multiplayer sessions. Students join with a
-code — with or without an account — and teachers get grading tools and
-per-question analytics afterwards.
+### Build a quiz. Play it live. Learn it anywhere.
 
-**Live app → https://quizlike.vercel.app**
+A full-stack quiz platform where teachers create rich, media-heavy quizzes
+and students play them solo, as a class assignment, or in a live
+Kahoot-style multiplayer game with a shared PIN.
 
-No signup needed to look around: [Browse](https://quizlike.vercel.app/browse)
-lists every published quiz, and Practice and Flashcard modes are fully public.
+[![Live Demo](https://img.shields.io/badge/Live_Demo-quizlike.vercel.app-22c55e?style=for-the-badge)](https://quizlike.vercel.app)
 
-<!-- TODO: add 3-4 screenshots here (landing, create-quiz, live session, analytics) -->
+![React](https://img.shields.io/badge/React_19-149ECA?style=flat-square&logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite_6-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind_v4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase_11-FFCA28?style=flat-square&logo=firebase&logoColor=black)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
+
+<img src="docs/screenshots/landing.png" alt="Quizlike landing page" width="100%">
+
+</div>
+
+---
+
+## Why it exists
+
+Most classroom quiz tools make you pick: either a fast live game, or a proper
+graded assignment with real marking. Quizlike does both from the same quiz.
+Write the questions once, then run them live on a projector, set them as
+homework with a due date, or let anyone revise them as flashcards.
+
+---
+
+## Features
+
+### 🎯 Nine question types
+
+Far beyond multiple choice. Six of them are graded instantly, including in live games.
+
+| Type | What it does | Live mode |
+|---|---|:---:|
+| **Multiple Choice** | Single or multi-select, any number of options | ✅ |
+| **True / False** | The quick one | ✅ |
+| **Fill in the Blank** | Free text, multiple accepted answers | ✅ |
+| **Match the Following** | Drag answers onto their prompts | ✅ |
+| **Reorder** | Drag items into the correct sequence | ✅ |
+| **Categorize** | Sort items into buckets | ✅ |
+| **Paragraph** | Long-form, graded by hand | ✍️ manual |
+| **Visual Comprehension** | An image plus follow-up questions | 📖 async |
+| **Listening Comprehension** | Audio or video plus follow-up questions | 📖 async |
+
+The drag-and-drop types award **partial credit**, so getting three of four
+matches right is worth three quarters of the marks rather than nothing.
+
+### 🔴 Live multiplayer
+
+Host a game and put the PIN on the projector. Students join from their phones
+with the code or a share link, and answers, scores and the leaderboard sync in
+real time through Firebase Realtime Database.
+
+- Lobby with players appearing as they join
+- Teacher controls when each question is revealed
+- Speed-weighted scoring: answer faster, score higher
+- Live leaderboard between questions and a podium at the end
+- Sound effects and confetti
+
+### 👤 No account needed
+
+Guests join by code, play the whole quiz, and their results still reach the
+teacher. Browse, Practice and Flashcards are fully public too, so a shared
+link just works.
+
+### 📚 Three ways to study the same quiz
+
+| Mode | Timed | Scored | Sign-in |
+|---|:---:|:---:|:---:|
+| **Play** | yes | yes | optional |
+| **Practice** | no | no | no |
+| **Flashcards** | no | self-rated | no |
+
+Practice gives instant right-or-wrong feedback and a reveal button. Flashcards
+flip in 3D, track "Got it" versus "Still learning", shuffle, and let you drill
+only the ones you keep missing.
+
+### 🖼️ Real media support
+
+Images, video and audio on both questions and individual answer options, served
+through the ImageKit CDN. Crop and annotate images in the browser before
+uploading, without leaving the quiz editor.
+
+### 🏫 Classes and assignments
+
+Create a class, enrol students, assign quizzes with due dates, and track who
+has finished. Students get in-app notifications when work is set.
+
+### ✏️ Grading and analytics
+
+- Auto-grading for everything except paragraph answers
+- A marking queue for the ones that need a human, with partial credit
+- Score distribution and per-question pass rate charts
+- Sortable results table and one-click CSV export
+
+### 🎨 Built to feel good
+
+Light and dark themes, responsive from phone to projector, animated
+transitions throughout, and a reusable question bank so you never write the
+same question twice.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
+| Layer | Built with |
 |---|---|
 | **Frontend** | React 19, Vite 6, React Router 7 |
-| **Styling** | Tailwind CSS v4, shadcn/ui on Radix primitives, Framer Motion |
-| **Backend** | Firebase Auth (Google OAuth + email/password), Vercel serverless function |
-| **Database** | Cloud Firestore (persistent data), Firebase Realtime Database (live sessions) |
-| **Media** | ImageKit CDN, TUI Image Editor, react-easy-crop |
+| **Styling** | Tailwind CSS v4, shadcn/ui on Radix, Framer Motion |
+| **Auth** | Firebase Authentication — Google OAuth and email/password |
+| **Database** | Cloud Firestore (7 collections) + Realtime Database for live sessions |
+| **Media** | ImageKit CDN, TUI Image Editor |
 | **Charts** | Recharts |
-| **Deployment** | Vercel — auto-deploy from `main`, SPA rewrites, serverless API |
+| **Hosting** | Vercel — static CDN plus serverless functions |
 
-## Architecture
+Authorisation is enforced server-side by Firestore security rules rather than
+in client code, so a modified client cannot read or write what it should not.
 
-```
-Browser (React SPA on Vercel CDN)
-   │
-   ├── Firebase Auth ........... Google OAuth + email/password, JWT session
-   ├── Cloud Firestore ......... quizzes, results, classes, question bank
-   │                             (access controlled by firestore.rules)
-   ├── Realtime Database ....... live game sessions keyed by 6-digit PIN
-   └── /api/auth (Vercel λ) .... signs short-lived ImageKit upload tokens
-                                 so the private key never reaches the client
-```
+---
 
-**Frontend.** A single-page React app. Auth state and role live in
-`AuthContext`; `ProtectedRoute` enforces teacher/student access per route.
-Pages talk to Firestore through helpers in `src/utils/`.
-
-**Backend.** Mostly serverless: Firebase handles authentication and data access
-directly, with authorisation enforced server-side by security rules rather than
-in client code. The one custom endpoint, [`api/auth.js`](api/auth.js), runs as a
-Vercel function and generates signed ImageKit upload parameters — this exists so
-the ImageKit private key stays on the server.
-
-**Database.** Firestore holds everything durable. The Realtime Database is used
-only for live game state, where sub-second fan-out to every connected player
-matters more than query flexibility.
-
-## Features
-
-**Authentication & roles**
-- Google OAuth and email/password sign-in
-- Teacher and student roles, switchable on one account
-- Route guards with role enforcement, plus a public guest path
-- Role-based Firestore security rules
-
-**Quiz creation (teacher)**
-- Nine question types: Multiple Choice (single/multi), True/False, Fill in the
-  Blank, Paragraph, Match the Following, Categorize, Reorder, Visual
-  Comprehension, Listening Comprehension
-- Images and video on questions and individual answer options
-- In-browser image cropping and annotation before upload
-- Per-question time limits and point values
-- Draft autosave, full edit of published quizzes, auto-generated join code
-- Reusable question bank
-
-**Taking quizzes**
-- Three modes: graded (signed in), guest (code only, no account), and live
-  multiplayer session
-- Practice mode and flashcard mode for self-study, both public
-- Per-question countdown, dot navigation, animated transitions
-
-**Live game engine**
-- Teacher hosts a session and gets a 6-digit PIN
-- Players join a lobby, questions are revealed under teacher control
-- Answers and scores sync in real time through the Realtime Database
-
-**Teaching tools**
-- Classes with student enrolment and assignment due dates
-- Manual grading queue for paragraph answers, with partial credit
-- Analytics per quiz: score distribution, per-question pass rate, sortable
-  results table, CSV export
-- In-app notifications
-
-## Data Model
-
-Firestore collections:
-
-| Collection | Holds |
-|---|---|
-| `users` | profile, role, timestamps |
-| `quizzes` | metadata, join code, embedded question array |
-| `quiz_results` | one document per attempt, with per-answer grading state |
-| `classes` | teacher-owned class records |
-| `class_enrollments` | student ↔ class membership |
-| `question_bank` | saved questions reusable across quizzes |
-| `notifications` | per-user in-app notifications |
-
-Realtime Database: `sessions/{pin}` — live game state (players, current
-question, answers, scores).
-
-Full field-level schema is in [docs/technical.md](docs/technical.md).
-
-## Running Locally
+## Quick Start
 
 ```bash
 git clone https://github.com/Haise-727/quiz-app.git
 cd quiz-app
 npm install --legacy-peer-deps
-cp .env.local.example .env.local   # then fill in Firebase config
+cp .env.local.example .env.local   # fill in Firebase + ImageKit values
 npm run dev                        # http://localhost:5173
 ```
 
-`--legacy-peer-deps` is required: `@toast-ui/react-image-editor` declares a
-React 17 peer dependency but runs fine on React 19.
+`--legacy-peer-deps` is required because `@toast-ui/react-image-editor`
+declares a React 17 peer dependency but runs fine on React 19.
 
-Other scripts: `npm run build`, `npm run preview`, `npm run lint`.
+> **Blank page on first run?** A client environment variable is missing. The
+> ImageKit SDK is constructed at module scope, so an empty `VITE_URL_ENDPOINT`
+> throws during import and React never mounts. See `.env.local.example`.
 
-### Environment variables
-
-Copy `.env.local.example` to `.env.local` and fill it in. All of these are
-required; see the example file for where each value comes from.
-
-Firebase (client):
-`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
-`VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`,
-`VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_MEASUREMENT_ID`,
-`VITE_FIREBASE_DATABASE_URL`
-
-ImageKit (client, public credentials):
-`VITE_PUBLIC_KEY`, `VITE_URL_ENDPOINT`
-
-Upload signing base URL: `VITE_API_URL`. `npm run dev` does not serve the
-functions in `api/`, so set this to the deployed app to make uploads work
-locally. Leave it empty for `vercel dev` and production.
-
-ImageKit (server, set in Vercel project settings, never committed):
-`IMAGEKIT_PUBLIC_KEY_API`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT_API`
-
-> If the app loads as a blank page with no error, a client variable is almost
-> certainly missing. The ImageKit client is constructed at module scope, so an
-> empty `VITE_URL_ENDPOINT` throws during import and React never mounts.
-
-## Deployment
-
-Hosted on Vercel, deploying automatically on every push to `main`.
-[`vercel.json`](vercel.json) rewrites all paths to `index.html` so client-side
-routing works on refresh and deep links. Files in `api/` are deployed as
-serverless functions. Firestore rules live in
-[`firestore.rules`](firestore.rules) and Realtime Database rules in
-[`database.rules.json`](database.rules.json); both are deployed through the
-Firebase console.
+---
 
 ## Team
 
-| Member | Responsibility |
+| | |
 |---|---|
-| **Harsha VarDan M Sakamuri** | Backend, database and deployment. Firebase Auth integration, Firestore data model and security rules, the ImageKit upload pipeline and its serverless endpoint, the real-time live game engine, classes/assignments and analytics, plus the Vercel deployment and environment configuration. |
-| **Rakshith Shakkthi** | Frontend and UI. Built the initial student and teacher dashboards and the quiz creation page, then led the UI/UX overhaul onto Tailwind and the shadcn component system — landing, login, browse, practice and flashcard screens, shared layout, theming and visual polish across the app. |
+| **Harsha Vardan M Sakamuri** | Frontend, Backend, Database, Deployment |
+| **Rakshith Shakkthi** | Frontend & UI, Backend |
+
+---
 
 ## Documentation
 
-- [docs/technical.md](docs/technical.md) — schemas, auth flow, code patterns
-- [docs/progress-report.md](docs/progress-report.md) — feature status
-- [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) — architecture deep dive
-- [docs/contributing.md](docs/contributing.md) — setup guide for new collaborators
+- **[Technical reference](docs/technical.md)** — schemas, auth flow, code patterns
+- **[Architecture deep dive](PROJECT_OVERVIEW.md)** — design decisions and trade-offs
+- **[Progress report](docs/progress-report.md)** — what is built, what is left
+- **[Contributing](docs/contributing.md)** — setup guide for new collaborators
+
+<div align="center">
+
+**[Try it live →](https://quizlike.vercel.app)**
+
+</div>
