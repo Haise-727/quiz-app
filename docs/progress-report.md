@@ -61,8 +61,10 @@ live synchronised sessions. Guests can participate with no account at all.
 - Teacher hosts a session and receives a 6-digit PIN
 - Players join a lobby from the landing page; teacher controls question reveal
 - Answers, scores and leaderboard sync in real time via Realtime Database
-- Supported live types: MCQ, True/False, Fill in the Blank — other types are
-  skipped and reported in the session summary
+- Supported live types: MCQ, True/False, Fill in the Blank, Match the
+  Following, Reorder, Categorize — the drag-and-drop three score partial
+  credit; paragraph and comprehension questions are skipped and reported in
+  the session summary
 - Synthesised sound effects for game events
 
 ### Classes & assignments
@@ -144,5 +146,4 @@ Plus four legacy redirects kept so old links keep working.
 **Nice to have**
 - CreateQuiz: drag-to-reorder questions, duplicate question, in-page preview
 - Bulk question import from CSV or Google Forms
-- More live question types (Match, Reorder, Categorize in live mode)
 - Cross-quiz and per-student analytics trends

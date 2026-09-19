@@ -72,8 +72,27 @@ Nine types, selected per question in CreateQuiz:
 | `LISTENING_COMPREHENSION` | Listening Comprehension (media + sub-questions) | yes |
 
 Live mode supports a subset — see `LIVE_SUPPORTED_TYPES` in
-`src/utils/liveSession.js`: `MCQ`, `TRUE_FALSE`, `FILL_IN_THE_BLANK`.
-Unsupported questions are skipped and counted in `skippedCount`.
+`src/utils/liveSession.js`: `MCQ`, `TRUE_FALSE`, `FILL_IN_THE_BLANK`,
+`MATCH_THE_FOLLOWING`, `REORDER`, `CATEGORIZE`. Unsupported questions
+(paragraph and the two comprehension types) are skipped and counted in
+`skippedCount`.
+
+The answer a live player writes to
+`sessions/{pin}/answers/{questionIndex}/{playerId}/answer` is plain JSON:
+
+| Type | Shape |
+|---|---|
+| `MCQ` | `[optionId, …]` |
+| `TRUE_FALSE` | boolean |
+| `FILL_IN_THE_BLANK` | string |
+| `MATCH_THE_FOLLOWING` | `{ [promptPairId]: pairIdOfTheAnswerDroppedThere }` |
+| `REORDER` | `[itemId, …]` in the player's order |
+| `CATEGORIZE` | `{ [itemId]: categoryId }` |
+
+The three simple types are all or nothing. The three drag-and-drop types
+score partial credit — the share of pairs matched, items left in the right
+position, or items dropped in the right category — times the same speed
+bonus. Only a fully correct answer sets `correct` and extends a streak.
 
 ## Firestore Collections
 
