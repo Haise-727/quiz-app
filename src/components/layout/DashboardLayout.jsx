@@ -93,6 +93,10 @@ const DashboardLayout = ({ children }) => {
 
   // Breadcrumbs generation
   const pathnames = location.pathname.split('/').filter((x) => x);
+  // `/student` and `/teacher` are namespace prefixes, not routes. Linking to
+  // them lands on the 404 page, so they render as plain text instead.
+  const NON_ROUTE_SEGMENTS = new Set(['student', 'teacher', 'guest']);
+
   const breadcrumbs = pathnames.map((value, index) => {
     const to = `/${pathnames.slice(0, index + 1).join('/')}`;
     const isLast = index === pathnames.length - 1;
@@ -104,6 +108,7 @@ const DashboardLayout = ({ children }) => {
       to,
       label: formattedValue,
       isLast,
+      isLinkable: !NON_ROUTE_SEGMENTS.has(value.toLowerCase()),
     };
   });
 
@@ -232,7 +237,7 @@ const DashboardLayout = ({ children }) => {
             {/* Breadcrumbs */}
             <nav className="flex items-center gap-1.5 text-xs select-none">
               <Link
-                to={userRole === 'teacher' ? '/teacher/home' : '/student/dashboard'}
+                to="/"
                 className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] font-semibold"
               >
                 Home
@@ -241,8 +246,14 @@ const DashboardLayout = ({ children }) => {
               {breadcrumbs.map((crumb, idx) => (
                 <React.Fragment key={crumb.to}>
                   {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />}
-                  {crumb.isLast ? (
-                    <span className="text-[hsl(var(--foreground))] font-semibold truncate max-w-[120px] sm:max-w-[200px]">
+                  {crumb.isLast || !crumb.isLinkable ? (
+                    <span
+                      className={`truncate ${
+                        crumb.isLast
+                          ? 'text-[hsl(var(--foreground))] font-semibold max-w-[120px] sm:max-w-[200px]'
+                          : 'text-[hsl(var(--muted-foreground))] font-semibold max-w-[100px]'
+                      }`}
+                    >
                       {crumb.label}
                     </span>
                   ) : (
