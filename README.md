@@ -126,14 +126,28 @@ Other scripts: `npm run build`, `npm run preview`, `npm run lint`.
 
 ### Environment variables
 
-Client-side (`.env.local`, all prefixed `VITE_`):
+Copy `.env.local.example` to `.env.local` and fill it in. All of these are
+required; see the example file for where each value comes from.
+
+Firebase (client):
 `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
 `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`,
 `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_MEASUREMENT_ID`,
 `VITE_FIREBASE_DATABASE_URL`
 
-Server-side (set in Vercel project settings, never committed):
+ImageKit (client, public credentials):
+`VITE_PUBLIC_KEY`, `VITE_URL_ENDPOINT`
+
+Upload signing base URL: `VITE_API_URL`. `npm run dev` does not serve the
+functions in `api/`, so set this to the deployed app to make uploads work
+locally. Leave it empty for `vercel dev` and production.
+
+ImageKit (server, set in Vercel project settings, never committed):
 `IMAGEKIT_PUBLIC_KEY_API`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT_API`
+
+> If the app loads as a blank page with no error, a client variable is almost
+> certainly missing. The ImageKit client is constructed at module scope, so an
+> empty `VITE_URL_ENDPOINT` throws during import and React never mounts.
 
 ## Deployment
 
