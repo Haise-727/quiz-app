@@ -35,7 +35,7 @@ homework with a due date, or let anyone revise them as flashcards.
 
 ### 🎯 Nine question types
 
-Far beyond multiple choice. Six of them are graded instantly, including in live games.
+Far beyond multiple choice. Eight of them are graded instantly and play in live games.
 
 | Type | What it does | Live mode |
 |---|---|:---:|
@@ -46,8 +46,8 @@ Far beyond multiple choice. Six of them are graded instantly, including in live 
 | **Reorder** | Drag items into the correct sequence | ✅ |
 | **Categorize** | Sort items into buckets | ✅ |
 | **Paragraph** | Long-form, graded by hand | ✍️ manual |
-| **Visual Comprehension** | An image plus follow-up questions | 📖 async |
-| **Listening Comprehension** | Audio or video plus follow-up questions | 📖 async |
+| **Visual Comprehension** | An image plus follow-up questions | ✅ |
+| **Listening Comprehension** | Audio or video plus follow-up questions | ✅ |
 
 The drag-and-drop types award **partial credit**, so getting three of four
 matches right is worth three quarters of the marks rather than nothing.

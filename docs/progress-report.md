@@ -62,9 +62,12 @@ live synchronised sessions. Guests can participate with no account at all.
 - Players join a lobby from the landing page; teacher controls question reveal
 - Answers, scores and leaderboard sync in real time via Realtime Database
 - Supported live types: MCQ, True/False, Fill in the Blank, Match the
-  Following, Reorder, Categorize — the drag-and-drop three score partial
-  credit; paragraph and comprehension questions are skipped and reported in
-  the session summary
+  Following, Reorder, Categorize, Visual Comprehension and Listening
+  Comprehension. The drag and drop types and the comprehension types score
+  partial credit. Paragraph questions are skipped and reported in the session
+  summary
+- Pictures, audio and video show on every live question and play on each
+  player's own device; a clip longer than the time limit extends the clock
 - Synthesised sound effects for game events
 
 ### Classes & assignments

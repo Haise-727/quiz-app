@@ -16,6 +16,7 @@ quiz-app/
 │   │   │   └── DashboardLayout.jsx
 │   │   ├── MediaUploader.jsx    # upload → crop → annotate → ImageKit
 │   │   ├── MediaRenderer.jsx  MediaPreview.jsx  Image.jsx
+│   │   ├── AnswerReveal.jsx     # shared "correct answer" view with media (Practice, Flashcards)
 │   │   ├── ImageCropperModal.jsx  ImageEditorModal.jsx
 │   │   ├── NotificationBell.jsx  Confetti.jsx
 │   │   └── ProtectedRoute.jsx
@@ -42,6 +43,8 @@ quiz-app/
 │   │   ├── classHelpers.js      # classes and enrolment
 │   │   ├── assignmentHelpers.js # due dates, completion counts
 │   │   ├── questionBankHelpers.js
+│   │   ├── media.js             # mediaKind, getMainMedia, getSubQuestions (one rule for every page)
+│   │   ├── mediaUpload.js       # uploadQuestionMedia: editor files to ImageKit (Publish, Save to Bank)
 │   │   ├── notifications.js  sounds.js
 │   │   └── devTools.js          # clearInvalidQuizzes, clearAllQuizResults, seedTestQuiz
 │   ├── styles/                  # page-specific CSS (CreateQuiz, TakeQuiz)
@@ -49,6 +52,8 @@ quiz-app/
 │   ├── firebase.js              # exports db, auth, realtimeDb, googleProvider
 │   ├── App.jsx                  # route table + ProtectedRoute guards
 │   └── main.jsx                 # root render + Toaster
+├── scripts/
+│   └── seed-media-quiz.mjs      # real upload + quiz seeding for media testing
 ├── docs/
 ├── firestore.rules              # deploy via Firebase Console
 ├── database.rules.json          # Realtime DB rules
@@ -71,145 +76,52 @@ Nine types, selected per question in CreateQuiz:
 | `VISUAL_COMPREHENSION` | Visual Comprehension (media + sub-questions) | yes |
 | `LISTENING_COMPREHENSION` | Listening Comprehension (media + sub-questions) | yes |
 
-Live mode supports a subset — see `LIVE_SUPPORTED_TYPES` in
+Live mode plays eight of the nine types. See `LIVE_SUPPORTED_TYPES` in
 `src/utils/liveSession.js`: `MCQ`, `TRUE_FALSE`, `FILL_IN_THE_BLANK`,
-`MATCH_THE_FOLLOWING`, `REORDER`, `CATEGORIZE`. Unsupported questions
-(paragraph and the two comprehension types) are skipped and counted in
-`skippedCount`.
+`MATCH_THE_FOLLOWING`, `REORDER`, `CATEGORIZE`, `VISUAL_COMPREHENSION` and
+`LISTENING_COMPREHENSION`. Paragraph questions need a teacher to mark them, so
+they are skipped and counted in `skippedCount`. A comprehension question with
+no gradable follow up question is skipped the same way.
+
+A comprehension question is one live question. The player sees the image, audio
+or video once, with every follow up question under it, and answers as many as
+they can before the clock runs out.
 
 The answer a live player writes to
 `sessions/{pin}/answers/{questionIndex}/{playerId}/answer` is plain JSON:
 
 | Type | Shape |
 |---|---|
-| `MCQ` | `[optionId, …]` |
+| `MCQ` | `[optionId, ...]` |
 | `TRUE_FALSE` | boolean |
 | `FILL_IN_THE_BLANK` | string |
 | `MATCH_THE_FOLLOWING` | `{ [promptPairId]: pairIdOfTheAnswerDroppedThere }` |
-| `REORDER` | `[itemId, …]` in the player's order |
+| `REORDER` | `[itemId, ...]` in the player's order |
 | `CATEGORIZE` | `{ [itemId]: categoryId }` |
+| `VISUAL_COMPREHENSION`, `LISTENING_COMPREHENSION` | `{ s0: [optionId, ...], s2: [optionId, ...] }` |
 
-The three simple types are all or nothing. The three drag-and-drop types
-score partial credit — the share of pairs matched, items left in the right
-position, or items dropped in the right category — times the same speed
-bonus. Only a fully correct answer sets `correct` and extends a streak.
+The comprehension keys are `s0`, `s1` and so on, never bare numbers. The
+Realtime Database turns an object with whole number keys into an array, and a
+player who skips follow up question 0 would come back as an array padded with
+nulls. The `s` prefix keeps it an object. `getSubAnswers` in the same file still
+accepts both shapes, so an answer that did arrive as an array is scored fairly.
 
-## Firestore Collections
+The three simple types are all or nothing. The drag and drop types score
+partial credit, which is the share of pairs matched, items left in the right
+position, or items dropped in the right category. A comprehension question
+scores the share of follow up points earned, where each follow up question is
+worth its own `points` (5 if unset). In every case the result is multiplied by
+the same speed bonus. Only a fully correct answer sets `correct` and extends a
+streak.
 
-### `users/{uid}`
-```
-{
-  email: string,
-  role: "teacher" | "student",
-  displayName: string,
-  createdAt: string (ISO),
-  lastActive: string (ISO)
-}
-```
+Audio and video play on each player's own device with normal controls, so a
+remote player can replay a clip. The host screen shows the same media.
 
-### `quizzes/{quizId}`
-```
-{
-  title: string,
-  description: string,
-  createdBy: string (uid),
-  createdAt: Timestamp,
-  active: boolean,
-  code: string (6-char uppercase),
-  totalPoints: number,
-  questions: [
-    {
-      id: string,
-      type: <one of the nine values above>,
-      questionText: string,
-      points: number,
-      timeLimit: number (seconds),
-      media: { ... } | null,
-      // type-specific payloads:
-      mcqData?:        { options: [{id, text, media}], correctOptions: [id] },
-      trueFalseData?:  { correctAnswer: boolean },
-      fillBlankData?:  { answers: [{text}] },
-      matchData?:      { pairs: [{id, prompt, answer, promptMedia, answerMedia}] },
-      reorderData?:    { items: [{id, text, media}] },
-      categorizeData?: { categories: [{id, name}], items: [{id, text, media, categoryId}] },
-      visualData?:     { subQuestions: [{id, type, questionText, mcqData}] },
-      listeningData?:  { subQuestions: [{id, type, questionText, mcqData}] }
-    }
-  ]
-}
-```
-
-### `quiz_results/{resultId}`
-```
-{
-  quizId: string,
-  userId: string (uid or "guest_<timestamp>_<random>"),
-  username: string (guest display name),
-  quizTitle: string,
-  teacherId: string,
-  status: "completed" | "pending",
-  score: number,
-  maxScore: number,
-  completedAt: Timestamp,
-  isGuest: boolean,
-  answers: [
-    {
-      type: string,
-      questionText: string,
-      userAnswer: any,
-      pointsAwarded: number,
-      status: "auto_graded" | "pending_review" | "manually_graded",
-      isCorrect: boolean
-    }
-  ]
-}
-```
-
-### `classes/{classId}`
-```
-{
-  name: string,
-  description: string,
-  teacherId: string (uid),
-  teacherName: string,
-  code: string (join code),
-  quizIds: [string],
-  dueDates: { [quizId]: string (ISO) },
-  createdAt: Timestamp
-}
-```
-
-### `class_enrollments/{enrollmentId}`
-```
-{
-  classId: string,
-  studentId: string (uid),
-  studentName: string,
-  studentEmail: string,
-  enrolledAt: Timestamp
-}
-```
-
-### `question_bank/{itemId}`
-```
-{
-  teacherId: string (uid),
-  question: { ...same shape as a quiz question },
-  createdAt: Timestamp
-}
-```
-
-### `notifications/{notificationId}`
-```
-{
-  userId: string (uid, recipient),
-  type: string,
-  message: string,
-  link: string,
-  read: boolean,
-  createdAt: Timestamp
-}
-```
+A clip can be longer than the question's time limit. The host measures the
+media once it has loaded and writes a later `questionEndsAt`, and every screen
+counts down to that same instant. The clock only ever moves later, and the
+reveal waits until the media has loaded, so nobody loses the picture the
+question is about.
 
 ## Realtime Database — `sessions/{pin}`
 
@@ -222,9 +134,10 @@ Live game state. `pin` is a 6-digit code, checked for collision on creation.
   hostId: string (uid),
   totalQuestions: number,      // playable questions only
   skippedCount: number,        // questions dropped as unsupported in live mode
-  state: "lobby" | "question" | "leaderboard" | "ended",
+  state: "lobby" | "question" | "reveal" | "leaderboard" | "ended",
   currentQuestionIndex: number,
   questionStartedAt: number (ms) | null,
+  questionEndsAt: number (ms) | null,   // set by the host when a clip is longer than the time limit
   createdAt: number (ms),
   players: { [playerId]: { name, score, joinedAt } },
   answers: { [questionIndex]: { [playerId]: { answer, timeTakenMs, points } } }
@@ -274,10 +187,48 @@ import { Button } from '@/components/ui/button';
 // variant="app"     → indigo gradient
 ```
 
-### Media upload
-Client requests signed params from `/api/auth`, then uploads directly to
-ImageKit. Only the resulting URL is written to Firestore. The ImageKit private
-key lives in a Vercel environment variable and never reaches the browser.
+### Media
+
+Every picture, audio clip or video on a question is stored as one small object
+and nothing else. The file itself lives on ImageKit.
+
+```
+{ url: string, fileId: string, fileType: "image" | "video" | "audio", cropData?: {...} }
+```
+
+The object can sit in any of these places on a question: `media`, an MCQ
+option's `media`, a match pair's `promptMedia` and `answerMedia`, a categorize
+or reorder item's `media`, and `visualData.mainMedia` or
+`listeningData.mainMedia` for the comprehension types.
+
+How a file gets there. The editor keeps a picked file in memory until the
+teacher publishes. Publish and "Save to Bank" both call `uploadQuestionMedia` in
+`src/utils/mediaUpload.js`, which asks `/api/auth` for a short lived signed
+token (the ImageKit private key stays on the server), uploads to ImageKit, and
+writes the object above onto a copy of the question. The editor only fields
+(`localMediaFile`, `localCropData` and so on) are removed before anything is
+saved.
+
+`fileType` is taken from the browser's MIME type, because ImageKit calls every
+audio and video file "non-image". Quizzes saved before that change still hold
+`"non-image"`. `mediaKind` in `src/utils/media.js` handles both: it trusts a
+real `fileType` and otherwise falls back to the file extension, so old quizzes
+keep working.
+
+Every page that shows a quiz renders media through `MediaRenderer`, and the
+"here is the correct answer" view that Practice and Flashcards share lives in
+`src/components/AnswerReveal.jsx`. Where a question keeps its main media, and
+where its follow up questions are, comes from `getMainMedia` and
+`getSubQuestions` in `src/utils/media.js`. Do not read `question.media` directly,
+because comprehension questions keep theirs somewhere else.
+
+Testing it. `scripts/seed-media-quiz.mjs` follows the same steps as the browser:
+it uploads real files to ImageKit through `/api/auth` and writes a quiz with
+media in every slot, using a throwaway teacher account. Run it with
+`node scripts/seed-media-quiz.mjs --dir <folder of images, audio and video>`,
+then `--cleanup` when you are done. Its header explains exactly what it creates
+and what it cannot delete. Add `--legacy` to store ImageKit's raw `"non-image"`
+value and test the old data shape.
 
 ### Dev tools (TeacherHome)
 - **Clear Invalid Quizzes** — deletes quiz docs using the old schema (`text`
@@ -290,7 +241,11 @@ key lives in a Vercel environment variable and never reaches the browser.
 - Dev server: `npm run dev` · Build: `npm run build` · Lint: `npm run lint`
 - Firebase config is read from `VITE_*` environment variables in
   `src/firebase.js`; copy `.env.local.example` to `.env.local` and fill it in.
-  Nothing secret is committed — see the README for the full variable list.
+  Nothing secret is committed. `.env.local.example` lists every variable and
+  says where to find each value.
+- `npm run dev` does not serve the `api` folder. `vite.config.js` forwards `/api`
+  to the deployed app so uploads work locally. Set `VITE_API_PROXY` to test a
+  preview deployment instead.
 - ImageKit server credentials (`IMAGEKIT_PRIVATE_KEY` and friends) are set in
   Vercel project settings only.
 - `npm install` needs `--legacy-peer-deps`: `@toast-ui/react-image-editor`
