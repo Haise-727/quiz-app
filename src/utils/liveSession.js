@@ -6,16 +6,20 @@
  * Schema: sessions/{pin}
  *   quizId, quizTitle, hostId, totalQuestions
  *   state: 'lobby' | 'question' | 'reveal' | 'leaderboard' | 'ended'
- *   currentQuestionIndex, questionStartedAt, createdAt
+ *   currentQuestionIndex, questionStartedAt, questionEndsAt, createdAt
  *   players: { [playerId]: { name, score, streak, joinedAt } }
  *   answers: { [questionIndex]: { [playerId]: { answer, correct, points, answeredAt } } }
  *
- * Live mode supports the six objectively/instantly-gradable question types:
- * MCQ, TRUE_FALSE, FILL_IN_THE_BLANK and the three drag-and-drop types
- * MATCH_THE_FOLLOWING, REORDER, CATEGORIZE. The remaining types (paragraph,
- * the two comprehension types) are skipped during a live session — they need
- * manual grading or too much reading for a fast-paced synchronized format,
- * and are better suited to the existing async TakeQuiz flow.
+ * Live mode supports the eight objectively/instantly-gradable question types:
+ * MCQ, TRUE_FALSE, FILL_IN_THE_BLANK, the three drag-and-drop types
+ * MATCH_THE_FOLLOWING, REORDER, CATEGORIZE, and the two comprehension types
+ * VISUAL_COMPREHENSION and LISTENING_COMPREHENSION. Only PARAGRAPH is skipped
+ * during a live session — it needs manual grading, so it cannot be scored
+ * between one question and the next.
+ *
+ * A comprehension question is ONE live question, not several: the media and
+ * every sub-question share a single screen, a single timer and a single score
+ * with partial credit across the sub-questions.
  *
  * Answer shapes written to `answers/{questionIndex}/{playerId}/answer`.
  * All of them are plain JSON with string keys and string values, because
@@ -26,20 +30,94 @@
  *   MATCH_THE_FOLLOWING { [promptPairId]: pairIdOfTheAnswerDroppedThere }
  *   REORDER             [itemId, …] in the order the player left them
  *   CATEGORIZE          { [itemId]: categoryId }
+ *   *_COMPREHENSION     { ['s' + subQuestionIndex]: [optionId, …] }
+ *
+ * The 's' prefix on the comprehension keys is load-bearing. Realtime Database
+ * turns an object whose keys are 0, 1, 2 … back into an ARRAY, and a player
+ * who answers sub-question 2 but skips 0 and 1 would read back as a sparse
+ * array padded with nulls. String keys stay an object no matter which
+ * sub-questions the player skipped. scoreAnswer still accepts the array form,
+ * so answers written by any older build keep grading correctly.
  */
 
 import { realtimeDb } from '../firebase';
 import {
   ref, set, get, update, remove, onValue, runTransaction, onDisconnect,
 } from 'firebase/database';
+import { isComprehension, getMainMedia, getSubQuestions } from './media';
 
 export const LIVE_SUPPORTED_TYPES = [
   'MCQ', 'TRUE_FALSE', 'FILL_IN_THE_BLANK',
   'MATCH_THE_FOLLOWING', 'REORDER', 'CATEGORIZE',
+  'VISUAL_COMPREHENSION', 'LISTENING_COMPREHENSION',
 ];
 
 /** Realtime Database has no undefined, so answers are normalised to plain maps. */
 const asMap = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+
+// These three live in utils/media.js so every page agrees on where a question's
+// media and sub-questions are. Re-exported so existing imports keep working.
+export { isComprehension, getMainMedia, getSubQuestions };
+
+/**
+ * Live mode can only grade a sub-question that is an MCQ with a marked answer.
+ * Anything else is left out of the board and out of the score, so a player is
+ * never shown something their answer cannot earn points for.
+ */
+export const isGradableSubQuestion = (sub) =>
+  sub?.type === 'MCQ'
+  && (sub.mcqData?.options?.length || 0) > 0
+  && (sub.mcqData?.correctOptions?.length || 0) > 0;
+
+/** Key for sub-question `index` inside a comprehension answer. Never a bare integer. */
+export const subAnswerKey = (index) => `s${index}`;
+
+/**
+ * Normalises whatever came back from Realtime Database into { s0: […], … }.
+ * Tolerates the two shapes an integer-keyed object degrades into on the way
+ * back out: a plain array, and a sparse array padded with nulls when the
+ * player skipped a sub-question. Nulls are dropped rather than scored.
+ */
+export const getSubAnswers = (answer) => {
+  const out = {};
+  if (Array.isArray(answer)) {
+    answer.forEach((value, i) => { if (value != null) out[subAnswerKey(i)] = value; });
+    return out;
+  }
+  Object.entries(asMap(answer)).forEach(([key, value]) => {
+    if (value == null) return;
+    out[/^\d+$/.test(key) ? subAnswerKey(key) : key] = value;
+  });
+  return out;
+};
+
+/**
+ * A comprehension question with nothing gradable in it is only media on a
+ * screen, so it is dropped from the live run the same way PARAGRAPH is.
+ */
+export function isLivePlayable(question) {
+  if (!question || !LIVE_SUPPORTED_TYPES.includes(question.type)) return false;
+  if (isComprehension(question.type)) return getSubQuestions(question).some(isGradableSubQuestion);
+  return true;
+}
+
+/** The questions a live run actually plays, in order. Host and players must agree. */
+export const getPlayableQuestions = (quiz) => (quiz?.questions || []).filter(isLivePlayable);
+
+/**
+ * When the current question's clock runs out, in epoch milliseconds.
+ *
+ * Normally that is simply the configured time limit after the question
+ * started. The host overwrites `questionEndsAt` once it knows how long the
+ * question's media takes to load and, for audio or video, how long the clip
+ * runs — a 30 second question cannot hold a 90 second recording. Everyone
+ * reads the same field, so every screen counts down to the same instant.
+ */
+export function questionDeadline(session, question) {
+  if (!session?.questionStartedAt) return null;
+  const limitMs = (parseInt(question?.timeLimit, 10) || 30) * 1000;
+  return session.questionEndsAt || session.questionStartedAt + limitMs;
+}
 
 const generatePin = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -47,9 +125,9 @@ export const generateGuestId = () => `guest_${Date.now()}_${Math.random().toStri
 
 /** Teacher creates a new live session for a quiz. Returns the 6-digit PIN. */
 export async function createLiveSession(quiz, hostId) {
-  const playableQuestions = quiz.questions.filter(q => LIVE_SUPPORTED_TYPES.includes(q.type));
+  const playableQuestions = getPlayableQuestions(quiz);
   if (!playableQuestions.length) {
-    throw new Error('This quiz has no question types supported in live mode (MCQ, True/False, Fill in the Blank, Match, Reorder, Categorize).');
+    throw new Error('This quiz has no question types supported in live mode (MCQ, True/False, Fill in the Blank, Match, Reorder, Categorize, Visual and Listening Comprehension).');
   }
 
   let pin = null;
@@ -69,6 +147,7 @@ export async function createLiveSession(quiz, hostId) {
     state: 'lobby',
     currentQuestionIndex: 0,
     questionStartedAt: null,
+    questionEndsAt: null,
     createdAt: Date.now(),
     players: {},
     answers: {},
@@ -101,7 +180,7 @@ export async function leaveSession(pin, playerId) {
 
 export async function startGame(pin) {
   await update(ref(realtimeDb, `sessions/${pin}`), {
-    state: 'question', currentQuestionIndex: 0, questionStartedAt: Date.now(),
+    state: 'question', currentQuestionIndex: 0, questionStartedAt: Date.now(), questionEndsAt: null,
   });
 }
 
@@ -114,9 +193,16 @@ export async function showLeaderboard(pin) {
 }
 
 export async function nextQuestion(pin, nextIndex) {
+  // questionEndsAt is cleared here, or the previous question's extended clock
+  // would leak into this one.
   await update(ref(realtimeDb, `sessions/${pin}`), {
-    state: 'question', currentQuestionIndex: nextIndex, questionStartedAt: Date.now(),
+    state: 'question', currentQuestionIndex: nextIndex, questionStartedAt: Date.now(), questionEndsAt: null,
   });
+}
+
+/** Host only: move the deadline of the question in play (see questionDeadline). */
+export async function setQuestionDeadline(pin, endsAt) {
+  await update(ref(realtimeDb, `sessions/${pin}`), { questionEndsAt: endsAt });
 }
 
 export async function endGame(pin) {
@@ -133,8 +219,9 @@ export async function deleteSession(pin) {
  * `ratio` is the proportion of the question the player got right. The three
  * simple types are all-or-nothing (0 or 1). The three drag-and-drop types
  * award partial credit — the proportion of pairs matched, items left in the
- * right position, or items dropped in the right category — which is how
- * TakeQuiz grades the same types. Points stay `basePoints * speedBonus`
+ * right position, or items dropped in the right category — and the two
+ * comprehension types award the share of their sub-question points earned,
+ * which is how TakeQuiz grades the same types. Points stay `basePoints * speedBonus`
  * scaled by that ratio, so a fully correct answer scores exactly what it
  * always did, and only a fully correct answer counts towards a streak.
  *
@@ -190,6 +277,31 @@ export function scoreAnswer(question, answer, timeTakenMs) {
         return categoryId != null && item.categoryId != null && String(categoryId) === String(item.categoryId);
       }).length;
       ratio = items.length ? right / items.length : 0;
+      break;
+    }
+    case 'VISUAL_COMPREHENSION':
+    case 'LISTENING_COMPREHENSION': {
+      // answer: { s0: [optionId, …], s2: [optionId, …] } — one entry per
+      // sub-question the player answered. Each sub-question is worth its own
+      // points, exactly as TakeQuiz grades it, and the ratio is the share of
+      // those points earned. All of them right, and only then, counts as
+      // correct, so a part-answered comprehension does not extend a streak.
+      const subs = getSubQuestions(question);
+      const given = getSubAnswers(answer);
+      let earned = 0;
+      let total = 0;
+      subs.forEach((sub, i) => {
+        if (!isGradableSubQuestion(sub)) return;
+        const worth = Number(sub.points) || 5;
+        total += worth;
+        const correctIds = sub.mcqData.correctOptions.map(String);
+        const picked = given[subAnswerKey(i)];
+        const pickedIds = (Array.isArray(picked) ? picked : picked == null ? [] : [picked]).map(String);
+        if (correctIds.length === pickedIds.length && correctIds.every(id => pickedIds.includes(id))) {
+          earned += worth;
+        }
+      });
+      ratio = total ? earned / total : 0;
       break;
     }
     default:

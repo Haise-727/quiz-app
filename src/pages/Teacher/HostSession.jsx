@@ -10,7 +10,9 @@ import Confetti from '../../components/Confetti';
 import MediaRenderer from '../../components/MediaRenderer';
 import {
   listenToSession, startGame, revealQuestion, showLeaderboard,
-  nextQuestion, endGame, deleteSession, LIVE_SUPPORTED_TYPES,
+  nextQuestion, endGame, deleteSession, setQuestionDeadline,
+  getPlayableQuestions, getMainMedia, getSubQuestions, getSubAnswers,
+  isGradableSubQuestion, isComprehension, subAnswerKey, questionDeadline,
 } from '../../utils/liveSession';
 import { playComplete, playTick } from '../../utils/sounds';
 import {
@@ -63,12 +65,12 @@ const HostSession = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
-  const playableQuestions = useMemo(
-    () => quiz?.questions.filter(q => LIVE_SUPPORTED_TYPES.includes(q.type)) || [],
-    [quiz]
-  );
+  const playableQuestions = useMemo(() => getPlayableQuestions(quiz), [quiz]);
 
   const currentQuestion = session ? playableQuestions[session.currentQuestionIndex] : null;
+  const mainMedia = getMainMedia(currentQuestion);
+  const isComprehensionQuestion = isComprehension(currentQuestion?.type);
+  const subQuestions = getSubQuestions(currentQuestion);
   const players = session?.players ? Object.entries(session.players).map(([id, p]) => ({ id, ...p })) : [];
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const currentAnswers = session?.answers?.[session.currentQuestionIndex] || {};
@@ -90,26 +92,75 @@ const HostSession = () => {
     }
   }, [currentQuestion]);
 
+  // ── The shared clock ───────────────────────────────────────────────────────
+  // The projector holds the countdown until its own copy of the question's
+  // media has loaded, then restarts it by writing the deadline everyone reads.
+  // Audio and video get the length of the clip on top of the configured limit,
+  // because a 30 second question cannot hold a 90 second recording.
+  const mediaBoxRef = useRef(null);
+  const [clockSettledFor, setClockSettledFor] = useState(null);
+  const clockSettled = !mainMedia || clockSettledFor === session?.currentQuestionIndex;
+
+  useEffect(() => {
+    if (!session || session.state !== 'question' || !currentQuestion || !session.questionStartedAt) return;
+    const index = session.currentQuestionIndex;
+    if (!mainMedia) { setClockSettledFor(index); return; }
+
+    setClockSettledFor(null);
+    const limitMs = (parseInt(currentQuestion.timeLimit, 10) || 30) * 1000;
+    const startedAt = session.questionStartedAt;
+    let settled = false;
+    const settle = (clipMs) => {
+      if (settled) return;
+      settled = true;
+      // Never pull the deadline in — a player's clock only ever moves outward.
+      setQuestionDeadline(pin, Math.max(startedAt + limitMs, Date.now() + (clipMs || 0) + limitMs)).catch(() => {});
+      setClockSettledFor(index);
+    };
+    const element = mediaBoxRef.current?.querySelector('img, video, audio');
+    if (!element) { settle(0); return; } // media of a kind we cannot measure
+    const onMetadata = () => settle(Number.isFinite(element.duration) ? Math.round(element.duration * 1000) : 0);
+    const onSettled = () => settle(0);
+
+    if (element.tagName === 'IMG') {
+      if (element.complete) { settle(0); return; }
+      element.addEventListener('load', onSettled);
+    } else {
+      if (element.readyState >= 1) { onMetadata(); return; } // HAVE_METADATA
+      element.addEventListener('loadedmetadata', onMetadata);
+    }
+    element.addEventListener('error', onSettled);
+    // A file that never arrives must not freeze the game.
+    const failsafe = setTimeout(onSettled, 10000);
+    return () => {
+      clearTimeout(failsafe);
+      element.removeEventListener('load', onSettled);
+      element.removeEventListener('loadedmetadata', onMetadata);
+      element.removeEventListener('error', onSettled);
+    };
+  }, [session?.state, session?.currentQuestionIndex, session?.questionStartedAt, currentQuestion, mainMedia, pin]);
+
   // Countdown timer during 'question' state
   useEffect(() => {
-    if (!session || session.state !== 'question' || !currentQuestion || !session.questionStartedAt) {
+    const deadline = session?.state === 'question' ? questionDeadline(session, currentQuestion) : null;
+    if (!deadline) {
       setTimeLeft(null);
       return;
     }
     tickedRef.current = false;
-    const limit = (parseInt(currentQuestion.timeLimit, 10) || 30) * 1000;
     const interval = setInterval(() => {
-      const elapsed = Date.now() - session.questionStartedAt;
-      const remaining = Math.max(0, Math.ceil((limit - elapsed) / 1000));
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setTimeLeft(remaining);
       if (remaining <= 10 && remaining > 0) playTick();
-      if (remaining === 0 && !tickedRef.current) {
+      // Hold the reveal while the media is still loading, or the class never
+      // sees the picture the question is about.
+      if (remaining === 0 && clockSettled && !tickedRef.current) {
         tickedRef.current = true;
         revealQuestion(pin);
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [session?.state, session?.currentQuestionIndex, session?.questionStartedAt, currentQuestion, pin]);
+  }, [session?.state, session?.currentQuestionIndex, session?.questionStartedAt, session?.questionEndsAt, currentQuestion, clockSettled, pin]);
 
   const handleStart = async () => {
     if (players.length === 0) { toast.error('Wait for at least one player to join.'); return; }
@@ -151,6 +202,13 @@ const HostSession = () => {
   const optionVoteCount = (optId) => Object.values(currentAnswers).filter(a => {
     const ans = Array.isArray(a.answer) ? a.answer.map(String) : [String(a.answer)];
     return ans.includes(String(optId));
+  }).length;
+
+  // A comprehension answer is { s0: [optionId, …] }, one entry per
+  // sub-question the player answered.
+  const subOptionVoteCount = (subIndex, optId) => Object.values(currentAnswers).filter(a => {
+    const picked = getSubAnswers(a.answer)[subAnswerKey(subIndex)];
+    return (Array.isArray(picked) ? picked : []).map(String).includes(String(optId));
   }).length;
 
   return (
@@ -246,8 +304,32 @@ const HostSession = () => {
               </div>
 
               <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-3xl p-8 md:p-10 text-center mb-6">
+                {/* The projector shows the media too, but every player also
+                    gets their own copy with controls on their own device. */}
+                {mainMedia && (
+                  <div ref={mediaBoxRef} className="mb-6 flex justify-center [&_audio]:w-full">
+                    <MediaRenderer media={mainMedia} transform="question_main"
+                      className="max-w-full max-h-[320px] rounded-2xl" />
+                  </div>
+                )}
                 <p className="text-2xl md:text-3xl font-bold leading-relaxed">{currentQuestion.questionText}</p>
               </div>
+
+              {/* The sub-questions, so the room can follow along. The options
+                  stay on the players' own devices, as they do for a plain MCQ. */}
+              {isComprehensionQuestion && (
+                <div className="flex flex-col gap-2 mb-6">
+                  <p className="text-xs uppercase tracking-wide font-semibold text-[hsl(var(--muted-foreground))]">
+                    Answer all {subQuestions.filter(isGradableSubQuestion).length} on your device
+                  </p>
+                  {subQuestions.map((sub, subIndex) => isGradableSubQuestion(sub) && (
+                    <div key={sub.id ?? subIndex} className="flex items-start gap-3 px-4 py-3 rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] font-medium">
+                      <span className="font-black text-[hsl(var(--primary))] shrink-0">{subIndex + 1}</span>
+                      <span className="min-w-0 break-words">{sub.questionText}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {currentQuestion.type === 'MATCH_THE_FOLLOWING' && (
                 <div className="grid md:grid-cols-2 gap-4 mb-6">
@@ -328,6 +410,14 @@ const HostSession = () => {
             <motion.div key="reveal" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <p className="text-center text-[hsl(var(--muted-foreground))] mb-4 font-semibold uppercase tracking-wide text-xs">Correct Answer</p>
               <div className="bg-[hsl(var(--card))] border border-emerald-500/30 rounded-3xl p-8 text-center mb-8">
+                {/* Comprehension answers make no sense without the thing they
+                    are about, so the media stays up through the reveal. */}
+                {isComprehensionQuestion && mainMedia && (
+                  <div className="mb-6 flex justify-center [&_audio]:w-full">
+                    <MediaRenderer media={mainMedia} transform="question_main"
+                      className="max-w-full max-h-[260px] rounded-2xl" />
+                  </div>
+                )}
                 <p className="text-xl md:text-2xl font-bold mb-4">{currentQuestion.questionText}</p>
                 {currentQuestion.type === 'MCQ' && (
                   <div className="flex flex-col gap-2 max-w-md mx-auto">
@@ -390,6 +480,31 @@ const HostSession = () => {
                                 {item.text}
                               </span>
                             ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {isComprehensionQuestion && (
+                  <div className="flex flex-col gap-4 max-w-2xl mx-auto text-left">
+                    {subQuestions.map((sub, subIndex) => isGradableSubQuestion(sub) && (
+                      <div key={sub.id ?? subIndex} className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
+                        <p className="font-bold mb-3">{subIndex + 1}. {sub.questionText}</p>
+                        <div className="flex flex-col gap-2">
+                          {sub.mcqData.options.map(opt => {
+                            const isCorrect = sub.mcqData.correctOptions.map(String).includes(String(opt.id));
+                            return (
+                              <div key={opt.id} className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border ${isCorrect ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))]'}`}>
+                                <span className="flex items-center gap-2 min-w-0">
+                                  <MediaRenderer media={opt.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
+                                  <span className="font-medium break-words">{opt.text}</span>
+                                </span>
+                                <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] shrink-0">
+                                  {subOptionVoteCount(subIndex, opt.id)}
+                                </Badge>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}

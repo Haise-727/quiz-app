@@ -12,10 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import Confetti from '../components/Confetti';
 import MediaRenderer from '../components/MediaRenderer';
 import {
-  listenToSession, joinSession, leaveSession, submitAnswer,
-  generateGuestId, LIVE_SUPPORTED_TYPES,
+  listenToSession, joinSession, leaveSession, submitAnswer, generateGuestId,
+  getPlayableQuestions, getMainMedia, getSubQuestions, isGradableSubQuestion,
+  isComprehension, subAnswerKey, questionDeadline,
 } from '../utils/liveSession';
 import { playCorrect, playWrong, playComplete, playTick } from '../utils/sounds';
+import { mediaKind } from '../utils/media';
 import { Home, Hash, Users, Clock, CheckCircle2, XCircle, Trophy, Crown, Medal, Loader2, GripVertical } from 'lucide-react';
 
 const DRAG_TYPES = ['MATCH_THE_FOLLOWING', 'REORDER', 'CATEGORIZE'];
@@ -68,6 +70,7 @@ const PlaySession = () => {
   const [selected, setSelected] = useState(null);
   const [fillInput, setFillInput] = useState('');
   const [mcqSelection, setMcqSelection] = useState([]);
+  const [subAnswers, setSubAnswers] = useState({}); // comprehension: { s0: [optionId, …] }
   const [answered, setAnswered] = useState(false);
   const [lastResult, setLastResult] = useState(null); // { correct, points }
   const [dragState, setDragState] = useState(null);
@@ -114,17 +117,26 @@ const PlaySession = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joined]);
 
-  const playableQuestions = useMemo(
-    () => quiz?.questions.filter(q => LIVE_SUPPORTED_TYPES.includes(q.type)) || [],
-    [quiz]
-  );
+  const playableQuestions = useMemo(() => getPlayableQuestions(quiz), [quiz]);
   const currentQuestion = session ? playableQuestions[session.currentQuestionIndex] : null;
+  const mainMedia = getMainMedia(currentQuestion);
+  const isComprehensionQuestion = isComprehension(currentQuestion?.type);
+  const subQuestions = getSubQuestions(currentQuestion);
 
   // Reset per-question state when the question changes
   useEffect(() => {
-    setSelected(null); setFillInput(''); setMcqSelection([]); setAnswered(false); setLastResult(null);
+    setSelected(null); setFillInput(''); setMcqSelection([]); setSubAnswers({});
+    setAnswered(false); setLastResult(null);
     questionStartRef.current = Date.now();
   }, [session?.currentQuestionIndex]);
+
+  // The host restarts the clock once it knows how long this question's media
+  // needs (see questionDeadline). Time the player from the same moment, or a
+  // slow-loading clip would eat their speed bonus.
+  useEffect(() => {
+    if (!answered) questionStartRef.current = Date.now();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.questionEndsAt]);
 
   // The drag-and-drop board is built from the question itself, which arrives
   // with the quiz a moment after the session does — so key it on the question.
@@ -133,17 +145,18 @@ const PlaySession = () => {
     setDragTouched(false);
   }, [currentQuestion]);
 
-  // Countdown
+  // Countdown. The deadline is shared state the host can push out, so a
+  // question whose media is still loading does not run out of time.
   useEffect(() => {
-    if (!session || session.state !== 'question' || !session.questionStartedAt || !currentQuestion) { setTimeLeft(null); return; }
-    const limit = (parseInt(currentQuestion.timeLimit, 10) || 30) * 1000;
+    const deadline = session?.state === 'question' ? questionDeadline(session, currentQuestion) : null;
+    if (!deadline) { setTimeLeft(null); return; }
     const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((limit - (Date.now() - session.questionStartedAt)) / 1000));
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
       setTimeLeft(remaining);
       if (remaining <= 10 && remaining > 0) playTick();
     }, 250);
     return () => clearInterval(interval);
-  }, [session?.state, session?.questionStartedAt, currentQuestion]);
+  }, [session?.state, session?.questionStartedAt, session?.questionEndsAt, currentQuestion]);
 
   // Read own result once reveal happens
   useEffect(() => {
@@ -179,6 +192,34 @@ const PlaySession = () => {
     if (isMultiSelect) { toggleMcqOption(optId); return; }
     handleAnswer([optId]);
   };
+
+  // ── Comprehension (media + sub-questions on one screen) ──────────────────────
+  // The whole block is one live question: the player answers as many
+  // sub-questions as they can and submits once, for partial credit.
+  const pickSubOption = (subIndex, sub, optId) => {
+    if (answered) return;
+    const key = subAnswerKey(subIndex);
+    const multi = (sub.mcqData?.correctOptions?.length || 0) > 1;
+    setSubAnswers(prev => {
+      const picked = prev[key] || [];
+      if (!multi) return { ...prev, [key]: picked.includes(optId) ? [] : [optId] };
+      return { ...prev, [key]: picked.includes(optId) ? picked.filter(id => id !== optId) : [...picked, optId] };
+    });
+  };
+
+  // Keys are 's0', 's1' … and never 0, 1 …: Realtime Database turns an
+  // integer-keyed object back into an array, and a player who skips a
+  // sub-question would read back as a sparse array padded with nulls.
+  const buildComprehensionAnswer = () => {
+    const answer = {};
+    Object.entries(subAnswers).forEach(([key, picked]) => {
+      if (Array.isArray(picked) && picked.length) answer[key] = picked.map(String);
+    });
+    return answer;
+  };
+
+  const hasSubAnswer = Object.values(subAnswers).some(picked => Array.isArray(picked) && picked.length > 0);
+  const submitComprehensionAnswer = () => handleAnswer(buildComprehensionAnswer());
 
   // ── Drag and drop (Match / Reorder / Categorize) ─────────────────────────────
   const isDragQuestion = DRAG_TYPES.includes(currentQuestion?.type);
@@ -281,12 +322,12 @@ const PlaySession = () => {
   };
 
   // The host reveals the instant the clock hits zero, so lock in whatever the
-  // player has arranged rather than throwing their work away. Nothing is sent
-  // if they never touched the board — that still scores 0, as before.
+  // player has arranged or ticked rather than throwing their work away.
+  // Nothing is sent if they never touched it — that still scores 0, as before.
   useEffect(() => {
-    if (timeLeft !== 0 || session?.state !== 'question') return;
-    if (answered || !isDragQuestion || !dragTouched) return;
-    submitDragAnswer();
+    if (timeLeft !== 0 || session?.state !== 'question' || answered) return;
+    if (isDragQuestion && dragTouched) submitDragAnswer();
+    else if (isComprehensionQuestion && hasSubAnswer) submitComprehensionAnswer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft]);
 
@@ -385,6 +426,14 @@ const PlaySession = () => {
             </div>
 
             <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6 mb-5">
+              {/* Image, video or audio plays on the player's own device, with
+                  controls, so a remote player can replay a clip. */}
+              {mainMedia && (
+                <div className="mb-4 flex justify-center [&_audio]:w-full">
+                  <MediaRenderer media={mainMedia} transform="question_main"
+                    className="max-w-full max-h-[240px] rounded-xl" />
+                </div>
+              )}
               <p className="text-lg font-bold leading-relaxed">{currentQuestion.questionText}</p>
             </div>
 
@@ -401,14 +450,33 @@ const PlaySession = () => {
                     const liveSelection = answered ? selected : mcqSelection;
                     const isPicked = Array.isArray(liveSelection) && liveSelection.includes(opt.id);
                     return (
-                      <button key={opt.id} disabled={answered} onClick={() => handleMcqClick(opt.id)}
+                      // A div, not a button: an option can hold an audio or video player, and
+                      // interactive controls inside a <button> do not work in every browser.
+                      <div key={opt.id} role="button" tabIndex={answered ? -1 : 0} aria-disabled={answered}
+                        onClick={() => { if (!answered) handleMcqClick(opt.id); }}
+                        onKeyDown={(e) => { if (!answered && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleMcqClick(opt.id); } }}
                         className={`px-5 py-4 rounded-xl border-2 text-left font-semibold transition-colors ${
                           answered
                             ? isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-default' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] opacity-40 cursor-default'
                             : isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-pointer' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10 cursor-pointer'
                         }`}>
-                        {opt.text}
-                      </button>
+                        <span className="flex items-center gap-3">
+                          {opt.text && <span className="min-w-0 break-words">{opt.text}</span>}
+                          {/* pointer-events-none: a tap anywhere on the option
+                              picks it, instead of opening the image zoom. */}
+                          {opt.media && (mediaKind(opt.media) === 'image' ? (
+                            <span className="pointer-events-none shrink-0">
+                              <MediaRenderer media={opt.media} transform="thumbnail" className="w-14 h-14 rounded-lg object-cover" />
+                            </span>
+                          ) : (
+                            // audio or video: the player has to be usable, and pressing play must not pick the option
+                            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <MediaRenderer media={opt.media} transform="thumbnail"
+                                className={mediaKind(opt.media) === 'video' ? 'w-32 rounded-lg' : 'w-44 h-10'} />
+                            </span>
+                          ))}
+                        </span>
+                      </div>
                     );
                   })}
                   {isMultiSelect && !answered && (
@@ -608,6 +676,60 @@ const PlaySession = () => {
                     )}
                   </div>
                 </DragDropContext>
+              )}
+              {isComprehensionQuestion && (
+                <div className="flex flex-col gap-3">
+                  {!answered && (
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">
+                      Answer as many as you can, then submit
+                    </p>
+                  )}
+                  {subQuestions.map((sub, subIndex) => {
+                    // Only MCQ sub-questions can be graded between one question
+                    // and the next, so only those are put in front of a player.
+                    if (!isGradableSubQuestion(sub)) return null;
+                    const key = subAnswerKey(subIndex);
+                    const picked = subAnswers[key] || [];
+                    const multi = sub.mcqData.correctOptions.length > 1;
+                    return (
+                      <div key={sub.id ?? key} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-4">
+                        <p className="font-bold text-sm leading-relaxed">{subIndex + 1}. {sub.questionText}</p>
+                        {multi && !answered && (
+                          <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold mt-1">Select all that apply</p>
+                        )}
+                        <div className="flex flex-col gap-2 mt-3">
+                          {sub.mcqData.options.map((opt, optIndex) => {
+                            const isPicked = picked.includes(opt.id);
+                            return (
+                              <button key={opt.id} disabled={answered} onClick={() => pickSubOption(subIndex, sub, opt.id)}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left text-sm font-semibold transition-colors ${
+                                  answered
+                                    ? isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-default' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] opacity-40 cursor-default'
+                                    : isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-pointer' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10 cursor-pointer'
+                                }`}>
+                                <span className={`w-6 h-6 shrink-0 rounded-full border flex items-center justify-center text-xs font-bold ${isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'}`}>
+                                  {String.fromCharCode(65 + optIndex)}
+                                </span>
+                                {opt.text && <span className="min-w-0 break-words">{opt.text}</span>}
+                                {opt.media && (
+                                  <span className="pointer-events-none shrink-0">
+                                    <MediaRenderer media={opt.media} transform="thumbnail" className="w-12 h-12 rounded-lg object-cover" />
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {!answered && (
+                    <Button onClick={submitComprehensionAnswer} disabled={!hasSubAnswer}
+                      className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
+                      Submit Answers
+                    </Button>
+                  )}
+                </div>
               )}
               {answered && (
                 <p className="text-center text-[hsl(var(--muted-foreground))] text-sm mt-5">Answer locked in — waiting for others…</p>
