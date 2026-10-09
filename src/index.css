@@ -1,7 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
+/* `dark:` classes must follow the app's own theme toggle. Without this, Tailwind
+   follows the visitor's operating system instead, so a dark mode laptop got half
+   dark pieces on a light page. */
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-serif: 'Instrument Serif', 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --color-brand: hsl(var(--brand));
+  --color-ink: hsl(var(--ink));
+  --color-flame: hsl(var(--flame));
+  --color-ink-foreground: hsl(var(--ink-foreground));
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -54,105 +66,132 @@
   --radius-full: 9999px;
   --radius-interactive: 10px;
 
-  --variant-dark: .dark, [data-theme="dark"];
 }
 
-/* ── Design tokens (Material 3 Forest Green / Studio Style) ─────────────────── */
+/* ── Design tokens ───────────────────────────────────────────────────────────
+   Warm off white canvas, near black ink, hairline borders and ONE green.
+   Colour is a scarce resource: green means "go", "correct" or "progress",
+   and the pastel tints are for status chips only.
+   Contrast was measured, not guessed. --primary on the canvas is 4.8:1 and
+   white text on it is 5.0:1. (The old green was 2.5:1, below WCAG AA.)
+   --brand is a brighter green for decorative fills such as progress bars. */
 @layer base {
-  :root {
-    /* Default to Dark Mode (Primary Experience) */
-    --background: 137 20% 7%;
-    --foreground: 120 11% 88%;
-    --card: 137 12% 12%;
-    --card-foreground: 120 11% 88%;
-    --popover: 137 12% 12%;
-    --popover-foreground: 120 11% 88%;
-    --muted: 146 14% 10%;
-    --muted-foreground: 132 12% 76%;
-    --border: 138 10% 26%;
-    --input: 138 10% 26%;
-    --ring: 151 79% 65%;
-    
-    --primary: 153 60% 53%;
-    --primary-foreground: 156 100% 11%;
-    --secondary: 229 10% 79%;
-    --secondary-foreground: 224 11% 20%;
-    --accent: 146 14% 10%;
-    --accent-foreground: 120 11% 88%;
-    --destructive: 6 100% 84%;
-    --destructive-foreground: 357 100% 21%;
-
-    /* Material 3 specific aliases for dark mode */
-    --surface: 137 20% 7%;
-    --surface-dim: 137 20% 7%;
-    --surface-bright: 137 6% 22%;
-    --surface-container-lowest: 137 28% 5%;
-    --surface-container-low: 146 14% 10%;
-    --surface-container: 137 12% 12%;
-    --surface-container-high: 143 10% 16%;
-    --surface-container-highest: 137 7% 20%;
-    --on-surface: 120 11% 88%;
-    --on-surface-variant: 132 12% 76%;
-    --inverse-surface: 120 11% 88%;
-    --inverse-on-surface: 137 8% 18%;
-    --outline: 133 6% 55%;
-    --outline-variant: 138 10% 26%;
-    --surface-tint: 152 69% 60%;
-    --primary-container: 153 60% 53%;
-    --on-primary-container: 157 100% 16%;
-    --inverse-primary: 158 100% 21%;
-    --tertiary: 19 100% 84%;
-    --on-tertiary: 22 100% 17%;
-    --tertiary-container: 20 100% 72%;
-    --on-tertiary-container: 22 78% 26%;
+  :root, .light, [data-theme="light"] {
+    --background: 60 20% 98%;
+    --foreground: 60 4% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 60 4% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 60 4% 9%;
+    --muted: 60 12% 95%;
+    --muted-foreground: 60 2% 41%;
+    --border: 60 10% 90%;
+    --input: 60 8% 85%;
+    --primary: 152 66% 30%;
+    --primary-foreground: 0 0% 100%;
+    --brand: 153 58% 40%;
+    --ring: 152 66% 30%;
+    --secondary: 60 12% 95%;
+    --secondary-foreground: 60 4% 9%;
+    --accent: 60 12% 95%;
+    --accent-foreground: 60 4% 9%;
+    --destructive: 4 63% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --ink: 60 4% 9%;
+    --flame: 20 87% 45%;
+    --ink-foreground: 60 20% 98%;
+    --tint-green: 111 23% 94%;
+    --tint-green-fg: 125 37% 27%;
+    --tint-red: 357 82% 96%;
+    --tint-red-fg: 1 56% 40%;
+    --tint-blue: 203 94% 94%;
+    --tint-blue-fg: 204 67% 37%;
+    --tint-yellow: 45 80% 92%;
+    --tint-yellow-fg: 40 100% 27%;
+    --tint-neutral: 60 10% 94%;
+    --tint-neutral-fg: 60 4% 32%;
+    --surface: 0 0% 100%;
+    --surface-dim: 60 16% 96%;
+    --surface-bright: 0 0% 100%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-low: 60 16% 96%;
+    --surface-container: 60 12% 95%;
+    --surface-container-high: 60 11% 93%;
+    --surface-container-highest: 60 10% 90%;
+    --on-surface: 60 4% 9%;
+    --on-surface-variant: 60 4% 32%;
+    --inverse-surface: 60 4% 9%;
+    --inverse-on-surface: 60 20% 98%;
+    --outline: 60 3% 59%;
+    --outline-variant: 60 10% 90%;
+    --surface-tint: 152 66% 30%;
+    --primary-container: 148 37% 90%;
+    --on-primary-container: 152 70% 18%;
+    --inverse-primary: 153 60% 53%;
+    --tertiary: 26 89% 37%;
+    --on-tertiary: 0 0% 100%;
+    --tertiary-container: 29 85% 89%;
+    --on-tertiary-container: 26 89% 22%;
+    color-scheme: light;
   }
 
-  .light, [data-theme="light"] {
-    /* Light Mode */
-    --background: 137 20% 98%;
-    --foreground: 137 40% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 137 40% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 137 40% 10%;
-    --muted: 137 10% 94%;
-    --muted-foreground: 137 15% 45%;
-    --border: 137 10% 86%;
-    --input: 137 10% 86%;
-    --ring: 153 60% 45%;
-
-    --primary: 153 60% 45%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 229 10% 40%;
-    --secondary-foreground: 0 0% 100%;
-    --accent: 137 10% 94%;
-    --accent-foreground: 137 40% 10%;
-    --destructive: 0 84.3% 60.2%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* Material 3 specific aliases for light mode */
-    --surface: 0 0% 100%;
-    --surface-dim: 137 10% 97%;
-    --surface-bright: 137 10% 99%;
-    --surface-container-lowest: 0 0% 100%;
-    --surface-container-low: 137 10% 96%;
-    --surface-container: 137 10% 94%;
-    --surface-container-high: 137 10% 92%;
-    --surface-container-highest: 137 10% 88%;
-    --on-surface: 137 40% 10%;
-    --on-surface-variant: 137 15% 35%;
-    --inverse-surface: 137 20% 7%;
-    --inverse-on-surface: 120 11% 88%;
-    --outline: 137 10% 50%;
-    --outline-variant: 137 10% 86%;
-    --surface-tint: 153 60% 45%;
-    --primary-container: 153 60% 45%;
-    --on-primary-container: 157 100% 16%;
-    --inverse-primary: 158 100% 21%;
-    --tertiary: 19 100% 84%;
-    --on-tertiary: 22 100% 17%;
-    --tertiary-container: 20 100% 72%;
-    --on-tertiary-container: 22 78% 26%;
+  .dark, [data-theme="dark"] {
+    --background: 60 3% 7%;
+    --foreground: 60 12% 92%;
+    --card: 60 4% 10%;
+    --card-foreground: 60 12% 92%;
+    --popover: 60 4% 10%;
+    --popover-foreground: 60 12% 92%;
+    --muted: 60 3% 13%;
+    --muted-foreground: 60 3% 62%;
+    --border: 60 5% 17%;
+    --input: 60 4% 22%;
+    --primary: 153 60% 53%;
+    --primary-foreground: 148 56% 5%;
+    --brand: 153 60% 53%;
+    --ring: 153 60% 53%;
+    --secondary: 60 3% 13%;
+    --secondary-foreground: 60 12% 92%;
+    --accent: 60 3% 13%;
+    --accent-foreground: 60 12% 92%;
+    --destructive: 5 82% 72%;
+    --destructive-foreground: 6 79% 9%;
+    --ink: 60 12% 92%;
+    --flame: 21 100% 65%;
+    --ink-foreground: 60 3% 7%;
+    --tint-green: 142 23% 14%;
+    --tint-green-fg: 139 46% 70%;
+    --tint-red: 358 34% 15%;
+    --tint-red-fg: 4 77% 78%;
+    --tint-blue: 210 45% 16%;
+    --tint-blue-fg: 205 72% 74%;
+    --tint-yellow: 43 55% 13%;
+    --tint-yellow-fg: 43 74% 66%;
+    --tint-neutral: 60 3% 15%;
+    --tint-neutral-fg: 60 5% 71%;
+    --surface: 60 3% 7%;
+    --surface-dim: 60 3% 7%;
+    --surface-bright: 60 4% 16%;
+    --surface-container-lowest: 60 4% 5%;
+    --surface-container-low: 60 5% 9%;
+    --surface-container: 60 4% 10%;
+    --surface-container-high: 60 3% 13%;
+    --surface-container-highest: 60 4% 16%;
+    --on-surface: 60 12% 92%;
+    --on-surface-variant: 60 3% 62%;
+    --inverse-surface: 60 12% 92%;
+    --inverse-on-surface: 60 4% 10%;
+    --outline: 60 3% 45%;
+    --outline-variant: 60 5% 17%;
+    --surface-tint: 153 60% 53%;
+    --primary-container: 152 47% 17%;
+    --on-primary-container: 149 62% 85%;
+    --inverse-primary: 152 66% 30%;
+    --tertiary: 28 82% 71%;
+    --on-tertiary: 26 84% 10%;
+    --tertiary-container: 28 67% 21%;
+    --on-tertiary-container: 29 85% 89%;
+    color-scheme: dark;
   }
 }
 
@@ -162,70 +201,94 @@
     margin: 0;
     padding: 0;
   }
-  body, div, header, aside, main, section, nav, button, input, select, textarea, a, span, p, h1, h2, h3, h4, h5, h6 {
-    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  /* Colour changes on things you touch. Not on every div: that made the whole page
+     lag when the theme flipped, and it fought with framer-motion animations. */
+  button, a, input, select, textarea, [role="button"] {
+    transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
   }
+  html { -webkit-text-size-adjust: 100%; text-rendering: optimizeLegibility; }
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans);
     min-height: 100vh;
-    line-height: 1.5;
+    line-height: 1.55;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'ss01', 'cv11';
   }
-  a {
-    color: inherit;
-    text-decoration: none;
-  }
-  button {
-    font-family: inherit;
-  }
-  button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+  h1, h2, h3, h4 { letter-spacing: -0.02em; text-wrap: balance; }
+  p { text-wrap: pretty; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  ::selection { background: hsl(var(--primary) / 0.18); }
+  :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+  input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
   }
 }
 
+/* Numbers that change (scores, timers, XP) must not make the layout jitter. */
+@utility tabular { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+/* Editorial display type for hero lines and big numerals. */
+@utility text-hero {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+}
+/* Small caps style label used above sections. */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
 @utility text-display {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-size: 36px;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
 @utility text-headline-lg {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-size: 24px;
   font-weight: 600;
   line-height: 32px;
   letter-spacing: -0.01em;
 }
 @utility text-headline-md {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-size: 20px;
   font-weight: 600;
   line-height: 28px;
 }
 @utility text-body-lg {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 400;
   line-height: 24px;
 }
 @utility text-body-md {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 400;
   line-height: 20px;
 }
 @utility text-label-md {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   line-height: 16px;
   letter-spacing: 0.05em;
 }
 @utility text-label-sm {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 400;
   line-height: 14px;

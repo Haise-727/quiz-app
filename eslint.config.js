@@ -23,11 +23,20 @@ export default [
     rules: {
       ...js.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // `motion` is used as <motion.div>, which this config cannot see as a use. Without
+      // the exception every file that animates reported a false "unused variable".
+      // The same goes for a component held in a variable or a parameter, such as
+      // items.map(({ icon: Icon }) => <Icon />): the JSX use is invisible to this config.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^(motion$|[A-Z_])', argsIgnorePattern: '^[A-Z_]' }],
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
       ],
     },
+  },
+  {
+    // Node scripts and config run in Node, not the browser.
+    files: ['api/**/*.js', 'scripts/**/*.{js,mjs}', 'vite.config.js', 'eslint.config.js'],
+    languageOptions: { globals: globals.node },
   },
 ]

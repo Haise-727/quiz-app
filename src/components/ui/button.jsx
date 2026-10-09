@@ -3,25 +3,37 @@ import { Slot } from '@radix-ui/react-slot';
 import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
+/*
+ * Buttons.
+ *
+ * Ink (near black) is the default, so a page has one calm primary action. Green is kept
+ * for moments that mean "go": starting a quiz, joining a game, hosting live. Everything
+ * else is outline or ghost. No gradients and no shadows, the press is the feedback.
+ */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 focus-visible:border-[hsl(var(--primary))] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 cursor-pointer border border-transparent',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium select-none cursor-pointer border border-transparent ' +
+  'transition-[background-color,border-color,color,transform,opacity] duration-150 active:scale-[0.97] ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--background))] ' +
+  'disabled:pointer-events-none disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        default:     'bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 active:bg-[hsl(var(--primary))]/80 text-[hsl(var(--primary-foreground))] border-transparent shadow-none',
-        destructive: 'border-red-500/80 bg-transparent text-red-500 hover:bg-red-500/10 hover:text-red-600 shadow-none',
-        outline:     'border border-[hsl(var(--border))] bg-transparent text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-container-low))] hover:text-[hsl(var(--foreground))]',
-        secondary:   'bg-[hsl(var(--surface-container-high))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-container-highest))]',
-        ghost:       'bg-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-container-low))]',
-        link:        'text-[hsl(var(--primary))] underline-offset-4 hover:underline p-0 h-auto border-0',
-        student:     'bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 active:bg-[hsl(var(--primary))]/80 text-[hsl(var(--primary-foreground))] border-transparent shadow-none',
-        teacher:     'bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 active:bg-[hsl(var(--primary))]/80 text-[hsl(var(--primary-foreground))] border-transparent shadow-none',
-        app:         'bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 active:bg-[hsl(var(--primary))]/80 text-[hsl(var(--primary-foreground))] border-transparent shadow-none',
+        default:     'bg-[hsl(var(--ink))] text-[hsl(var(--ink-foreground))] hover:bg-[hsl(var(--ink))]/85',
+        brand:       'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90',
+        destructive: 'border-[hsl(var(--destructive))]/40 bg-transparent text-[hsl(var(--destructive))] hover:bg-[hsl(var(--tint-red))]',
+        outline:     'border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] hover:border-[hsl(var(--input))]',
+        secondary:   'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-container-high))]',
+        ghost:       'bg-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]',
+        link:        'text-[hsl(var(--primary))] underline-offset-4 hover:underline p-0 h-auto rounded-none active:scale-100',
+        // Older call sites. They all mean "the green go button" now, without the gradients.
+        student:     'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90',
+        teacher:     'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90',
+        app:         'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90',
       },
       size: {
-        default: 'h-9 px-4 py-2',
+        default: 'h-9 px-4',
         sm:      'h-8 px-3 text-xs',
-        lg:      'h-10 px-6 text-sm',
+        lg:      'h-11 px-6 text-sm',
         xl:      'h-12 px-8 text-base',
         icon:    'h-9 w-9',
       },

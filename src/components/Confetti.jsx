@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
-const COLORS = ['#f43f5e', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#06b6d4'];
+// Inside the app palette: greens, ink, and two warm accents.
+const COLORS = ['#2BA06C', '#3FCF8E', '#1A7F50', '#181816', '#F2C14E', '#F2877E'];
 
 /** Lightweight CSS/framer-motion confetti burst — no external library needed. */
 const Confetti = ({ count = 90 }) => {

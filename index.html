@@ -1,11 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Quizzit</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <meta name="description" content="Quizlike. Build a quiz, play it live with friends or a class, and keep your streak going." />
+    <meta name="theme-color" content="#FBFBF9" />
+    <title>Quizlike</title>
+    <script>
+      // Set the saved theme before the first paint so a dark mode user does not see a
+      // light flash. Light is the default, the OS setting is deliberately ignored.
+      try {
+        var t = localStorage.getItem('theme-preference') === 'dark' ? 'dark' : 'light';
+        document.documentElement.dataset.theme = t;
+        if (t === 'dark') document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
