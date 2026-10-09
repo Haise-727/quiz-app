@@ -30,3 +30,13 @@ dist-ssr
 .env.development
 .env.test
 .env.production
+# Notes and settings for AI coding tools stay on a developer's machine.
+# Put any such documents in ai-docs/. Nothing here is committed or pushed.
+# To share them with the team before the final push, delete the matching line.
+ai-docs/
+.claude/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.cursor/
+.cursorrules
