@@ -8,20 +8,10 @@ import '../../styles/Teacher/CreateQuiz.css';
 import { FaTrashAlt, FaPlus, FaClipboard, FaTimes, FaArrowLeft, FaPhotoVideo, FaGripLines, FaSave, FaLaptop, FaPaste, FaEdit, FaDatabase } from 'react-icons/fa';
 import { toast } from 'sonner';
 import { saveToBank, getBankQuestions, cleanQuestionForFirestore } from '../../utils/questionBankHelpers';
-import ImageKit from 'imagekit-javascript';
 import MediaPreview from '../../components/MediaPreview';
 import ImageEditorModal from '../../components/ImageEditorModal';
+import { uploadQuestionMedia } from '../../utils/mediaUpload';
 // just some testings
-
-// Initialize ImageKit globally.
-// authenticationEndpoint is always relative - /api/auth is a serverless function
-// in this same Vercel project, so a hardcoded absolute URL (VITE_API_URL) would
-// break if that domain/alias ever changes or the env var goes stale.
-const imagekit = new ImageKit({
-    publicKey: import.meta.env.VITE_PUBLIC_KEY,
-    urlEndpoint: import.meta.env.VITE_URL_ENDPOINT,
-    authenticationEndpoint: '/api/auth'
-});
 
 const DRAFT_KEY = 'quizlike_create_quiz_draft';
 
@@ -206,7 +196,11 @@ const CreateQuiz = () => {
         }
         setSavingToBankId(q.id);
         try {
-            await saveToBank(q, currentUser.uid);
+            // A picked file only exists in memory until publish. It cannot be serialised,
+            // so saving the question as is would silently drop its picture, audio or video.
+            // Upload first, then save the copy that points at the stored media.
+            const [withMedia] = await uploadQuestionMedia([q]);
+            await saveToBank(withMedia, currentUser.uid);
             toast.success("Question saved to Question Bank!");
         } catch (err) {
             console.error(err);
@@ -476,62 +470,9 @@ const CreateQuiz = () => {
         setError('');
 
         try {
-            const fetchAuthParamsForUpload = async () => {
-                // Always relative - see note on the ImageKit init above.
-                const response = await fetch('/api/auth');
-                if (!response.ok) {
-                    const errorBody = await response.json();
-                    throw new Error(`Authentication server failed: ${errorBody.message || response.statusText}`);
-                }
-                return response.json();
-            };
-
-            let questionsToSave = JSON.parse(JSON.stringify(questions));
-            const uploadPromises = [];
-
-            const processUploads = (questionSet, questionSetToSave) => {
-                questionSet.forEach((q, qIndex) => {
-                    const addUpload = (file, cropData, target, prop) => {
-                        uploadPromises.push(
-                            fetchAuthParamsForUpload().then(authParams => {
-                                return imagekit.upload({
-                                    file,
-                                    fileName: `quiz-media_${Date.now()}_${file.name}`,
-                                    folder: '/quiz-app-media',
-                                    token: authParams.token,
-                                    expire: authParams.expire,
-                                    signature: authParams.signature
-                                });
-                            }).then(result => {
-                                const isImage = file.type && file.type.startsWith('image/');
-                                target[prop] = { url: result.url, fileId: result.fileId, fileType: result.fileType, ...(isImage && cropData && { cropData }) };
-                            }).catch(uploadError => {
-                                console.error(`Error uploading file for ${prop} in question ${qIndex + 1}:`, uploadError);
-                                throw new Error(`Failed to upload media for question ${qIndex + 1}: ${uploadError.message || 'Unknown upload error'}`);
-                            })
-                        );
-                    };
-
-                    if (q.localMediaFile) addUpload(q.localMediaFile, q.localCropData, questionSetToSave[qIndex], 'media');
-                    if (q.mcqData) q.mcqData.options.forEach((opt, oIndex) => { if (opt.localMediaFile) addUpload(opt.localMediaFile, opt.localCropData, questionSetToSave[qIndex].mcqData.options[oIndex], 'media'); });
-                    if (q.matchData) {
-                        q.matchData.pairs.forEach((p, pIndex) => {
-                            if (p.promptLocalMediaFile) addUpload(p.promptLocalMediaFile, p.promptLocalCropData, questionSetToSave[qIndex].matchData.pairs[pIndex], 'promptMedia');
-                            if (p.answerLocalMediaFile) addUpload(p.answerLocalMediaFile, p.answerLocalCropData, questionSetToSave[qIndex].matchData.pairs[pIndex], 'answerMedia');
-                        });
-                    }
-                    if (q.categorizeData) q.categorizeData.items.forEach((item, iIndex) => { if (item.localMediaFile) addUpload(item.localMediaFile, item.localCropData, questionSetToSave[qIndex].categorizeData.items[iIndex], 'media'); });
-                    if (q.reorderData) q.reorderData.items.forEach((item, iIndex) => { if (item.localMediaFile) addUpload(item.localMediaFile, item.localCropData, questionSetToSave[qIndex].reorderData.items[iIndex], 'media'); });
-                    if (q.visualData) { if (q.visualData.localMainMediaFile) addUpload(q.visualData.localMainMediaFile, q.visualData.localCropData, questionSetToSave[qIndex].visualData, 'mainMedia'); }
-                    if (q.listeningData) { if (q.listeningData.localMainMediaFile) addUpload(q.listeningData.localMainMediaFile, null, questionSetToSave[qIndex].listeningData, 'mainMedia'); }
-                });
-            };
-
-            processUploads(questions, questionsToSave);
-            await Promise.all(uploadPromises);
-
-            const cleanup = (qs) => { qs.forEach(q => { delete q.localMediaFile; delete q.localCropData; if(q.mcqData) q.mcqData.options.forEach(opt => { delete opt.localMediaFile; delete opt.localCropData; }); if(q.matchData) q.matchData.pairs.forEach(p => { delete p.promptLocalMediaFile; delete p.promptLocalCropData; delete p.answerLocalMediaFile; delete p.answerLocalCropData; }); if(q.categorizeData) q.categorizeData.items.forEach(item => { delete item.localMediaFile; delete item.localCropData; }); if(q.reorderData) q.reorderData.items.forEach(item => { delete item.localMediaFile; delete item.localCropData; }); if(q.visualData) { delete q.visualData.localMainMediaFile; delete q.visualData.localCropData; } if(q.listeningData) { delete q.listeningData.localMainMediaFile; } }); };
-            cleanup(questionsToSave);
+            // Upload every file the teacher picked and get back copies of the questions
+            // that point at the stored media (see utils/mediaUpload.js).
+            const questionsToSave = await uploadQuestionMedia(questions);
 
             const totalPoints = questions.reduce((sum, q) => sum + (parseInt(q.points, 10) || 0), 0);
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ImageKit from 'imagekit-javascript';
+import { fileKind } from '../utils/media';
 
 // Initialize the SDK once with your public keys.
 const imagekit = new ImageKit({
@@ -52,7 +53,8 @@ const MediaUploader = ({ onUploadSuccess }) => {
       onUploadSuccess({
         url: result.url,
         fileId: result.fileId,
-        fileType: result.fileType,
+        // Store the real kind from the browser, not ImageKit's "non-image".
+        fileType: fileKind(selectedFile, result.fileType),
       });
 
     } catch (err) {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaCrop } from 'react-icons/fa';
+import { mediaKind, fileKind } from '../utils/media';
 
 // NOTE: The incorrect CSS import has been removed from this file.
 
@@ -31,11 +32,13 @@ const MediaPreview = ({ file, cropData, onEdit }) => {
     let localUrl = isLocalFile ? URL.createObjectURL(file) : null;
     let displayUrl = isLocalFile ? localUrl : file.url;
     
-    let determinedFileType = 'unknown';
-    const source = file.name || file.url || '';
-    if ((file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|gif|webp|svg)$/i.test(source)) determinedFileType = 'image';
-    else if ((file.type && file.type.startsWith('video/')) || /\.(mp4|webm|mov|ogg)$/i.test(source)) determinedFileType = 'video';
-    else if ((file.type && file.type.startsWith('audio/')) || /\.(mp3|wav|aac|flac|m4a)$/i.test(source)) determinedFileType = 'audio';
+    // One shared rule for "what kind of file is this" (utils/media.js). A file the
+    // teacher just picked has an exact MIME type; a stored one has fileType or a URL.
+    // This used to keep its own copy of the extension guess, which called every
+    // .ogg audio file a video.
+    const determinedFileType = isLocalFile
+      ? fileKind(file, mediaKind({ url: file.name || '' }))
+      : mediaKind(file);
     setFileType(determinedFileType);
 
     const setupUrls = async () => {
