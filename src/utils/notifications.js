@@ -4,7 +4,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   onSnapshot,
   writeBatch,
   serverTimestamp,
@@ -29,15 +28,23 @@ export const createNotification = async (userId, message, type, data = null) => 
 /** Listen to real-time notification updates for a specific user. */
 export const listenToNotifications = (userId, callback) => {
   if (!userId) return () => {};
+  // No orderBy here on purpose. Firestore needs a composite index for
+  // where('userId') plus orderBy('createdAt'), and this project has never had that
+  // index, so the listener failed with "The query requires an index" and the bell
+  // never showed anything. Sorting in the browser avoids it, and one user's
+  // notifications are a short list.
   const q = query(
     collection(db, 'notifications'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
+    where('userId', '==', userId)
   );
   return onSnapshot(
     q,
     (snap) => {
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // A notification just created on this device has no server time yet
+      // (createdAt reads as null), so treat it as the newest.
+      const when = (n) => n.createdAt?.toMillis?.() ?? Date.now();
+      list.sort((a, b) => when(b) - when(a));
       callback(list);
     },
     (err) => {
