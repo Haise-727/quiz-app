@@ -11,57 +11,92 @@ import {
   RotateCcw, BookOpen, Eye, Home, Trophy, Volume2, VolumeX,
 } from 'lucide-react';
 import { playCorrect, playWrong, playComplete, isSoundEnabled, toggleSound } from '../utils/sounds';
+import MediaRenderer from '../components/MediaRenderer';
+import { MiniMedia, CorrectAnswer } from '../components/AnswerReveal';
+import { mediaKind, getMainMedia, getSubQuestions, isComprehension } from '../utils/media';
 
-// ── Correct answer renderer ───────────────────────────────────────────────────
-const CorrectAnswer = ({ q }) => {
-  switch (q.type) {
-    case 'MCQ':
-      return (
-        <div className="flex flex-col gap-1">
-          {q.mcqData.correctOptions.map(id => {
-            const opt = q.mcqData.options.find(o => o.id === id);
-            return <p key={id} className="font-semibold text-[hsl(var(--primary))]">✓ {opt?.text}</p>;
-          })}
-        </div>
-      );
-    case 'TRUE_FALSE':
-      return <p className="font-semibold text-[hsl(var(--primary))]">✓ {q.trueFalseData.correctAnswer ? 'True' : 'False'}</p>;
-    case 'FILL_IN_THE_BLANK':
-      return <p className="font-semibold text-[hsl(var(--primary))]">✓ {q.fillBlankData.answers.map(a => a.text).join(' / ')}</p>;
-    case 'MATCH_THE_FOLLOWING':
-      return (
-        <div className="flex flex-col gap-1">
-          {q.matchData.pairs.map(p => (
-            <p key={p.id} className="text-sm text-[hsl(var(--primary))]">{p.prompt} → <strong>{p.answer}</strong></p>
-          ))}
-        </div>
-      );
-    case 'REORDER':
-      return (
-        <ol className="flex flex-col gap-1">
-          {q.reorderData.items.map((item, i) => (
-            <li key={item.id} className="text-sm text-[hsl(var(--primary))]">{i + 1}. {item.text}</li>
-          ))}
-        </ol>
-      );
-    case 'CATEGORIZE':
-      return (
-        <div className="flex flex-col gap-2">
-          {q.categorizeData.categories.map(cat => (
-            <div key={cat.id}>
-              <p className="text-xs font-bold text-[hsl(var(--primary))] uppercase">{cat.name}:</p>
-              <p className="text-sm text-[hsl(var(--primary))]">
-                {q.categorizeData.items.filter(i => i.categoryId === cat.id).map(i => i.text).join(', ')}
-              </p>
-            </div>
-          ))}
-        </div>
-      );
-    case 'PARAGRAPH':
-      return <p className="text-sm italic text-[hsl(var(--muted-foreground))]">Open-ended — no auto-answer.</p>;
-    default:
-      return <p className="text-sm text-[hsl(var(--muted-foreground))]">No auto-answer for this type.</p>;
+// ── Comprehension (image / audio / video plus several questions) ──────────────
+// Each sub-question is checked on its own, then the whole question counts as
+// correct only when every sub-question was right.
+const PracticeComprehension = ({ q, answered, savedPicks, onFinish }) => {
+  const subs = getSubQuestions(q);
+  // Keep each sub-question's real index so answers line up with the live game.
+  const gradable = subs.map((s, i) => ({ s, i })).filter(({ s }) => s?.type === 'MCQ' && s.mcqData?.options?.length);
+  const [picks, setPicks] = useState(savedPicks || {});
+  const [checked, setChecked] = useState(() => (answered ? gradable.map(({ i }) => i) : []));
+
+  const isRight = (s, ids) => {
+    const want = (s.mcqData.correctOptions || []).map(String);
+    const got = (ids || []).map(String);
+    return want.length > 0 && want.length === got.length && want.every(id => got.includes(id));
+  };
+
+  const toggle = (i, s, optId) => {
+    if (checked.includes(i)) return;
+    const multi = (s.mcqData.correctOptions?.length || 0) > 1;
+    setPicks(prev => {
+      const cur = prev[i] || [];
+      const next = multi ? (cur.includes(optId) ? cur.filter(x => x !== optId) : [...cur, optId]) : [optId];
+      return { ...prev, [i]: next };
+    });
+  };
+
+  const check = (i) => {
+    const nextChecked = [...checked, i];
+    setChecked(nextChecked);
+    // The last sub-question checked finishes the whole question.
+    if (gradable.every(({ i: idx }) => nextChecked.includes(idx))) {
+      onFinish(gradable.every(({ s, i: idx }) => isRight(s, picks[idx])), picks);
+    }
+  };
+
+  if (!gradable.length) {
+    return <p className="text-sm italic text-[hsl(var(--muted-foreground))]">This question has no follow up questions.</p>;
   }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {gradable.map(({ s, i }, n) => {
+        const done = checked.includes(i);
+        const multi = (s.mcqData.correctOptions?.length || 0) > 1;
+        return (
+          <div key={s.id ?? i} className="flex flex-col gap-2">
+            <p className="text-sm font-semibold">{n + 1}. {s.questionText}</p>
+            {multi && !done && (
+              <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">Select all that apply</p>
+            )}
+            {s.mcqData.options.map(opt => {
+              const chosen = (picks[i] || []).includes(opt.id);
+              const correct = s.mcqData.correctOptions.map(String).includes(String(opt.id));
+              let cls = 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/40';
+              if (done) {
+                if (correct) cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
+                else if (chosen) cls = 'border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/5 text-[hsl(var(--destructive))]';
+                else cls = 'border-[hsl(var(--border))] opacity-40';
+              } else if (chosen) {
+                cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
+              }
+              return (
+                <div key={opt.id} role="button" tabIndex={done ? -1 : 0} aria-disabled={done}
+                  onClick={() => toggle(i, s, opt.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(i, s, opt.id); } }}
+                  className={`flex items-center gap-3 p-3 rounded-md border text-xs text-left transition-all ${done ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
+                  <MiniMedia media={opt.media} />
+                  <span className="font-medium">{opt.text}</span>
+                </div>
+              );
+            })}
+            {!done && (
+              <Button onClick={() => check(i)} disabled={!(picks[i] || []).length} variant="outline"
+                className="self-start text-xs py-1 px-3 border-[hsl(var(--border))]">
+                Check answer
+              </Button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -276,7 +311,22 @@ const Practice = () => {
           transition={{ type: 'tween', ease: 'easeInOut', duration: 0.2 }}
           className="w-full max-w-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg p-6 mb-6">
 
+          {/* The picture, clip or recording the question is about. Comprehension
+              questions keep theirs inside visualData / listeningData. */}
+          {getMainMedia(q) && (
+            <div className="mb-4 flex justify-center">
+              <MediaRenderer media={getMainMedia(q)} transform="question_main"
+                className={mediaKind(getMainMedia(q)) === 'audio' ? 'w-full max-w-md' : 'block max-w-full max-h-72 rounded-lg'} />
+            </div>
+          )}
+
           <p className="text-lg font-bold leading-relaxed mb-4">{q.questionText}</p>
+
+          {/* Comprehension: media above, several questions below */}
+          {isComprehension(q.type) && (
+            <PracticeComprehension key={`${quizId}-${index}`} q={q} answered={r.answered} savedPicks={r.selected}
+              onFinish={(correct, picks) => answer({ correct, selected: picks })} />
+          )}
 
           {/* MCQ */}
           {q.type === 'MCQ' && (
@@ -297,16 +347,20 @@ const Practice = () => {
                   cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
                 }
                 return (
-                  <button key={opt.id} disabled={r.answered}
-                    onClick={() => handleMCQ(opt.id)}
+                  // A div, not a button: an option can hold a video or audio player, and
+                  // interactive controls inside a <button> do not work in every browser.
+                  <div key={opt.id} role="button" tabIndex={r.answered ? -1 : 0} aria-disabled={r.answered}
+                    onClick={() => { if (!r.answered) handleMCQ(opt.id); }}
+                    onKeyDown={(e) => { if (!r.answered && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleMCQ(opt.id); } }}
                     className={`flex items-center gap-3 p-3 rounded-md border text-xs text-left transition-all ${r.answered ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
                     <div className={`w-4 h-4 ${isMultiSelect ? 'rounded' : 'rounded-full'} border flex items-center justify-center shrink-0 transition-all ${r.answered && isCorrectOpt ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : r.answered && isSelected ? 'border-red-500 bg-red-500' : isSelected ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : 'border-[hsl(var(--border))]'}`}>
                       {r.answered && isCorrectOpt && <CheckCircle2 className="w-2.5 h-2.5 text-[hsl(var(--primary-foreground))]" />}
                       {r.answered && isSelected && !isCorrectOpt && <XCircle className="w-2.5 h-2.5 text-white" />}
                       {!r.answered && isSelected && <CheckCircle2 className="w-2.5 h-2.5 text-[hsl(var(--primary-foreground))]" />}
                     </div>
+                    <MiniMedia media={opt.media} />
                     <span className="font-medium">{opt.text}</span>
-                  </button>
+                  </div>
                 );
               })}
               {isMultiSelect && !r.answered && (
@@ -379,7 +433,7 @@ const Practice = () => {
           )}
 
           {/* Other types */}
-          {!['MCQ', 'TRUE_FALSE', 'FILL_IN_THE_BLANK'].includes(q.type) && (
+          {!['MCQ', 'TRUE_FALSE', 'FILL_IN_THE_BLANK'].includes(q.type) && !isComprehension(q.type) && (
             <div>
               {!r.answered ? (
                 <Button onClick={handleReveal} variant="outline" className="gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] text-xs py-1.5 px-3">

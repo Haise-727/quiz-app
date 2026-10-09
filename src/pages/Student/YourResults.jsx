@@ -6,6 +6,8 @@ import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebas
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import MediaRenderer from '../../components/MediaRenderer';
+import { MiniMedia, CorrectAnswer } from '../../components/AnswerReveal';
+import { getMainMedia, getSubQuestions } from '../../utils/media';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +29,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
   const isPending = studentAnswerData.status === 'pending_review';
   const isCorrect = !isPending && !!studentAnswerData.isCorrect;
   const isPartial = !isPending && !isCorrect && studentAnswerData.pointsAwarded > 0;
-  const mainMedia = originalQuestion.visualData?.mainMedia || originalQuestion.listeningData?.mainMedia || originalQuestion.media;
+  const mainMedia = getMainMedia(originalQuestion);
 
   const statusColor = isPending ? 'border-l-amber-400' : isCorrect ? 'border-l-green-500' : 'border-l-red-400';
   const statusBadge = isPending ? 'warning' : isCorrect ? 'success' : isPartial ? 'info' : 'destructive';
@@ -101,6 +103,29 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
             ))}
           </div>
         );
+      case 'VISUAL_COMPREHENSION': case 'LISTENING_COMPREHENSION':
+        // userAnswer is { [subQuestionIndex]: [chosenOptionId, ...] }
+        return (
+          <div className="flex flex-col gap-3">
+            {getSubQuestions(originalQuestion).map((sq, si) => {
+              const picked = new Set((ua?.[si] || []).map(String));
+              const chosen = (sq.mcqData?.options || []).filter(o => picked.has(String(o.id)));
+              return (
+                <div key={sq.id ?? si} className="flex flex-col gap-1">
+                  <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">{si + 1}. {sq.questionText}</p>
+                  {chosen.length === 0
+                    ? <span className="italic text-[hsl(var(--muted-foreground))]">No answer</span>
+                    : chosen.map(o => (
+                        <div key={o.id} className="flex items-center gap-2">
+                          <MediaRenderer media={o.media} transform="thumbnail" />
+                          <span>{o.text}</span>
+                        </div>
+                      ))}
+                </div>
+              );
+            })}
+          </div>
+        );
       default: return <span className="italic text-[hsl(var(--muted-foreground))]">Review unavailable</span>;
     }
   };
@@ -126,6 +151,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
             {originalQuestion.reorderData.items.map((item, i) => (
               <li key={item.id} className="flex items-center gap-2 text-sm">
                 <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
+                <MiniMedia media={item.media} />
                 {item.text}
               </li>
             ))}
@@ -135,7 +161,9 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
         return (
           <div className="flex flex-col gap-1">
             {originalQuestion.matchData.pairs.map(p => (
-              <div key={p.id} className="text-sm">{p.prompt} → {p.answer}</div>
+              <div key={p.id} className="flex items-center gap-2 flex-wrap text-sm">
+                <MiniMedia media={p.promptMedia} />{p.prompt} → <MiniMedia media={p.answerMedia} />{p.answer}
+              </div>
             ))}
           </div>
         );
@@ -146,12 +174,14 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
               <div key={cat.id}>
                 <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] mb-1">{cat.name}</p>
                 {originalQuestion.categorizeData.items.filter(i => i.categoryId === cat.id).map(i => (
-                  <div key={i.id} className="text-sm">{i.text}</div>
+                  <div key={i.id} className="flex items-center gap-1.5 text-sm"><MiniMedia media={i.media} />{i.text}</div>
                 ))}
               </div>
             ))}
           </div>
         );
+      case 'VISUAL_COMPREHENSION': case 'LISTENING_COMPREHENSION':
+        return <CorrectAnswer q={originalQuestion} tone="plain" />;
       default: return null;
     }
   };

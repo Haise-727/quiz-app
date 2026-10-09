@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import MediaRenderer from '../../components/MediaRenderer';
+import { MiniMedia } from '../../components/AnswerReveal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -72,8 +73,11 @@ const QuestionPreview = ({ question, index }) => {
       {question.categorizeData && question.categorizeData.categories.map(cat => (
         <div key={cat.id} className="mb-1">
           <span className="font-semibold text-xs">{cat.name}: </span>
-          <span className="text-xs text-[hsl(var(--muted-foreground))]">
-            {question.categorizeData.items.filter(i => i.categoryId === cat.id).map(i => i.text).join(', ')}
+          <span className="inline-flex flex-wrap items-center gap-2 text-xs text-[hsl(var(--muted-foreground))]">
+            {/* each item keeps its picture, audio or video, not just its text */}
+            {question.categorizeData.items.filter(i => i.categoryId === cat.id).map(i => (
+              <span key={i.id} className="inline-flex items-center gap-1"><MiniMedia media={i.media} />{i.text}</span>
+            ))}
           </span>
         </div>
       ))}

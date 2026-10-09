@@ -6,6 +6,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import MediaRenderer from '../../components/MediaRenderer';
+import { MiniMedia } from '../../components/AnswerReveal';
+import { mediaKind, getMainMedia } from '../../utils/media';
 import {
   ArrowLeft, Search, Trash2, BookOpen, Clock, Award, CheckCircle, HelpCircle, Layers, Grid3X3, ArrowUpDown, GitCompare, AlignLeft, BookMarked
 } from 'lucide-react';
@@ -23,7 +26,7 @@ const QUESTION_TYPES = [
   { value: 'LISTENING_COMPREHENSION', label: 'Listening Comprehension' },
 ];
 
-const QuestionPreview = ({ question }) => {
+const QuestionPreviewBody = ({ question }) => {
   const { type } = question;
 
   switch (type) {
@@ -38,6 +41,7 @@ const QuestionPreview = ({ question }) => {
                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${isCorrect ? 'border-green-500 bg-green-500/10 text-green-600' : 'border-slate-300 dark:border-slate-600'}`}>
                   {isCorrect && <CheckCircle className="w-3.5 h-3.5" />}
                 </div>
+                <MiniMedia media={opt.media} />
                 <span>{opt.text || <span className="italic text-slate-400">Empty option</span>}</span>
               </div>
             );
@@ -93,8 +97,10 @@ const QuestionPreview = ({ question }) => {
           <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1">Matching Pairs</p>
           {(question.matchData?.pairs || []).map((pair) => (
             <div key={pair.id} className="flex items-center gap-2 text-sm text-[hsl(var(--foreground))]">
+              <MiniMedia media={pair.promptMedia} />
               <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-200 dark:border-slate-700">{pair.prompt}</span>
               <span className="text-[hsl(var(--muted-foreground))]">➔</span>
+              <MiniMedia media={pair.answerMedia} />
               <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-200 dark:border-slate-700">{pair.answer}</span>
             </div>
           ))}
@@ -112,7 +118,8 @@ const QuestionPreview = ({ question }) => {
                 <span className="font-semibold text-xs text-[hsl(var(--primary))]">{cat.name}:</span>
                 <div className="flex flex-wrap gap-1 mt-1 pl-2">
                   {items.map(item => (
-                    <Badge key={item.id} variant="secondary" className="text-xs font-normal">
+                    <Badge key={item.id} variant="secondary" className="text-xs font-normal gap-1.5">
+                      <MiniMedia media={item.media} />
                       {item.text}
                     </Badge>
                   ))}
@@ -132,6 +139,7 @@ const QuestionPreview = ({ question }) => {
             {(question.reorderData?.items || []).map((item, idx) => (
               <div key={item.id || idx} className="flex items-center gap-2 text-sm text-[hsl(var(--foreground))]">
                 <span className="text-xs text-[hsl(var(--muted-foreground))] font-bold w-4">{idx + 1}.</span>
+                <MiniMedia media={item.media} />
                 <span>{item.text}</span>
               </div>
             ))}
@@ -160,6 +168,23 @@ const QuestionPreview = ({ question }) => {
     default:
       return null;
   }
+};
+
+// The picture, clip or recording attached to the question itself (comprehension
+// questions keep theirs in visualData / listeningData), then the type specific body.
+const QuestionPreview = ({ question }) => {
+  const media = getMainMedia(question);
+  return (
+    <>
+      {media && (
+        <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+          <MediaRenderer media={media} transform="thumbnail"
+            className={mediaKind(media) === 'audio' ? 'w-64 h-10' : 'max-h-40 rounded-md'} />
+        </div>
+      )}
+      <QuestionPreviewBody question={question} />
+    </>
+  );
 };
 
 const QuestionBank = () => {

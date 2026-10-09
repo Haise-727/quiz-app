@@ -11,70 +11,54 @@ import {
   CheckCircle2, BookOpen, Trophy, Shuffle, Volume2, VolumeX,
 } from 'lucide-react';
 import { playClick, playCorrect, playComplete, isSoundEnabled, toggleSound } from '../utils/sounds';
+import MediaRenderer from '../components/MediaRenderer';
+import { CorrectAnswer } from '../components/AnswerReveal';
+import { mediaKind, getMainMedia } from '../utils/media';
 
-// ── Derive the "back" content for each question type ─────────────────────────
-const getBack = (q) => {
-  switch (q.type) {
-    case 'MCQ': {
-      const answers = q.mcqData.correctOptions.map(id => {
-        const opt = q.mcqData.options.find(o => o.id === id);
-        return opt?.text ?? '—';
-      });
-      return { label: 'Correct Answer', content: answers.join(' · ') };
-    }
-    case 'TRUE_FALSE':
-      return { label: 'Correct Answer', content: q.trueFalseData.correctAnswer ? 'True' : 'False' };
-    case 'FILL_IN_THE_BLANK':
-      return { label: 'Answer', content: q.fillBlankData.answers.map(a => a.text).join(' / ') };
-    case 'MATCH_THE_FOLLOWING':
-      return {
-        label: 'Matches',
-        content: q.matchData.pairs.map(p => `${p.prompt} → ${p.answer}`).join('\n'),
-      };
-    case 'REORDER':
-      return {
-        label: 'Correct Order',
-        content: q.reorderData.items.map((item, i) => `${i + 1}. ${item.text}`).join('\n'),
-      };
-    case 'CATEGORIZE':
-      return {
-        label: 'Categories',
-        content: q.categorizeData.categories
-          .map(cat => `${cat.name}: ${q.categorizeData.items.filter(i => i.categoryId === cat.id).map(i => i.text).join(', ')}`)
-          .join('\n'),
-      };
-    case 'PARAGRAPH':
-      return { label: 'Hint', content: 'Open-ended — no auto-answer.' };
-    default:
-      return { label: 'Answer', content: 'See question for details.' };
-  }
+// ── Heading shown above the answer on the back of the card ───────────────────
+const BACK_LABEL = {
+  MCQ: 'Correct Answer', TRUE_FALSE: 'Correct Answer', FILL_IN_THE_BLANK: 'Answer',
+  MATCH_THE_FOLLOWING: 'Matches', REORDER: 'Correct Order', CATEGORIZE: 'Categories',
+  VISUAL_COMPREHENSION: 'Answers', LISTENING_COMPREHENSION: 'Answers', PARAGRAPH: 'Hint',
 };
 
 // ── Flip card ─────────────────────────────────────────────────────────────────
+// Both faces sit in the same grid cell, so the card is as tall as whichever face
+// has more on it. (They used to be absolutely positioned at a fixed height, which
+// made any picture or video spill out of the card.)
 const FlipCard = ({ question, isFlipped, onFlip }) => {
-  const back = getBack(question);
+  const media = getMainMedia(question);
   return (
     <div style={{ perspective: '1200px' }} className="w-full max-w-2xl select-none" onClick={onFlip}>
       <motion.div
         animate={{ rotateY: isFlipped ? 180 : 0 }}
         transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-        style={{ transformStyle: 'preserve-3d', position: 'relative', minHeight: '280px', cursor: 'pointer' }}
+        style={{ transformStyle: 'preserve-3d', position: 'relative', display: 'grid', minHeight: '280px', cursor: 'pointer' }}
       >
         {/* Front */}
-        <div style={{ backfaceVisibility: 'hidden' }}
-          className="absolute inset-0 flex flex-col items-center justify-center p-8 rounded-3xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-md text-[hsl(var(--foreground))]"
+        <div style={{ gridArea: '1 / 1', backfaceVisibility: 'hidden' }}
+          className="flex flex-col items-center justify-center p-8 rounded-3xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-md text-[hsl(var(--foreground))]"
         >
           <p className="text-xs font-bold text-[hsl(var(--primary))] uppercase tracking-widest mb-4">Question</p>
+          {/* Media sits above the question. Clicks on a player must not flip the card. */}
+          {media && (
+            <div className="mb-4 flex justify-center max-w-full" onClick={(e) => e.stopPropagation()}>
+              <MediaRenderer media={media} transform="question_main"
+                className={mediaKind(media) === 'audio' ? 'w-full max-w-md' : 'block max-w-full max-h-64 rounded-lg'} />
+            </div>
+          )}
           <p className="text-xl md:text-2xl font-bold text-center leading-relaxed">{question.questionText}</p>
           <p className="text-[hsl(var(--muted-foreground))] text-sm mt-6">Tap to reveal answer</p>
         </div>
 
         {/* Back */}
-        <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-          className="absolute inset-0 flex flex-col items-center justify-center p-8 rounded-3xl bg-[hsl(var(--card))] border border-[hsl(var(--primary))]/30 shadow-md text-[hsl(var(--foreground))]"
+        <div style={{ gridArea: '1 / 1', backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+          className="flex flex-col items-center justify-center p-8 rounded-3xl bg-[hsl(var(--card))] border border-[hsl(var(--primary))]/30 shadow-md text-[hsl(var(--foreground))]"
         >
-          <p className="text-xs font-bold text-[hsl(var(--primary))] uppercase tracking-widest mb-4">{back.label}</p>
-          <p className="text-lg md:text-xl font-semibold text-center leading-relaxed whitespace-pre-line">{back.content}</p>
+          <p className="text-xs font-bold text-[hsl(var(--primary))] uppercase tracking-widest mb-4">{BACK_LABEL[question.type] || 'Answer'}</p>
+          <div className="text-lg md:text-xl font-semibold leading-relaxed w-full">
+            <CorrectAnswer q={question} centered tone="plain" />
+          </div>
           <p className="text-[hsl(var(--muted-foreground))] text-sm mt-6">Tap to flip back</p>
         </div>
       </motion.div>

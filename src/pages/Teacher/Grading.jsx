@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import MediaRenderer from '../../components/MediaRenderer';
+import { mediaKind, getMainMedia, getSubQuestions } from '../../utils/media';
 import { Button } from '@/components/ui/button';
 import { createNotification } from '../../utils/notifications';
 import { Card, CardContent } from '@/components/ui/card';
@@ -87,6 +88,24 @@ const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => 
             ))}
           </div>
         );
+      case 'VISUAL_COMPREHENSION': case 'LISTENING_COMPREHENSION':
+        // userAnswer is { [subQuestionIndex]: [chosenOptionId, ...] }
+        return (
+          <div className="flex flex-col gap-3">
+            {getSubQuestions(originalQuestion).map((sq, si) => {
+              const picked = new Set((ua?.[si] || []).map(String));
+              const chosen = (sq.mcqData?.options || []).filter(o => picked.has(String(o.id)));
+              return (
+                <div key={sq.id ?? si} className="flex flex-col gap-1">
+                  <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">{si + 1}. {sq.questionText}</p>
+                  {chosen.length === 0
+                    ? <span className="italic text-[hsl(var(--muted-foreground))]">No answer</span>
+                    : chosen.map(o => <div key={o.id} className="flex items-center gap-2"><MediaRenderer media={o.media} transform="thumbnail" /><span>{o.text}</span></div>)}
+                </div>
+              );
+            })}
+          </div>
+        );
       default: return <span className="italic text-[hsl(var(--muted-foreground))]">Review unavailable.</span>;
     }
   };
@@ -96,6 +115,13 @@ const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => 
       <p className="font-semibold text-sm text-[hsl(var(--foreground))] mb-4 leading-relaxed">
         {answer.questionIndex + 1}. {originalQuestion.questionText}
       </p>
+
+      {getMainMedia(originalQuestion) && (
+        <div className="mb-4 flex">
+          <MediaRenderer media={getMainMedia(originalQuestion)} transform="question_main"
+            className={mediaKind(getMainMedia(originalQuestion)) === 'audio' ? 'w-full max-w-md' : 'block max-w-full max-h-56 rounded-lg'} />
+        </div>
+      )}
 
       {originalQuestion.paragraphData?.keywords?.length > 0 && (
         <div className="mb-3">
