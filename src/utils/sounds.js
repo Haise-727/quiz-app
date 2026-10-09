@@ -87,3 +87,28 @@ export const playNotification = () => {
   tone(880, 0.1, 'sine', 0);
   tone(1108.73, 0.15, 'sine', 0.08);
 };
+
+/** A short rising pop for picking an answer. Quicker and quieter than playClick. */
+export const playSelect = () => {
+  tone(520, 0.05, 'sine', 0, 0.05);
+  tone(780, 0.06, 'sine', 0.035, 0.04);
+};
+
+/** A rising run that ends higher than the fanfare, for reaching a new level. */
+export const playLevelUp = () => {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.16, 'triangle', i * 0.09, 0.12));
+  tone(1318.5, 0.4, 'sine', 0.4, 0.12);
+};
+
+/** Two bright bell notes for unlocking a badge. */
+export const playBadge = () => {
+  tone(987.77, 0.14, 'sine', 0, 0.1);
+  tone(1318.5, 0.3, 'sine', 0.11, 0.1);
+};
+
+/** A quick upward step, played for each answer in a row during practice. */
+export const playStreak = (step = 1) => {
+  const base = 523.25 * Math.pow(2, Math.min(step, 7) / 12);
+  tone(base, 0.09, 'triangle', 0, 0.09);
+  tone(base * 1.5, 0.12, 'sine', 0.07, 0.07);
+};
