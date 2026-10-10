@@ -1,22 +1,22 @@
-# Contributing — Setup Guide for Beginners
+# Contributing: setup guide for beginners
 
 This is the onboarding guide for new collaborators. For what the project *is*,
 see the [README](../README.md).
 
-This guide will help you set up everything you need to collaborate on our quiz app project. Don't worry if you're new to coding or Git - we've broken everything down into simple steps.
+This guide will help you set up everything you need to collaborate on our quiz app project. Don't worry if you're new to coding or Git, we've broken everything down into simple steps.
 
 ## What You'll Need (Required Software)
 
-1. **Visual Studio Code (VS Code)** - A free code editor
+1. **Visual Studio Code (VS Code)**: A free code editor
    - Download from [https://code.visualstudio.com/](https://code.visualstudio.com/)
    - Installation: Just follow the setup wizard (Next > Next > Finish)
 
-2. **Node.js** - Allows you to run JavaScript on your computer
+2. **Node.js**: Allows you to run JavaScript on your computer
    - Download from [https://nodejs.org/](https://nodejs.org/)
    - Choose the "LTS" version (Long Term Support)
    - Installation: Follow the setup wizard with default settings
 
-3. **Git** - Tracks changes to our code
+3. **Git**: Tracks changes to our code
    - Download from [https://git-scm.com/downloads](https://git-scm.com/downloads)
    - Installation: Use default settings (click "Next" until done)
 
@@ -29,9 +29,9 @@ These extensions will make coding easier:
 1. Open VS Code
 2. Click the square icon on the left sidebar (Extensions)
 3. Search for and install:
-   - **ESLint** - Helps catch errors in your code
-   - **GitHub Pull Requests and Issues** - Connect to GitHub directly
-   - **ES7+ React/Redux/React-Native snippets** - Provides shortcuts for React
+   - **ESLint**: Helps catch errors in your code
+   - **GitHub Pull Requests and Issues**: Connect to GitHub directly
+   - **ES7+ React/Redux/React-Native snippets**: Provides shortcuts for React
 
 ### Step 2: Clone the Repository (Getting the Code)
 
@@ -90,8 +90,8 @@ To see the project running on your computer:
 ### Understanding Branches
 
 Think of branches like separate workspaces:
-- `main` branch - The official, working version of our app
-- `main-update` branch - Where we make and test changes before they go to `main`
+- `main` branch: The official, working version of our app
+- `main-update` branch: Where we make and test changes before they go to `main`
 
 As a collaborator, you'll only work on the `main-update` branch for safety reasons.
 
@@ -181,6 +181,40 @@ Always double-check that you are pushing to `main-update` branch, not to `main`.
 ### Files Not Appearing After Clone
 - Make sure you opened the correct folder in VS Code
 - Click "File > Open Folder" and select the quiz-app folder
+
+## Before you commit code
+
+Run these from the project folder. They take under a minute.
+
+```
+npm run lint                         # no errors
+npm run build                        # must finish without errors
+node scripts/test-gamification.mjs   # the rules have their own tests
+node scripts/test-quiz-attempt.mjs
+node scripts/test-live-scoring.mjs
+node scripts/test-csv.mjs
+```
+
+If you change something in `src/utils` that scores, grades or exports, add or
+update the matching test. Break the rule on purpose first and confirm the test
+fails, then fix it.
+
+### Keeping the look consistent
+
+The design is small on purpose, and a new page looks right by default if you
+follow a few habits.
+
+- Use the theme tokens in `src/index.css` (`hsl(var(--foreground))`,
+  `hsl(var(--border))` and so on), never a raw colour like `bg-blue-500`.
+- One accent only: green for go actions. Ink for everything else.
+- Start a dashboard page with `PageHeader`. Prefer rows with hairline dividers to
+  boxes inside boxes.
+- Icons come from Phosphor (`react-icons/pi`). No emojis.
+- Animate with the helpers in `src/lib/motion.js`, and only `transform` and
+  `opacity`.
+- Write plain, short sentences in the interface, with no exclamation marks.
+
+The full list is in [technical.md](technical.md).
 
 ## Need Help?
 

@@ -1,6 +1,6 @@
 # Security Review
 
-Reviewed on 9 October 2026. This covers our own code and rules, and the services
+Reviewed on 9 October 2026 and updated on 10 October 2026 after the redesign. This covers our own code and rules, and the services
 we depend on: Firebase, ImageKit, Vercel, GitHub and the npm packages.
 
 ## How we checked
@@ -312,7 +312,30 @@ The server function in phase 2 becomes the first real API tier. See
 - No account deletion. The rules forbid deleting a profile, which also blocks a
   user from removing their own data. Worth fixing before real users.
 
+## New things the redesign added
+
+- **XP and levels are only as trustworthy as the results.** They are worked out
+  from saved quiz results and nothing else is stored, so there is no extra field
+  to forge. But the browser still writes those results (finding 2), so someone
+  who forges a result forges XP with it. Fixing finding 2 fixes this too, and the
+  rules in `src/utils/gamification.js` are pure functions that can run on the
+  server unchanged.
+- **Live scoring happens in the player's browser.** Each answer is scored inside
+  a transaction on that player's own record, so a streak bonus or a double cannot
+  be counted twice by accident. It does not stop someone writing a higher score
+  by hand, because the database is open (finding 3). The same fix applies.
+- **Spreadsheet formulas in the export.** The analytics export used to write
+  student names into the file as they were typed. A name such as
+  `=HYPERLINK("http://example.com","click")` would run when a teacher opened the
+  file. This was found while testing the export and is fixed, see below.
+
 ## Already changed
+
+- The CSV export neutralises cells that start with `=`, `+`, `-`, `@`, a tab or a
+  carriage return (`src/utils/csv.js`, with tests in `scripts/test-csv.mjs`).
+- Two unused dependencies and the packages only they needed were removed
+  (`lucide-react`, `react-easy-crop` and four Radix parts), which shrinks what
+  has to be audited.
 
 - React Router updated to 7.18.4, which clears its runtime advisories.
 - Security headers added to `vercel.json` (finding 9, apart from the CSP).

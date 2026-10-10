@@ -1,146 +1,239 @@
 <div align="center">
 
+<img src="public/favicon.svg" alt="" width="56" height="56">
+
 # Quizlike
 
-### Build a quiz. Play it live. Learn it anywhere.
+### Quizzes you actually want to finish.
 
-A full-stack quiz platform where teachers create rich, media-heavy quizzes
-and students play them solo, as a class assignment, or in a live
-Kahoot-style multiplayer game with a shared PIN.
+Build a quiz once. Run it live on a projector, set it as homework,
+or let anyone practise it on their own. Every quiz earns XP, builds a
+streak and moves a bar.
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-quizlike.vercel.app-22c55e?style=for-the-badge)](https://quizlike.vercel.app)
+[![Live demo](https://img.shields.io/badge/Live_demo-quizlike.vercel.app-1A7F50?style=for-the-badge)](https://quizlike.vercel.app)
 
 ![React](https://img.shields.io/badge/React_19-149ECA?style=flat-square&logo=react&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite_6-646CFF?style=flat-square&logo=vite&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind_v4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
-![Firebase](https://img.shields.io/badge/Firebase_11-FFCA28?style=flat-square&logo=firebase&logoColor=black)
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black)
 ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
 
-<img src="docs/screenshots/landing.png" alt="Quizlike landing page" width="100%">
+<img src="docs/screenshots/landing.png" alt="The Quizlike home page: a serif headline, a quiz code field and a looping demo of a live question" width="100%">
 
 </div>
 
 ---
 
-## Why it exists
+## What it does
 
-Most classroom quiz tools make you pick: either a fast live game, or a proper
-graded assignment with real marking. Quizlike does both from the same quiz.
-Write the questions once, then run them live on a projector, set them as
-homework with a due date, or let anyone revise them as flashcards.
+Most classroom quiz tools make you choose between a fast live game and a graded
+assignment. Quizlike does both from the same quiz, and treats the quiz taker as
+a player, not a form filler.
+
+| For students | For teachers |
+|---|---|
+| Join with a code, no account needed | Nine question types, with pictures, audio and video |
+| Earn XP, level up, keep a daily streak, collect badges | Host live games with power-ups, streaks and a podium |
+| Practise with instant feedback, or revise with flashcards | Classes, due dates and a queue for hand marking |
+| See every attempt, and review each answer | Analytics per quiz and per question, with CSV export |
 
 ---
 
-## Features
+## Playing a quiz
 
-### 🎯 Nine question types
+One screen, one question. Answers respond instantly: options squeeze on press,
+a check pops in, and the next question slides in. Everything works from the
+keyboard too: `1` to `9` choose an option, `Enter` moves on.
 
-Far beyond multiple choice. Eight of them are graded instantly and play in live games.
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/quiz.png" alt="A question with a photo and four options, one selected"></td>
+<td width="50%"><img src="docs/screenshots/quiz-match.png" alt="A match question: two answers placed, one still in the tray"></td>
+</tr>
+</table>
 
-| Type | What it does | Live mode |
+### Nine question types
+
+| Type | How it works | Live games |
 |---|---|:---:|
-| **Multiple Choice** | Single or multi-select, any number of options | ✅ |
-| **True / False** | The quick one | ✅ |
-| **Fill in the Blank** | Free text, multiple accepted answers | ✅ |
-| **Match the Following** | Drag answers onto their prompts | ✅ |
-| **Reorder** | Drag items into the correct sequence | ✅ |
-| **Categorize** | Sort items into buckets | ✅ |
-| **Paragraph** | Long-form, graded by hand | ✍️ manual |
-| **Visual Comprehension** | An image plus follow-up questions | ✅ |
-| **Listening Comprehension** | Audio or video plus follow-up questions | ✅ |
+| Multiple choice | One answer or several, any number of options | yes |
+| True or false | Two big targets | yes |
+| Fill in the blank | Typed answer, several accepted spellings | yes |
+| Match the following | Drag answers onto prompts, or tap and tap | yes |
+| Reorder | Drag items into the right sequence | yes |
+| Categorize | Sort items into groups | yes |
+| Visual comprehension | A picture and follow up questions | yes |
+| Listening comprehension | Audio or video and follow up questions | yes |
+| Paragraph | A written answer, marked by a teacher | no |
 
-The drag-and-drop types award **partial credit**, so getting three of four
-matches right is worth three quarters of the marks rather than nothing.
-
-### 🔴 Live multiplayer
-
-Host a game and put the PIN on the projector. Students join from their phones
-with the code or a share link, and answers, scores and the leaderboard sync in
-real time through Firebase Realtime Database.
-
-- Lobby with players appearing as they join
-- Teacher controls when each question is revealed
-- Speed-weighted scoring: answer faster, score higher
-- Live leaderboard between questions and a podium at the end
-- Sound effects and confetti
-
-### 👤 No account needed
-
-Guests join by code, play the whole quiz, and their results still reach the
-teacher. Browse, Practice and Flashcards are fully public too, so a shared
-link just works.
-
-### 📚 Three ways to study the same quiz
-
-| Mode | Timed | Scored | Sign-in |
-|---|:---:|:---:|:---:|
-| **Play** | yes | yes | optional |
-| **Practice** | no | no | no |
-| **Flashcards** | no | self-rated | no |
-
-Practice gives instant right-or-wrong feedback and a reveal button. Flashcards
-flip in 3D, track "Got it" versus "Still learning", shuffle, and let you drill
-only the ones you keep missing.
-
-### 🖼️ Real media support
-
-Images, video and audio on both questions and individual answer options, served
-through the ImageKit CDN. Crop and annotate images in the browser before
-uploading, without leaving the quiz editor.
-
-### 🏫 Classes and assignments
-
-Create a class, enrol students, assign quizzes with due dates, and track who
-has finished. Students get in-app notifications when work is set.
-
-### ✏️ Grading and analytics
-
-- Auto-grading for everything except paragraph answers
-- A marking queue for the ones that need a human, with partial credit
-- Score distribution and per-question pass rate charts
-- Sortable results table and one-click CSV export
-
-### 🎨 Built to feel good
-
-Light and dark themes, responsive from phone to projector, animated
-transitions throughout, and a reusable question bank so you never write the
-same question twice.
+Match, Reorder and Categorize give partial credit, so three of four right is
+worth three quarters of the marks. Pictures, audio and video can go on a
+question and on each answer option.
 
 ---
 
-## Tech Stack
+## It feels like a game
+
+Nothing about progress needs setting up. XP, levels, streaks and badges are
+worked out from the quizzes you finish.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/result.png" alt="The result screen: score, XP gained and two new badges"></td>
+<td width="50%"><img src="docs/screenshots/dashboard.png" alt="The student dashboard: level, XP bar, streak and stats"></td>
+</tr>
+</table>
+
+- **XP** for every quiz, more for accuracy, a bonus for a perfect score. Your
+  best attempt on each quiz counts, so a retake earns only the difference.
+- **Levels** from Newcomer upward, with a bar that fills and overflows when you
+  level up.
+- **A daily streak**, kept alive until the end of the next day.
+- **Eleven badges**, each with a progress bar while locked.
+- Sound effects and confetti, with a switch to turn the sound off.
+
+Guests earn progress too. It stays on their device until they make an account.
+
+---
+
+## Live games
+
+Put the code and a QR code on the projector. Students join on their phones.
+
+<table>
+<tr>
+<td width="62%"><img src="docs/screenshots/live-host.png" alt="The host screen during a question: the photo, a countdown bar and four coloured answers"></td>
+<td width="38%"><img src="docs/screenshots/live-player.png" alt="A player's phone: rank, score, two power-ups and the answers"></td>
+</tr>
+</table>
+
+- **One shared countdown.** A 3, 2, 1 starts every question on every screen at
+  the same moment, even when phones have the wrong time.
+- **Streak bonus.** Each right answer in a row adds 10% more points, up to 50%.
+- **Power-ups.** Every player gets one 50/50 and one double points.
+- **Rules chosen in the lobby.** Streak bonus, power-ups, shuffled questions
+  and a lock on late joiners.
+- **A live board** that shows who moved up or down, and a podium at the end.
+- **All the boards work live**, including Match, Reorder and Categorize, and
+  media plays on each player's own device.
+
+<table>
+<tr>
+<td width="33%"><img src="docs/screenshots/live-result.png" alt="A player sees Correct, plus 11 points, with speed and streak bonuses"></td>
+<td width="33%"><img src="docs/screenshots/live-leaderboard.png" alt="The leaderboard with a flame streak beside the leader"></td>
+<td width="33%"><img src="docs/screenshots/live-podium.png" alt="The podium with confetti"></td>
+</tr>
+</table>
+
+---
+
+## Study on your own
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/practice.png" alt="Practice mode showing a correct answer and a two in a row combo"></td>
+<td width="50%"><img src="docs/screenshots/flashcards.png" alt="A flashcard turned over to show its answer"></td>
+</tr>
+</table>
+
+**Practice** checks each answer straight away, marks the right and wrong
+options, counts your run of right answers, and ends with a round of just the
+questions you missed. Every question type works.
+
+**Flashcards** turn over with a tap or the space bar. Throw a card right for
+"got it" or left for "still learning", then review only the ones you keep
+missing.
+
+Neither mode needs an account, and a shared link just works.
+
+---
+
+## For teachers
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/editor.png" alt="The quiz editor: underlined fields and one open question"></td>
+<td width="50%"><img src="docs/screenshots/analytics.png" alt="Analytics: submissions, average, score spread and accuracy per question"></td>
+</tr>
+</table>
+
+- **A calm editor.** The open question is a card, the rest fold to one line.
+  Save any question to a bank and reuse it in other quizzes.
+- **Classes and assignments.** Invite students with a code, set due dates, see
+  who has finished, and notify them when work is set.
+- **Marking.** Everything is graded automatically except paragraphs, which go to
+  a queue with partial credit.
+- **Analytics.** Score spread, accuracy for each question, a sortable results
+  table and a one click CSV export that is safe to open in a spreadsheet.
+- **Live hosting** from the quiz list with one button.
+
+---
+
+## Design
+
+A warm off white page, near black ink, hairline borders and one green. Serif
+headings, a clean sans for the interface and a mono face for numbers. Light is
+the default and dark is a switch away. Animation uses only `transform` and
+`opacity`, follows the system "reduce motion" setting, and is built from one
+shared set of springs so every page moves the same way.
+
+---
+
+## Tech stack
 
 | Layer | Built with |
 |---|---|
-| **Frontend** | React 19, Vite 6, React Router 7 |
-| **Styling** | Tailwind CSS v4, shadcn/ui on Radix, Framer Motion |
-| **Auth** | Firebase Authentication — Google OAuth and email/password |
-| **Database** | Cloud Firestore (7 collections) + Realtime Database for live sessions |
-| **Media** | ImageKit CDN, TUI Image Editor |
-| **Charts** | Recharts |
-| **Hosting** | Vercel — static CDN plus serverless functions |
+| Frontend | React 19, Vite 6, React Router 7 |
+| Styling | Tailwind CSS v4, Radix primitives, Framer Motion, Phosphor icons |
+| Type | Geist, Geist Mono and Instrument Serif, self hosted |
+| Auth | Firebase Authentication: Google and email |
+| Data | Cloud Firestore for quizzes and results, Realtime Database for live games |
+| Media | ImageKit CDN, TUI Image Editor |
+| Hosting | Vercel: static files plus one serverless function |
 
-Authorisation is enforced server-side by Firestore security rules rather than
-in client code, so a modified client cannot read or write what it should not.
+Access is enforced by Firestore security rules. Some parts of the design lean on
+the browser more than they should, and they are listed with a plan to fix them
+in [docs/security.md](docs/security.md).
 
 ---
 
-## Quick Start
+## Run it locally
 
 ```bash
 git clone https://github.com/Haise-727/quiz-app.git
 cd quiz-app
 npm install --legacy-peer-deps
-cp .env.local.example .env.local   # fill in Firebase + ImageKit values
+cp .env.local.example .env.local   # fill in the Firebase and ImageKit values
 npm run dev                        # http://localhost:5173
 ```
 
-`--legacy-peer-deps` is required because `@toast-ui/react-image-editor`
-declares a React 17 peer dependency but runs fine on React 19.
+`--legacy-peer-deps` is needed because `@toast-ui/react-image-editor` declares a
+React 17 peer dependency but runs on React 19.
 
-> **Blank page on first run?** A client environment variable is missing. The
-> ImageKit SDK is constructed at module scope, so an empty `VITE_URL_ENDPOINT`
-> throws during import and React never mounts. See `.env.local.example`.
+A blank page on first run almost always means a missing `VITE_*` value. See
+`.env.local.example`.
+
+The scoring, grading and progress rules are plain functions with their own tests:
+
+```bash
+node scripts/test-gamification.mjs
+node scripts/test-quiz-attempt.mjs
+node scripts/test-live-scoring.mjs
+node scripts/test-csv.mjs
+```
+
+---
+
+## Documentation
+
+| | |
+|---|---|
+| [Technical reference](docs/technical.md) | Structure, design system, scoring rules, schemas |
+| [Security review](docs/security.md) | What is weak today and how to fix it |
+| [Moving to AWS](docs/aws-migration.md) | A plan to leave Firebase and Vercel |
+| [Progress report](docs/progress-report.md) | What is built and what is left |
+| [Contributing](docs/contributing.md) | Setup guide for new collaborators |
+| [Project overview](PROJECT_OVERVIEW.md) | Why it is built the way it is |
 
 ---
 
@@ -148,20 +241,11 @@ declares a React 17 peer dependency but runs fine on React 19.
 
 | | |
 |---|---|
-| **Harsha Vardan M Sakamuri** | Frontend, Backend, Database, Deployment |
-| **Rakshith Shakkthi** | Frontend & UI, Backend |
-
----
-
-## Documentation
-
-- **[Technical reference](docs/technical.md)** — schemas, auth flow, code patterns
-- **[Architecture deep dive](PROJECT_OVERVIEW.md)** — design decisions and trade-offs
-- **[Progress report](docs/progress-report.md)** — what is built, what is left
-- **[Contributing](docs/contributing.md)** — setup guide for new collaborators
+| **Harsha Vardan M Sakamuri** | Frontend, backend, database, deployment |
+| **Rakshith Shakkthi** | Frontend and UI, backend |
 
 <div align="center">
 
-**[Try it live →](https://quizlike.vercel.app)**
+**[Try it live](https://quizlike.vercel.app)**
 
 </div>

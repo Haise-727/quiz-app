@@ -1,152 +1,154 @@
-# Quizlike — Project Progress Report
+# Quizlike progress report
 
-**Status: feature-complete and deployed.** Live at
-https://quizlike.vercel.app — remaining work is polish, testing and the
-nice-to-haves listed at the end.
+**Status: feature complete and deployed** at https://quizlike.vercel.app. The
+last round of work was a full redesign, a game layer on every kind of quiz, and a
+rebuilt live game. What remains is hardening, which is planned together with the
+move to AWS.
 
-## Project Overview
-A full-stack interactive quiz platform in the Kahoot/Quizizz mould. Teachers
-create and manage quizzes and classes; students take them asynchronously or in
-live synchronised sessions. Guests can participate with no account at all.
+## What it is
 
----
-
-## Tech Stack
-- **Frontend:** React 19, React Router 7, Vite 6
-- **Styling:** Tailwind CSS v4, shadcn/ui component system (Radix UI primitives)
-- **Backend:** Firebase Auth (Google OAuth + email/password); one Vercel
-  serverless function for signed ImageKit uploads
-- **Database:** Cloud Firestore (7 collections, role-based security rules) and
-  Firebase Realtime Database (live game sessions)
-- **Animation:** Framer Motion · **Charts:** Recharts
-- **Media:** ImageKit CDN, TUI Image Editor, react-easy-crop
-- **Drag & drop:** @hello-pangea/dnd · **Toasts:** sonner
-- **Deployment:** Vercel, auto-deploying from `main`
+A full stack quiz platform in the style of Kahoot and Quizizz. Teachers build and
+manage quizzes and classes. Students take them alone, as homework, or in a live
+game. Guests can take part with no account.
 
 ---
 
-## Features Implemented
+## Features
 
-### Authentication & user management
-- Google OAuth sign-in via Firebase popup
-- Email/password sign-up and sign-in
-- Role-based accounts: **Teacher** and **Student**, switchable on one account
-- Protected route system with role enforcement and race-condition handling
-- Profile page — edit display name, view account info, switch role
-- Firestore security rules enforcing per-role read/write access
+### Accounts
 
-### Quiz creation (teacher)
-- 9 question types: Multiple Choice (single and multi-select), True/False,
-  Fill in the Blank, Paragraph (manual grading), Match the Following,
-  Reorder, Categorize, Visual Comprehension, Listening Comprehension
-- Rich media on questions and individual answer options (images and video via
-  ImageKit)
-- In-browser image cropping and annotation before upload
-- Draft autosave, with discard option
-- **Full editing of already-published quizzes** — text, media and structure
-- Auto-generated unique join code; activate/deactivate toggle
-- Per-question time limits and point values
-- **Question bank** — save individual questions and reuse them across quizzes
+- Google and email sign in
+- Teacher and student roles on one account, switchable from the profile page
+- Route guards with role checks
+- A profile page: edit your name, see your level and badges, switch role
 
-### Quiz taking
-- **Authenticated students** — graded, results saved to the account
-- **Guest mode** — no account, join by code, results stored under a guest ID
-- **Live multiplayer** — see below
-- Timer countdown per question with auto-advance, pulsing in the final seconds
-- Question dot navigation, animated slide transitions
-- All question types fully interactive
-- Completion screen with score breakdown
+### Building quizzes (teachers)
 
-### Live game engine
-- Teacher hosts a session and receives a 6-digit PIN
-- Players join a lobby from the landing page; teacher controls question reveal
-- Answers, scores and leaderboard sync in real time via Realtime Database
-- Supported live types: MCQ, True/False, Fill in the Blank, Match the
-  Following, Reorder, Categorize, Visual Comprehension and Listening
-  Comprehension. The drag and drop types and the comprehension types score
-  partial credit. Paragraph questions are skipped and reported in the session
-  summary
-- Pictures, audio and video show on every live question and play on each
-  player's own device; a clip longer than the time limit extends the clock
-- Synthesised sound effects for game events
+- Nine question types: multiple choice (one or several answers), true or false,
+  fill in the blank, paragraph (marked by hand), match, reorder, categorize,
+  visual comprehension and listening comprehension
+- Pictures, audio and video on questions and on answer options
+- Crop and annotate images before upload
+- Draft autosave, and full editing of published quizzes
+- A join code for every quiz, an active switch, a time limit and points per question
+- A question bank to save and reuse questions
 
-### Classes & assignments
-- Teachers create classes and enrol students
-- Assign quizzes to a class with due dates and completion tracking
-- In-app notification system with a notification bell
+### Taking quizzes
 
-### Teacher dashboard & management
-- Live stats: active quizzes, total quizzes, unique students, completed sessions
-- Quiz management — search, filter, activate/deactivate, preview, delete
-- Grading interface — pending submissions first, manual point entry per answer
-- **Analytics** per quiz: score distribution chart, per-question pass rate
-  chart, sortable results table, CSV export
+- One shared quiz screen for signed in students and guests
+- A timer ring, a progress strip, and animated moves between questions
+- Keyboard shortcuts: number and letter keys to choose, Enter and arrows to move
+- Match and Categorize by dragging or by tapping, with a tray pinned to the top on phones
+- Sound effects, with a mute switch
 
-### Student dashboard & results
-- Personal stats: quizzes taken, average score, best score, time spent
-- Recent activity feed with score badges
-- **Your Results** — full review of every past attempt with per-question
-  breakdown, correct answers revealed, partial credit shown
-- **Score timeline** — line chart of scores over time
-- Join by code or browse available quizzes
+### The game layer
 
-### Study modes (public, no login)
-- **Practice mode** — self-paced, no timer, no score saved; immediate
-  correct/wrong feedback, "Reveal Answer" for complex types, session summary
-- **Flashcard mode** — CSS 3D flip cards, works for all question types,
-  "Got It" / "Still Learning" tracking, shuffle, review-flagged-only, mastery bar
+- XP for every quiz: more for accuracy, a bonus for a perfect score, and only
+  the best attempt on each quiz counts
+- Levels, a daily streak and eleven badges, all worked out from saved results
+- A result screen that fills the XP bar, levels up and shows new badges
+- Guests keep progress on their device until they sign up
+- A student dashboard and sidebar chip that show level, XP and streak
 
-### Discovery, sharing & UI
-- **Browse** — public search across all active quizzes
-- Play / Practice / Flashcards entry points per quiz; share-link copy button
-- **Dark mode** — full theme toggle honouring OS preference, persisted to
-  localStorage
-- Consistent theming: orange for teacher views, blue/purple for student views
-- shadcn/ui throughout; Framer Motion transitions; responsive mobile/desktop
-- Toast notifications, loading and empty states, proper 404 page
+### Live games
+
+- The host picks the rules in the lobby: streak bonus, power-ups, shuffled
+  questions, and a lock on late joiners
+- A QR code and a link as well as the code, with copy buttons
+- A shared 3, 2, 1 on every device, using server time
+- Streak bonus up to +50%, a 50/50 and a double points power-up for each player
+- A leaderboard that shows who moved, and a podium
+- Eight of the nine question types, including Match, Reorder and Categorize
+- Pictures, audio and video on each player's own device. A long clip extends the clock
+- The host can kick players and export the results as a spreadsheet
+
+### Study modes (public, no sign in)
+
+- **Practice:** every question type, instant feedback with right and wrong marked
+  on the options, a combo counter, a show answer button and a round of the ones you missed
+- **Flashcards:** turn over, throw right or left, a run counter, and a review of
+  the cards still being learned
+
+### Classes and assignments
+
+- Create classes, invite students by code, assign quizzes with due dates, and
+  track who has finished
+- In app notifications
+
+### Teacher tools
+
+- A home page with live numbers, a quiz list with a menu per quiz, and one button to host
+- Grading with a queue of pending answers and partial credit
+- Analytics for each quiz: score spread, accuracy per question and a student table
+- A CSV export that neutralises spreadsheet formulas
+
+### Student pages
+
+- Join by code or browse open quizzes
+- Results: a stats strip, a score trend, averages by subject, and every attempt
+  with a full review of each answer
+
+### Design
+
+- Light by default with a dark option, one green accent, serif headings
+- Motion limited to transform and opacity, and reduced when the system asks
+- Phone friendly everywhere, with skeleton loaders and calm empty states
 
 ---
 
-## Routes (22 routes across 21 page components)
+## Routes
 
 | Page | Route | Access |
 |---|---|---|
 | Landing | `/` | Public |
 | Browse | `/browse` | Public |
 | Login | `/login` | Public |
-| Guest Quiz | `/quiz/:quizId` | Public |
-| Practice Mode | `/practice/:quizId` | Public |
-| Flashcard Mode | `/flashcards/:quizId` | Public |
-| Live Play | `/play`, `/play/:pin` | Public |
-| Profile | `/profile` | Any signed-in user |
-| Teacher Home | `/teacher/home` | Teacher |
-| Create Quiz | `/teacher/create-quiz` | Teacher |
-| Edit Quiz | `/teacher/edit-quiz/:quizId` | Teacher |
-| Your Quizzes | `/teacher/your-quizzes` | Teacher |
+| Guest quiz | `/quiz/:quizId` | Public |
+| Practice | `/practice/:quizId` | Public |
+| Flashcards | `/flashcards/:quizId` | Public |
+| Live play | `/play`, `/play/:pin` | Public |
+| Profile | `/profile` | Any signed in user |
+| Teacher home | `/teacher/home` | Teacher |
+| Create quiz | `/teacher/create-quiz` | Teacher |
+| Edit quiz | `/teacher/edit-quiz/:quizId` | Teacher |
+| Your quizzes | `/teacher/your-quizzes` | Teacher |
 | Classes | `/teacher/classes` | Teacher |
-| Question Bank | `/teacher/question-bank` | Teacher |
+| Question bank | `/teacher/question-bank` | Teacher |
 | Grading | `/teacher/grading/:quizId` | Teacher |
 | Analytics | `/teacher/analytics/:quizId` | Teacher |
-| Host Live Session | `/teacher/host/:pin` | Teacher |
-| Student Dashboard | `/student/dashboard` | Student |
-| Attend Quiz | `/student/attend-quiz` | Student |
-| Take Quiz | `/student/quiz/:quizId` | Student |
-| Your Results | `/student/results` | Student |
-| 404 | `*` | Public |
+| Host live game | `/teacher/host/:pin` | Teacher |
+| Student dashboard | `/student/dashboard` | Student |
+| Join a quiz | `/student/attend-quiz` | Student |
+| Take quiz | `/student/quiz/:quizId` | Student |
+| Results | `/student/results` | Student |
+| Not found | `*` | Public |
 
-Plus four legacy redirects kept so old links keep working.
+Four old links redirect so that shared URLs keep working.
 
 ---
 
-## Remaining Work
+## Quality
 
-**Should be done before this is production-grade**
-- **Automated tests** — there is no test suite; all testing has been manual
-- **Tighten Realtime Database rules** — `sessions` is currently readable and
-  writable by any client with only a shape check
-- **CI pipeline** — run lint and build on push
+- Unit tests for XP and levels, grading, live scoring and the CSV export. Each
+  was checked by breaking a rule on purpose and watching the test fail.
+- Every page was opened in a real browser with real data: a guest, a student and
+  a teacher, a live game with a host and two players, phone width and dark mode.
+- Real image, audio and video files were uploaded through the same steps the
+  editor uses, then checked on every page that shows media.
+
+## Remaining work
+
+**Before this is production grade**
+
+- Close the gaps in [security.md](security.md). The biggest are answer keys that
+  can be read, scores that the browser writes, and the open live game database.
+- Move to AWS, following [aws-migration.md](aws-migration.md). The hardening and
+  the move are the same job.
+- Run lint, build and the unit tests on every push.
+- Commit browser tests for the main flows.
 
 **Nice to have**
-- CreateQuiz: drag-to-reorder questions, duplicate question, in-page preview
-- Bulk question import from CSV or Google Forms
-- Cross-quiz and per-student analytics trends
+
+- Drag to reorder questions in the editor, and duplicate a question
+- Import questions from CSV
+- Cross quiz and per student trends for teachers

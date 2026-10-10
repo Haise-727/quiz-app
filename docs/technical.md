@@ -1,252 +1,273 @@
-# Quizlike — Technical Reference
+# Quizlike technical reference
 
-Field-level schemas, auth flow and code patterns. For architecture and
-rationale see [PROJECT_OVERVIEW.md](../PROJECT_OVERVIEW.md).
+Schemas, rules and code patterns. For what the project is, see the
+[README](../README.md). For the cloud move, see [aws-migration.md](aws-migration.md).
+For known weaknesses, see [security.md](security.md).
 
-## Project Structure
+## Project structure
 
 ```
 quiz-app/
-├── api/
-│   └── auth.js                  # Vercel function: signs ImageKit upload params
+├── api/auth.js                    Vercel function: signs ImageKit upload tokens
 ├── src/
-│   ├── components/
-│   │   ├── ui/                  # shadcn/ui (button, card, dialog, tabs, badge, …)
-│   │   ├── layout/
-│   │   │   └── DashboardLayout.jsx
-│   │   ├── MediaUploader.jsx    # upload → crop → annotate → ImageKit
-│   │   ├── MediaRenderer.jsx  MediaPreview.jsx  Image.jsx
-│   │   ├── AnswerReveal.jsx     # shared "correct answer" view with media (Practice, Flashcards)
-│   │   ├── ImageCropperModal.jsx  ImageEditorModal.jsx
-│   │   ├── NotificationBell.jsx  Confetti.jsx
-│   │   └── ProtectedRoute.jsx
-│   ├── contexts/
-│   │   ├── AuthContext.jsx      # user, role, sign-in methods, switchRole
-│   │   └── ThemeContext.jsx
 │   ├── pages/
-│   │   ├── Landing.jsx          # public home + 6-box PIN entry
-│   │   ├── Browse.jsx           # public quiz discovery
-│   │   ├── Login.jsx            # unified auth (Google + email)
-│   │   ├── Profile.jsx  Practice.jsx  Flashcards.jsx  NotFound.jsx
-│   │   ├── PlaySession.jsx      # player view of a live game
-│   │   ├── Guest/GuestTakeQuiz.jsx
-│   │   ├── Teacher/
-│   │   │   ├── TeacherHome.jsx  CreateQuiz.jsx  YourQuizzes.jsx
-│   │   │   ├── Grading.jsx  Analytics.jsx  Classes.jsx
-│   │   │   ├── QuestionBank.jsx
-│   │   │   └── HostSession.jsx  # host view of a live game
-│   │   └── Student/
-│   │       ├── StudentDashboard.jsx  AttendQuiz.jsx
-│   │       └── TakeQuiz.jsx  YourResults.jsx
+│   │   ├── Landing.jsx  Browse.jsx  Login.jsx  NotFound.jsx     public
+│   │   ├── Practice.jsx  Flashcards.jsx                          public study modes
+│   │   ├── PlaySession.jsx                                       a player in a live game
+│   │   ├── Guest/GuestTakeQuiz.jsx                               a guest taking a quiz
+│   │   ├── Student/   StudentDashboard  AttendQuiz  TakeQuiz  YourResults
+│   │   ├── Teacher/   TeacherHome  CreateQuiz  YourQuizzes  Classes  QuestionBank
+│   │   │              Grading  Analytics  HostSession
+│   │   └── Profile.jsx
+│   ├── components/
+│   │   ├── quiz/      QuizRunner  QuestionView  OptionCard  PlacementChip  QuizBrowser ...
+│   │   ├── live/      LiveOption  Countdown  Leaderboard  Podium  PowerUpBar  ...
+│   │   ├── game/      XPBar  LevelBadge  StreakChip  BadgeTile  AnimatedNumber  JoinField
+│   │   ├── landing/   HeroDemo  LevelDemo
+│   │   ├── layout/    DashboardLayout  PageHeader  PublicNav  PublicFooter
+│   │   ├── teacher/   CopyCodeButton  Skeleton
+│   │   └── ui/        button  input  dialog  dropdown-menu  switch  ...
 │   ├── utils/
-│   │   ├── liveSession.js       # Realtime DB session lifecycle + scoring
-│   │   ├── classHelpers.js      # classes and enrolment
-│   │   ├── assignmentHelpers.js # due dates, completion counts
-│   │   ├── questionBankHelpers.js
-│   │   ├── media.js             # mediaKind, getMainMedia, getSubQuestions (one rule for every page)
-│   │   ├── mediaUpload.js       # uploadQuestionMedia: editor files to ImageKit (Publish, Save to Bank)
-│   │   ├── notifications.js  sounds.js
-│   │   └── devTools.js          # clearInvalidQuizzes, clearAllQuizResults, seedTestQuiz
-│   ├── styles/                  # page-specific CSS (CreateQuiz, TakeQuiz)
-│   ├── lib/utils.js             # cn() helper (clsx + tailwind-merge)
-│   ├── firebase.js              # exports db, auth, realtimeDb, googleProvider
-│   ├── App.jsx                  # route table + ProtectedRoute guards
-│   └── main.jsx                 # root render + Toaster
-├── scripts/
-│   └── seed-media-quiz.mjs      # real upload + quiz seeding for media testing
+│   │   ├── gamification.js     XP, levels, streaks, badges (pure)
+│   │   ├── quizAttempt.js      answer shapes and grading (pure)
+│   │   ├── liveScoring.js      live game rules (pure)
+│   │   ├── liveSession.js      live game database calls
+│   │   ├── guestProgress.js    a guest's progress, kept in the browser
+│   │   ├── csv.js              safe spreadsheet export
+│   │   ├── media.js  mediaUpload.js  quizLookup.js  sounds.js  ...
+│   ├── contexts/      AuthContext  ThemeContext  ProgressContext
+│   ├── hooks/useQuizKeys.js
+│   ├── lib/motion.js           the shared animation language
+│   ├── index.css               design tokens and base styles
+│   └── firebase.js
+├── scripts/                    unit tests and the media seeding script
 ├── docs/
-├── firestore.rules              # deploy via Firebase Console
-├── database.rules.json          # Realtime DB rules
-└── vercel.json
+├── firestore.rules  database.rules.json  vercel.json
 ```
 
-## Question Types
+## Design system
 
-Nine types, selected per question in CreateQuiz:
+The look is deliberately small: one warm off white canvas, near black ink,
+hairline borders and a single green. Everything is a token in
+`src/index.css`, so dark mode is a second set of the same names.
 
-| Value | Label | Auto-graded |
-|---|---|---|
-| `MCQ` | Multiple Choice (single or multi-select) | yes |
-| `TRUE_FALSE` | True / False | yes |
-| `FILL_IN_THE_BLANK` | Fill in the Blank | yes |
-| `PARAGRAPH` | Paragraph | no — manual grading |
-| `MATCH_THE_FOLLOWING` | Match the Following | yes |
-| `CATEGORIZE` | Categorize | yes |
-| `REORDER` | Reorder | yes |
-| `VISUAL_COMPREHENSION` | Visual Comprehension (media + sub-questions) | yes |
-| `LISTENING_COMPREHENSION` | Listening Comprehension (media + sub-questions) | yes |
+| Token | Use |
+|---|---|
+| `--background`, `--foreground` | page and text |
+| `--ink` | the default button and anything that needs weight |
+| `--primary` | green for go actions (join, start, host). Passes contrast as text and behind white text |
+| `--brand` | a brighter green for decoration only, such as progress fills |
+| `--tint-*` and `--tint-*-fg` | pastel pairs for status chips, never for large areas |
+| `--flame` | streak fire |
 
-Live mode plays eight of the nine types. See `LIVE_SUPPORTED_TYPES` in
-`src/utils/liveSession.js`: `MCQ`, `TRUE_FALSE`, `FILL_IN_THE_BLANK`,
-`MATCH_THE_FOLLOWING`, `REORDER`, `CATEGORIZE`, `VISUAL_COMPREHENSION` and
-`LISTENING_COMPREHENSION`. Paragraph questions need a teacher to mark them, so
-they are skipped and counted in `skippedCount`. A comprehension question with
-no gradable follow up question is skipped the same way.
+Type is Geist for the interface, Instrument Serif for display headings
+(`text-hero`) and Geist Mono for small labels and numbers (`eyebrow`,
+`tabular`). The fonts are self hosted through `@fontsource` packages, so nothing
+loads from a third party. Icons are Phosphor (`react-icons/pi`).
 
-A comprehension question is one live question. The player sees the image, audio
-or video once, with every follow up question under it, and answers as many as
-they can before the clock runs out.
+Light is the default everywhere. Dark is opt in: `[data-theme="dark"]` on the
+root, set by a small script in `index.html` before first paint so there is no
+flash. The `dark:` variant follows that toggle, not the operating system.
 
-The answer a live player writes to
-`sessions/{pin}/answers/{questionIndex}/{playerId}/answer` is plain JSON:
+Motion lives in `src/lib/motion.js`: a stiff `spring` for presses and
+selections, `springPop` for rewards, `stagger` and `rise` for entrances, and
+`slideQuestion` between questions. Only `transform` and `opacity` are animated.
+The app is wrapped in `MotionConfig reducedMotion="user"`, so people who ask
+their system for less motion get fades.
 
-| Type | Shape |
+## Gamification
+
+Nothing about XP is stored. It is worked out from the quiz results the app
+already saves, by the pure functions in `src/utils/gamification.js`. That means
+there is no new field to forge, the rules can change without a data migration,
+and the same file can run on a server later.
+
+| Rule | Value |
+|---|---|
+| XP for an attempt | `round(questions * 10 * accuracy)` plus `questions * 2`, plus 25 for a perfect score, capped at 250 |
+| Which attempts count | The best attempt on each quiz, so a retake earns only the difference |
+| Level `n` starts at | `50 * n * (n - 1)` XP |
+| Streak | Days in a row with at least one result. It stays alive until the end of the next day |
+| Badges | 11, each with a target value and a progress bar while locked |
+
+A signed in student's progress comes from `ProgressContext`, which fetches
+results once and shares them with the sidebar chip, the dashboard and the
+profile. A guest's results are kept in `localStorage` (`guestProgress.js`) and
+the result screen invites them to sign up to keep it.
+
+## Taking a quiz
+
+`QuizRunner` is one component used by the signed in quiz and the guest quiz, so
+they behave the same. It owns the timer, navigation and saving. It draws each
+question with `QuestionView`, which only knows how to show a question and report
+answer changes.
+
+`src/utils/quizAttempt.js` holds the answer shapes and the grading. The shapes
+are what gets saved as `userAnswer` on a result and what the review pages read,
+so they must not change:
+
+| Type | Stored answer |
 |---|---|
 | `MCQ` | `[optionId, ...]` |
 | `TRUE_FALSE` | boolean |
-| `FILL_IN_THE_BLANK` | string |
-| `MATCH_THE_FOLLOWING` | `{ [promptPairId]: pairIdOfTheAnswerDroppedThere }` |
-| `REORDER` | `[itemId, ...]` in the player's order |
-| `CATEGORIZE` | `{ [itemId]: categoryId }` |
-| `VISUAL_COMPREHENSION`, `LISTENING_COMPREHENSION` | `{ s0: [optionId, ...], s2: [optionId, ...] }` |
+| `FILL_IN_THE_BLANK`, `PARAGRAPH` | string |
+| `MATCH_THE_FOLLOWING` | `{ pairs: { [pairId]: { answerText, answerMedia, ... } } }` |
+| `REORDER` | `[item, ...]` in the student's order |
+| `CATEGORIZE` | `{ bank: [...], [categoryId]: [item, ...] }` |
+| `VISUAL_COMPREHENSION`, `LISTENING_COMPREHENSION` | `{ [subQuestionIndex]: [optionId, ...] }` |
 
-The comprehension keys are `s0`, `s1` and so on, never bare numbers. The
-Realtime Database turns an object with whole number keys into an array, and a
-player who skips follow up question 0 would come back as an array padded with
-nulls. The `s` prefix keeps it an object. `getSubAnswers` in the same file still
-accepts both shapes, so an answer that did arrive as an array is scored fairly.
+Match, Reorder and Categorize give partial credit in proportion. Match and
+Categorize use pointer based placement (`PlacementChip`, `placement.js`) with
+tap to place as the fallback. Reorder uses `@hello-pangea/dnd`. The pointer
+approach replaced the drag library for placement because its drop selection
+grows the hovered zone by the height of the dragged item, which picked the wrong
+slot when slots were stacked.
 
-The three simple types are all or nothing. The drag and drop types score
-partial credit, which is the share of pairs matched, items left in the right
-position, or items dropped in the right category. A comprehension question
-scores the share of follow up points earned, where each follow up question is
-worth its own `points` (5 if unset). In every case the result is multiplied by
-the same speed bonus. Only a fully correct answer sets `correct` and extends a
-streak.
+Practice and Flashcards reuse the same boards and grading. Practice checks a
+question with `gradeQuestion` and shows right and wrong on the options. Neither
+study mode saves anything.
 
-Audio and video play on each player's own device with normal controls, so a
-remote player can replay a clip. The host screen shows the same media.
+## Live games
 
-A clip can be longer than the question's time limit. The host measures the
-media once it has loaded and writes a later `questionEndsAt`, and every screen
-counts down to that same instant. The clock only ever moves later, and the
-reveal waits until the media has loaded, so nobody loses the picture the
-question is about.
-
-## Realtime Database — `sessions/{pin}`
-
-Live game state. `pin` is a 6-digit code, checked for collision on creation.
+State is in the Realtime Database under `sessions/{pin}`. The rules of a game
+are pure functions in `src/utils/liveScoring.js`, which is where they are
+tested. `src/utils/liveSession.js` only talks to the database.
 
 ```
-{
-  quizId: string,
-  quizTitle: string,
-  hostId: string (uid),
-  totalQuestions: number,      // playable questions only
-  skippedCount: number,        // questions dropped as unsupported in live mode
-  state: "lobby" | "question" | "reveal" | "leaderboard" | "ended",
-  currentQuestionIndex: number,
-  questionStartedAt: number (ms) | null,
-  questionEndsAt: number (ms) | null,   // set by the host when a clip is longer than the time limit
-  createdAt: number (ms),
-  players: { [playerId]: { name, score, joinedAt } },
-  answers: { [questionIndex]: { [playerId]: { answer, timeTakenMs, points } } }
-}
+sessions/{pin}
+  quizId, quizTitle, hostId, totalQuestions, skippedCount, createdAt
+  state: "lobby" | "question" | "reveal" | "leaderboard" | "ended"
+  currentQuestionIndex, questionStartedAt, questionEndsAt
+  settings: { streakBonus, powerUps, shuffle, lockOnStart }
+  order: [position, ...]                      only when shuffle is on
+  players: { [playerId]: { name, score, streak, bestStreak, correctCount, joinedAt,
+                           powerups: { fifty, double }, doubleFor, fiftyFor } }
+  answers: { [questionIndex]: { [playerId]: { answer, correct, points, parts, answeredAt } } }
 ```
 
-The session is deleted when the host ends the game.
+**Time.** Every timestamp is server time. `serverNow()` reads
+`.info/serverTimeOffset` and corrects the device clock, because a phone that is
+a few seconds off would otherwise start a question early or late.
+`questionStartedAt` is set three seconds in the future so every screen shows the
+same 3, 2, 1. The host can move `questionEndsAt` later when a clip is longer
+than the time limit. It only ever moves later.
 
-## Auth Flow
+**Scoring.** `points = round(base * (1 + streakPct/100) * (usedFifty ? 0.5 : 1) * (doubled && correct ? 2 : 1))`
+where `base` is the question's points weighted by speed.
+
+| Rule | Value |
+|---|---|
+| Streak bonus | +10% for each earlier correct answer in a row, up to +50%. Only fully correct answers count |
+| 50/50 | Hides wrong options until half remain and halves the points. One per game |
+| Double | Doubles the points if the answer is correct. One per game |
+| Partial credit | Match, Categorize and comprehension score the share earned. Only a full answer sets `correct` |
+| Ranking | Ties share a rank, and the leaderboard shows who moved up or down |
+
+A player's score, streak and stored answer are all computed inside one
+transaction from the player's own record, so a bonus or a double cannot apply
+twice, and answering twice returns the first result.
+
+**Settings.** The host picks them in the lobby. `shuffle` stores one random
+`order` that everyone reads. `lockOnStart` makes `joinSession` refuse late
+joiners.
+
+**Types.** Eight of the nine question types play live (`LIVE_SUPPORTED_TYPES`).
+Paragraph needs marking by hand, so it is skipped and counted in
+`skippedCount`. Comprehension questions are one live question with partial
+credit. Their answer keys are `s0`, `s1` and so on, never bare numbers, because
+the Realtime Database turns an object with whole number keys into an array.
+
+## Question types
+
+| Value | Label | Graded automatically |
+|---|---|---|
+| `MCQ` | Multiple choice, single or multi select | yes |
+| `TRUE_FALSE` | True or false | yes |
+| `FILL_IN_THE_BLANK` | Fill in the blank | yes |
+| `PARAGRAPH` | Paragraph | no, a teacher marks it |
+| `MATCH_THE_FOLLOWING` | Match the following | yes |
+| `CATEGORIZE` | Categorize | yes |
+| `REORDER` | Reorder | yes |
+| `VISUAL_COMPREHENSION` | Image plus follow up questions | yes |
+| `LISTENING_COMPREHENSION` | Audio or video plus follow up questions | yes |
+
+## Media
+
+Every picture, clip or recording on a question is stored as one small object,
+and the file itself lives on ImageKit.
 
 ```
-Google sign-in
-  → new user: show role picker → createUserProfile → navigate to dashboard
-  → existing user: fetchUserData → navigate to dashboard
-
-Email sign-in
-  → signInWithEmailAndPassword → onAuthStateChanged → fetchUserData
-  → navigate (via useEffect in Login)
-
-Email sign-up
-  → createUserWithEmailAndPassword → updateProfile → createUserProfile → navigate
-
-Role switch (post-login)
-  → switchRole(newRole) → updateDoc users/{uid} → setUserRole(newRole)
-  → ProtectedRoute detects mismatch → auto-redirects to correct dashboard
-
-Guest
-  → join by quiz code, no account
-  → generateGuestId() → results written with isGuest: true
+{ url, fileId, fileType: "image" | "video" | "audio", cropData? }
 ```
 
-## Key Patterns
+It can sit in `media`, an MCQ option's `media`, a match pair's `promptMedia` and
+`answerMedia`, a categorize or reorder item's `media`, and `visualData.mainMedia`
+or `listeningData.mainMedia` for the comprehension types. Never read
+`question.media` directly: use `getMainMedia` and `getSubQuestions` from
+`src/utils/media.js`.
 
-### Route protection
-```jsx
-// App.jsx
-<ProtectedRoute role="teacher">  // enforces role
-<ProtectedRoute>                 // any authenticated user
-// Public routes have no wrapper
+The editor keeps a picked file in memory until the teacher publishes. Publish and
+"Save to bank" call `uploadQuestionMedia`, which asks `/api/auth` for a short
+lived signed token (the ImageKit private key stays on the server), uploads, and
+writes the object onto a copy of the question.
+
+`fileType` comes from the browser's MIME type, because ImageKit calls every audio
+and video file "non-image". Older quizzes still hold that value, and `mediaKind`
+falls back to the file extension for them.
+
+`scripts/seed-media-quiz.mjs` follows the same steps as the browser against a
+throwaway teacher account, so media bugs can be tested with real files. Run it
+with `--dir <folder>`, then `--cleanup`. Its header says what it creates and what
+it cannot delete.
+
+## Auth flow
+
+```
+Google sign in
+  new user       role picker, then createUserProfile, then the dashboard
+  existing user  fetchUserData, then the dashboard
+
+Email sign in    signInWithEmailAndPassword, then onAuthStateChanged, then fetchUserData
+Email sign up    createUserWithEmailAndPassword, updateProfile, createUserProfile
+Role switch      switchRole updates users/{uid}; ProtectedRoute redirects to the right home
+Guest            joins by code with no account; results are written with isGuest: true
 ```
 
-### shadcn component usage
-```jsx
-import { Button } from '@/components/ui/button';
-// variant="student" → blue gradient
-// variant="teacher" → orange gradient
-// variant="app"     → indigo gradient
+Routes are guarded in `App.jsx`: `<ProtectedRoute role="teacher">` enforces a
+role, `<ProtectedRoute>` needs any signed in user, and public routes have no
+wrapper. Roles are a preference stored in the profile, not a security boundary.
+See [security.md](security.md).
+
+## Spreadsheet export
+
+`src/utils/csv.js` quotes every cell and neutralises values that start with `=`,
+`+`, `-`, `@`, a tab or a carriage return, so a name typed as a formula cannot
+run when a teacher opens the export. The analytics export uses it.
+
+## Tests
+
+The rules that matter are plain functions, tested without a browser:
+
+```
+node scripts/test-gamification.mjs     XP, levels, streaks, badges (run it under several time zones)
+node scripts/test-quiz-attempt.mjs     answer shapes and grading
+node scripts/test-live-scoring.mjs     live scoring, streaks, power-ups, ranking
+node scripts/test-csv.mjs              formula neutralising
 ```
 
-### Media
-
-Every picture, audio clip or video on a question is stored as one small object
-and nothing else. The file itself lives on ImageKit.
-
-```
-{ url: string, fileId: string, fileType: "image" | "video" | "audio", cropData?: {...} }
-```
-
-The object can sit in any of these places on a question: `media`, an MCQ
-option's `media`, a match pair's `promptMedia` and `answerMedia`, a categorize
-or reorder item's `media`, and `visualData.mainMedia` or
-`listeningData.mainMedia` for the comprehension types.
-
-How a file gets there. The editor keeps a picked file in memory until the
-teacher publishes. Publish and "Save to Bank" both call `uploadQuestionMedia` in
-`src/utils/mediaUpload.js`, which asks `/api/auth` for a short lived signed
-token (the ImageKit private key stays on the server), uploads to ImageKit, and
-writes the object above onto a copy of the question. The editor only fields
-(`localMediaFile`, `localCropData` and so on) are removed before anything is
-saved.
-
-`fileType` is taken from the browser's MIME type, because ImageKit calls every
-audio and video file "non-image". Quizzes saved before that change still hold
-`"non-image"`. `mediaKind` in `src/utils/media.js` handles both: it trusts a
-real `fileType` and otherwise falls back to the file extension, so old quizzes
-keep working.
-
-Every page that shows a quiz renders media through `MediaRenderer`, and the
-"here is the correct answer" view that Practice and Flashcards share lives in
-`src/components/AnswerReveal.jsx`. Where a question keeps its main media, and
-where its follow up questions are, comes from `getMainMedia` and
-`getSubQuestions` in `src/utils/media.js`. Do not read `question.media` directly,
-because comprehension questions keep theirs somewhere else.
-
-Testing it. `scripts/seed-media-quiz.mjs` follows the same steps as the browser:
-it uploads real files to ImageKit through `/api/auth` and writes a quiz with
-media in every slot, using a throwaway teacher account. Run it with
-`node scripts/seed-media-quiz.mjs --dir <folder of images, audio and video>`,
-then `--cleanup` when you are done. Its header explains exactly what it creates
-and what it cannot delete. Add `--legacy` to store ImageKit's raw `"non-image"`
-value and test the old data shape.
-
-### Dev tools (TeacherHome)
-- **Clear Invalid Quizzes** — deletes quiz docs using the old schema (`text`
-  field instead of `questionText`)
-- **Clear All Quiz Results** — wipes results for the signed-in teacher
-- **Seed Test Quiz** — creates a quiz covering every question type, `active: true`
+Each file checks its own behaviour and was mutation checked: break a rule on
+purpose and the matching test fails. Run them before a commit that touches
+`src/utils`.
 
 ## Environment
 
-- Dev server: `npm run dev` · Build: `npm run build` · Lint: `npm run lint`
-- Firebase config is read from `VITE_*` environment variables in
-  `src/firebase.js`; copy `.env.local.example` to `.env.local` and fill it in.
-  Nothing secret is committed. `.env.local.example` lists every variable and
-  says where to find each value.
+- Dev server `npm run dev`, build `npm run build`, lint `npm run lint`.
+- Firebase config comes from `VITE_*` variables read in `src/firebase.js`. Copy
+  `.env.local.example` to `.env.local`. Nothing secret is committed.
 - `npm run dev` does not serve the `api` folder. `vite.config.js` forwards `/api`
   to the deployed app so uploads work locally. Set `VITE_API_PROXY` to test a
-  preview deployment instead.
-- ImageKit server credentials (`IMAGEKIT_PRIVATE_KEY` and friends) are set in
-  Vercel project settings only.
-- `npm install` needs `--legacy-peer-deps`: `@toast-ui/react-image-editor`
-  declares a React 17 peer dependency but runs correctly on React 19.
+  preview deployment.
+- ImageKit server credentials live in the Vercel project settings only.
+- `npm install` needs `--legacy-peer-deps`, because
+  `@toast-ui/react-image-editor` declares a React 17 peer dependency but runs on
+  React 19.
