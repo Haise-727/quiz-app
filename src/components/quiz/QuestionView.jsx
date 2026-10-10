@@ -24,7 +24,7 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
  * @param onDragEnd  the drag and drop result handler (Match, Reorder, Categorize)
  * @param onEnter    called when Enter is pressed inside a text answer, to move on
  */
-export default function QuestionView({ question, answer, onChange, onDragEnd, onEnter }) {
+export default function QuestionView({ question, answer, onChange, onDragEnd, onEnter, reveal = false }) {
   const media = getMainMedia(question);
   const kind = media ? mediaKind(media) : null;
   const multi = question.type === 'MCQ' && isMultiSelect(question);
@@ -55,7 +55,7 @@ export default function QuestionView({ question, answer, onChange, onDragEnd, on
       {multi && <p className="eyebrow mt-3">Select all that apply</p>}
 
       <div className="mt-8">
-        <QuestionBody question={question} answer={answer} onChange={onChange} onDragEnd={onDragEnd} onEnter={onEnter} />
+        <QuestionBody question={question} answer={answer} onChange={onChange} onDragEnd={onDragEnd} onEnter={onEnter} reveal={reveal} />
       </div>
     </div>
   );
@@ -65,18 +65,21 @@ export default function QuestionView({ question, answer, onChange, onDragEnd, on
  * Just the answer area for a question, with no heading or media of its own, so a page that
  * draws those itself (the live game) can reuse the same answer boards.
  */
-export function QuestionBody({ question, answer, onChange, onDragEnd, onEnter }) {
+export function QuestionBody({ question, answer, onChange, onDragEnd, onEnter, reveal = false }) {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div>
         {question.type === 'MCQ' && (
-            <OptionList mcq={question} picked={answer || []} onPick={(id) => onChange(id)} />
+            <OptionList mcq={question} picked={answer || []} onPick={(id) => onChange(id)} reveal={reveal} />
           )}
 
           {question.type === 'TRUE_FALSE' && (
             <div className="grid grid-cols-2 gap-3">
               {[true, false].map((value) => (
-                <OptionCard key={String(value)} size="lg" letter={value ? 'T' : 'F'} selected={answer === value} onSelect={() => onChange(value)}>
+                <OptionCard
+                  key={String(value)} size="lg" letter={value ? 'T' : 'F'} selected={answer === value} onSelect={() => onChange(value)}
+                  tone={reveal ? (question.trueFalseData?.correctAnswer === value ? 'correct' : answer === value ? 'wrong' : 'dim') : undefined}
+                >
                   {value ? 'True' : 'False'}
                 </OptionCard>
               ))}
@@ -125,7 +128,7 @@ export function QuestionBody({ question, answer, onChange, onDragEnd, onEnter })
                     <span>{sub.questionText}</span>
                   </p>
                   {sub.type === 'MCQ' && (
-                    <OptionList mcq={sub} picked={answer?.[si] || []} onPick={(id) => onChange(id, si)} />
+                    <OptionList mcq={sub} picked={answer?.[si] || []} onPick={(id) => onChange(id, si)} reveal={reveal} />
                   )}
                 </div>
               ))}
@@ -139,8 +142,11 @@ export function QuestionBody({ question, answer, onChange, onDragEnd, onEnter })
 
 // ── Options ───────────────────────────────────────────────────────────────────────────
 
-function OptionList({ mcq, picked, onPick }) {
+function OptionList({ mcq, picked, onPick, reveal = false }) {
   const multi = isMultiSelect(mcq);
+  const right = (mcq.mcqData.correctOptions || []).map(String);
+  // Once the answer is checked, right options turn green, a wrong pick red, the rest fade.
+  const toneOf = (id) => (!reveal ? undefined : right.includes(String(id)) ? 'correct' : picked.includes(id) ? 'wrong' : 'dim');
   return (
     <motion.div
       variants={stagger(0.035)} initial="hidden" animate="show"
@@ -148,7 +154,7 @@ function OptionList({ mcq, picked, onPick }) {
     >
       {mcq.mcqData.options.map((opt, i) => (
         <motion.div key={opt.id} variants={rise}>
-          <OptionCard letter={LETTERS[i]} multi={multi} selected={picked.includes(opt.id)} onSelect={() => onPick(opt.id)} media={opt.media}>
+          <OptionCard letter={LETTERS[i]} multi={multi} selected={picked.includes(opt.id)} onSelect={() => onPick(opt.id)} media={opt.media} tone={toneOf(opt.id)}>
             {opt.text}
           </OptionCard>
         </motion.div>

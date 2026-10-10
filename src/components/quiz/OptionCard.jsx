@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { PiCheckBold } from 'react-icons/pi';
+import { PiCheckBold, PiXBold } from 'react-icons/pi';
 import { spring, springPop } from '@/lib/motion';
 import MediaRenderer from '../MediaRenderer';
 import { MiniMedia } from '../AnswerReveal';
@@ -15,8 +15,10 @@ import { mediaKind } from '@/utils/media';
  *
  * @param letter    the label in the key chip (A, B, C, or T and F)
  * @param multi     true when several answers can be chosen (square chip, checkbox role)
+ * @param tone      after an answer is checked: 'correct' (a right answer), 'wrong' (your wrong
+ *                  pick) or 'dim' (neither). Leave it off while the question is still open.
  */
-export default function OptionCard({ letter, selected, multi = false, onSelect, media, size = 'md', children }) {
+export default function OptionCard({ letter, selected, multi = false, onSelect, media, size = 'md', tone, children }) {
   const choose = () => onSelect?.();
   return (
     <motion.div
@@ -30,9 +32,12 @@ export default function OptionCard({ letter, selected, multi = false, onSelect, 
       className={`group flex w-full cursor-pointer items-center gap-4 rounded-xl border text-left outline-none select-none
         focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--background))]
         ${size === 'lg' ? 'min-h-24 justify-center px-6 py-6 text-xl font-medium' : 'min-h-14 px-4 py-3 text-base'}
-        ${selected
-          ? 'border-[hsl(var(--primary))] bg-[hsl(var(--tint-green))]'
-          : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--input))] hover:bg-[hsl(var(--muted))]/50'}`}
+        ${tone === 'correct' ? 'border-[hsl(var(--primary))] bg-[hsl(var(--tint-green))]'
+          : tone === 'wrong' ? 'border-[hsl(var(--destructive))] bg-[hsl(var(--tint-red))]'
+          : tone === 'dim' ? 'border-[hsl(var(--border))] bg-[hsl(var(--card))] opacity-50'
+          : selected
+            ? 'border-[hsl(var(--primary))] bg-[hsl(var(--tint-green))]'
+            : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--input))] hover:bg-[hsl(var(--muted))]/50'}`}
     >
       <span className="relative grid h-7 w-7 shrink-0 place-items-center">
         {selected && (
@@ -46,12 +51,16 @@ export default function OptionCard({ letter, selected, multi = false, onSelect, 
         )}
         <span
           className={`relative grid h-7 w-7 place-items-center border font-mono text-xs font-medium transition-colors duration-150 ${multi ? 'rounded-md' : 'rounded-full'}
-            ${selected
+            ${tone === 'correct' ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
+            : tone === 'wrong' ? 'border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))]'
+            : selected
               ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]'
               : 'border-[hsl(var(--input))] text-[hsl(var(--muted-foreground))] group-hover:border-[hsl(var(--ink))]/40'}`}
         >
           <AnimatePresence mode="wait" initial={false}>
-            {selected
+            {tone === 'wrong'
+              ? <motion.span key="cross" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={springPop} className="grid place-items-center"><PiXBold className="h-3.5 w-3.5" /></motion.span>
+              : selected || tone === 'correct'
               ? <motion.span key="tick" initial={{ scale: 0, rotate: -40 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0 }} transition={springPop} className="grid place-items-center"><PiCheckBold className="h-3.5 w-3.5" /></motion.span>
               : <motion.span key="letter" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.08 }}>{letter}</motion.span>}
           </AnimatePresence>

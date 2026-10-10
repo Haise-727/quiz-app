@@ -1,472 +1,369 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  CheckCircle2, XCircle, ChevronLeft, ChevronRight,
-  RotateCcw, BookOpen, Eye, Home, Trophy, Volume2, VolumeX,
-} from 'lucide-react';
-import { playCorrect, playWrong, playComplete, isSoundEnabled, toggleSound } from '../utils/sounds';
-import MediaRenderer from '../components/MediaRenderer';
-import { MiniMedia, CorrectAnswer } from '../components/AnswerReveal';
-import { mediaKind, getMainMedia, getSubQuestions, isComprehension } from '../utils/media';
+  PiArrowLeftBold, PiArrowRightBold, PiCheckBold, PiCheckCircleFill, PiEyeBold, PiFlameFill,
+  PiMinusCircleFill, PiSpeakerHighBold, PiSpeakerSlashBold, PiXBold, PiXCircleFill,
+} from 'react-icons/pi';
+import { db } from '@/firebase';
+import { Button } from '@/components/ui/button';
+import { Kbd } from '@/components/ui/kbd';
+import Confetti from '@/components/Confetti';
+import AnimatedNumber from '@/components/game/AnimatedNumber';
+import QuestionView from '@/components/quiz/QuestionView';
+import { CorrectAnswer } from '@/components/AnswerReveal';
+import useQuizKeys from '@/hooks/useQuizKeys';
+import { changeAnswer, dragAnswer, gradeQuestion, initialAnswer, isAnswered, isMultiSelect } from '@/utils/quizAttempt';
+import { isSoundEnabled, playClick, playComplete, playCorrect, playSelect, playStreak, playWrong, toggleSound } from '@/utils/sounds';
+import { ease, rise, slideQuestion, spring, springPop, stagger } from '@/lib/motion';
 
-// ── Comprehension (image / audio / video plus several questions) ──────────────
-// Each sub-question is checked on its own, then the whole question counts as
-// correct only when every sub-question was right.
-const PracticeComprehension = ({ q, answered, savedPicks, onFinish }) => {
-  const subs = getSubQuestions(q);
-  // Keep each sub-question's real index so answers line up with the live game.
-  const gradable = subs.map((s, i) => ({ s, i })).filter(({ s }) => s?.type === 'MCQ' && s.mcqData?.options?.length);
-  const [picks, setPicks] = useState(savedPicks || {});
-  const [checked, setChecked] = useState(() => (answered ? gradable.map(({ i }) => i) : []));
-
-  const isRight = (s, ids) => {
-    const want = (s.mcqData.correctOptions || []).map(String);
-    const got = (ids || []).map(String);
-    return want.length > 0 && want.length === got.length && want.every(id => got.includes(id));
-  };
-
-  const toggle = (i, s, optId) => {
-    if (checked.includes(i)) return;
-    const multi = (s.mcqData.correctOptions?.length || 0) > 1;
-    setPicks(prev => {
-      const cur = prev[i] || [];
-      const next = multi ? (cur.includes(optId) ? cur.filter(x => x !== optId) : [...cur, optId]) : [optId];
-      return { ...prev, [i]: next };
-    });
-  };
-
-  const check = (i) => {
-    const nextChecked = [...checked, i];
-    setChecked(nextChecked);
-    // The last sub-question checked finishes the whole question.
-    if (gradable.every(({ i: idx }) => nextChecked.includes(idx))) {
-      onFinish(gradable.every(({ s, i: idx }) => isRight(s, picks[idx])), picks);
-    }
-  };
-
-  if (!gradable.length) {
-    return <p className="text-sm italic text-[hsl(var(--muted-foreground))]">This question has no follow up questions.</p>;
-  }
-
-  return (
-    <div className="flex flex-col gap-5">
-      {gradable.map(({ s, i }, n) => {
-        const done = checked.includes(i);
-        const multi = (s.mcqData.correctOptions?.length || 0) > 1;
-        return (
-          <div key={s.id ?? i} className="flex flex-col gap-2">
-            <p className="text-sm font-semibold">{n + 1}. {s.questionText}</p>
-            {multi && !done && (
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">Select all that apply</p>
-            )}
-            {s.mcqData.options.map(opt => {
-              const chosen = (picks[i] || []).includes(opt.id);
-              const correct = s.mcqData.correctOptions.map(String).includes(String(opt.id));
-              let cls = 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/40';
-              if (done) {
-                if (correct) cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
-                else if (chosen) cls = 'border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/5 text-[hsl(var(--destructive))]';
-                else cls = 'border-[hsl(var(--border))] opacity-40';
-              } else if (chosen) {
-                cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
-              }
-              return (
-                <div key={opt.id} role="button" tabIndex={done ? -1 : 0} aria-disabled={done}
-                  onClick={() => toggle(i, s, opt.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(i, s, opt.id); } }}
-                  className={`flex items-center gap-3 p-3 rounded-md border text-xs text-left transition-all ${done ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
-                  <MiniMedia media={opt.media} />
-                  <span className="font-medium">{opt.text}</span>
-                </div>
-              );
-            })}
-            {!done && (
-              <Button onClick={() => check(i)} disabled={!(picks[i] || []).length} variant="outline"
-                className="self-start text-xs py-1 px-3 border-[hsl(var(--border))]">
-                Check answer
-              </Button>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+const SEGMENT = {
+  correct: 'bg-[hsl(var(--brand))]',
+  partial: 'bg-[hsl(var(--tint-yellow-fg))]/60',
+  wrong: 'bg-[hsl(var(--destructive))]/70',
+  seen: 'bg-[hsl(var(--ink))]/35',
+  upcoming: 'bg-[hsl(var(--border))]',
 };
 
-// ── Main page ─────────────────────────────────────────────────────────────────
-const Practice = () => {
+// These show right and wrong on the options themselves, so they need no separate answer.
+const OPTION_TYPES = ['MCQ', 'TRUE_FALSE', 'VISUAL_COMPREHENSION', 'LISTENING_COMPREHENSION'];
+
+/** How a checked question counts: right, partly right, wrong, or only looked at. */
+const verdictOf = (c) => {
+  if (!c) return null;
+  if (c.revealed || c.status === 'pending_review') return 'seen';
+  if (c.correct) return 'correct';
+  return c.pts > 0 ? 'partial' : 'wrong';
+};
+
+function ComboChip({ n }) {
+  return (
+    <AnimatePresence>
+      {n >= 2 && (
+        <motion.span
+          key="combo"
+          initial={{ opacity: 0, scale: 0.7 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.7 }}
+          transition={springPop}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[hsl(var(--tint-yellow))] px-2.5 py-1 text-xs font-medium tabular text-[hsl(var(--tint-yellow-fg))]"
+          aria-label={`${n} correct in a row`}
+        >
+          <PiFlameFill className="h-3.5 w-3.5 text-[hsl(var(--flame))]" />
+          <motion.span key={n} initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={spring}>{n} in a row</motion.span>
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** What you see under a question once it has been checked. */
+function Feedback({ question, check, combo }) {
+  const v = verdictOf(check);
+  const tone = {
+    correct: ['bg-[hsl(var(--tint-green))] text-[hsl(var(--tint-green-fg))]', PiCheckCircleFill, 'Correct'],
+    partial: ['bg-[hsl(var(--tint-yellow))] text-[hsl(var(--tint-yellow-fg))]', PiMinusCircleFill, 'Partly right'],
+    wrong: ['bg-[hsl(var(--tint-red))] text-[hsl(var(--tint-red-fg))]', PiXCircleFill, 'Not quite'],
+    seen: ['bg-[hsl(var(--tint-neutral))] text-[hsl(var(--tint-neutral-fg))]', PiEyeBold, check?.status === 'pending_review' ? 'Open answer, compare with the sample' : 'Answer shown'],
+  }[v];
+  const [cls, Icon, label] = tone;
+  // The verdict can land below a long list of options and under the sticky footer. It is the
+  // last thing on the page, so scroll to the bottom once it has had a moment to lay out.
+  useEffect(() => {
+    const t = setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 120);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease }}
+      aria-live="polite"
+      className="mt-8"
+    >
+      <div className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 ${cls}`}>
+        <p className="flex items-center gap-2.5 text-base font-medium">
+          <motion.span initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={springPop} className="inline-flex"><Icon className="h-5 w-5" /></motion.span>
+          {label}
+        </p>
+        {v === 'correct' && <ComboChip n={combo} />}
+      </div>
+      {v !== 'correct' && !OPTION_TYPES.includes(question.type) && (
+        <div className="mt-5">
+          <p className="eyebrow mb-2">Correct answer</p>
+          <CorrectAnswer q={question} tone="plain" />
+        </div>
+      )}
+    </motion.section>
+  );
+}
+
+export default function Practice() {
   const { quizId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [quiz, setQuiz] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState('loading');           // loading | playing | done | error
   const [error, setError] = useState('');
+  const [deck, setDeck] = useState([]);                    // the questions being practised, so a retry can use only the missed ones
   const [index, setIndex] = useState(0);
-  const [results, setResults] = useState([]);
-  const [fillInput, setFillInput] = useState('');
-  const [mcqSelection, setMcqSelection] = useState([]);
-  const [done, setDone] = useState(false);
   const [direction, setDirection] = useState(1);
+  const [answers, setAnswers] = useState([]);
+  const [checks, setChecks] = useState({});                // index -> { pts, correct, status, revealed }
+  const [combo, setCombo] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const comboRef = useRef(0);
+
+  const begin = useCallback((questions) => {
+    setDeck(questions);
+    setAnswers(questions.map(initialAnswer));
+    setChecks({});
+    setIndex(0);
+    setDirection(1);
+    comboRef.current = 0;
+    setCombo(0);
+    setBestCombo(0);
+    setPhase('playing');
+  }, []);
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
         const snap = await getDoc(doc(db, 'quizzes', quizId));
-        if (!snap.exists()) { setError('Quiz not found.'); return; }
+        if (!snap.exists()) { setError('We could not find that quiz.'); setPhase('error'); return; }
         const data = snap.data();
+        if (!data.questions?.length) { setError('This quiz has no questions yet.'); setPhase('error'); return; }
         setQuiz(data);
-        setResults(data.questions.map(() => ({ answered: false, correct: false, selected: null })));
-      } catch { setError('Failed to load quiz.'); }
-      finally { setLoading(false); }
-    };
-    load();
-  }, [quizId]);
+        begin(data.questions);
+      } catch {
+        setError('We could not load the quiz. Check your connection and try again.');
+        setPhase('error');
+      }
+    })();
+  }, [quizId, begin]);
 
-  if (loading) return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
-    </div>
-  );
-  if (error) return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex flex-col items-center justify-center gap-4 text-[hsl(var(--foreground))] p-8">
-      <XCircle className="w-12 h-12 text-red-500 mb-2" />
-      <h2 className="text-lg font-bold">{error}</h2>
-      <Button onClick={() => navigate('/')} variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]">Go Home</Button>
-    </div>
-  );
+  const leave = () => (location.key !== 'default' ? navigate(-1) : navigate('/browse'));
 
-  const q = quiz?.questions[index];
-  const r = results[index];
-  const score = results.filter(r => r.answered && r.correct === true).length;
-  const scorePct = quiz ? Math.round((score / quiz.questions.length) * 100) : 0;
+  const question = deck[index];
+  const checked = checks[index];
 
-  const answer = (updates) => {
-    if (updates.correct === true) playCorrect();
-    else if (updates.correct === false) playWrong();
-    setResults(prev => { const n = [...prev]; n[index] = { ...n[index], answered: true, ...updates }; return n; });
-  };
-
-  const isMultiSelect = (q.mcqData?.correctOptions?.length || 0) > 1;
-
-  const toggleMcqOption = (optId) => {
-    if (r.answered) return;
-    setMcqSelection(prev => prev.includes(optId) ? prev.filter(id => id !== optId) : [...prev, optId]);
-  };
-
-  const submitMcq = (selectedIds) => {
-    if (r.answered || !selectedIds.length) return;
-    const correctIds = q.mcqData.correctOptions.map(String);
-    const given = selectedIds.map(String);
-    const isCorrect = correctIds.length > 0 && correctIds.length === given.length && correctIds.every(id => given.includes(id));
-    answer({ correct: isCorrect, selected: selectedIds });
-  };
-
-  const handleMCQ = (optId) => {
-    if (isMultiSelect) { toggleMcqOption(optId); return; }
-    submitMcq([optId]);
-  };
-
-  const handleFill = () => {
-    if (r.answered || !fillInput.trim()) return;
-    const correct = q.fillBlankData.answers.map(a => a.text.toLowerCase()).includes(fillInput.trim().toLowerCase());
-    answer({ correct, selected: fillInput.trim() });
-  };
-
-  const handleTrueFalse = (val) => {
-    if (r.answered) return;
-    answer({ correct: val === q.trueFalseData.correctAnswer, selected: val });
-  };
-
-  const handleReveal = () => { if (!r.answered) answer({ correct: null, selected: null }); };
-
-  const goNext = () => {
-    if (index < quiz.questions.length - 1) {
-      setDirection(1); setIndex(i => i + 1); setFillInput(''); setMcqSelection([]);
+  // Marks the question and moves the combo. `given` lets a tap grade itself before state settles.
+  const check = (given) => {
+    if (checks[index]) return;
+    const result = { ...gradeQuestion(question, given) };
+    if (result.status === 'pending_review') {
+      // Nothing to mark: the sample answer is shown, and the combo is left alone.
+      playClick();
+    } else if (result.correct) {
+      comboRef.current += 1;
+      playCorrect();
+      if (comboRef.current >= 2) setTimeout(() => playStreak(Math.min(comboRef.current, 6)), 140);
     } else {
-      playComplete();
-      setDone(true);
+      comboRef.current = 0;
+      playWrong();
     }
+    setCombo(comboRef.current);
+    setBestCombo((b) => Math.max(b, comboRef.current));
+    setChecks((c) => ({ ...c, [index]: result }));
   };
 
-  const goPrev = () => {
-    if (index > 0) {
-      setDirection(-1); setIndex(i => i - 1); setMcqSelection([]);
-      const prevSelected = results[index - 1]?.selected;
-      setFillInput(typeof prevSelected === 'string' ? prevSelected : '');
-    }
+  const reveal = () => {
+    if (checks[index]) return;
+    comboRef.current = 0;
+    setCombo(0);
+    setChecks((c) => ({ ...c, [index]: { pts: 0, correct: false, status: 'auto_graded', revealed: true } }));
   };
 
-  const reset = () => {
-    setIndex(0); setDone(false); setFillInput('');
-    setResults(quiz.questions.map(() => ({ answered: false, correct: false, selected: null })));
+  const setAnswerAt = (i, next) => setAnswers((list) => { const copy = list.slice(); copy[i] = next; return copy; });
+
+  const onChange = (value, sub = null) => {
+    if (checked) return;
+    const next = changeAnswer(question, answers[index], value, sub);
+    setAnswerAt(index, next);
+    const single = question.type === 'TRUE_FALSE' || (question.type === 'MCQ' && !isMultiSelect(question));
+    if (single) { playSelect(); check(next); }                  // one tap, instant feedback
+    else if (question.type === 'MCQ' || sub !== null) playSelect();
   };
 
-  // ── Done screen ──────────────────────────────────────────────────────────────
-  // ── Done screen ──────────────────────────────────────────────────────────────
-  if (done) {
+  const onDragEnd = (drag) => {
+    if (!drag.destination || checked) return;
+    playClick();
+    setAnswerAt(index, dragAnswer(question, answers[index], drag.source, drag.destination));
+  };
+
+  const isLast = index === deck.length - 1;
+  const go = (step) => {
+    const to = index + step;
+    if (to < 0) return;
+    if (to >= deck.length) { playComplete(); setPhase('done'); return; }
+    setDirection(step);
+    setIndex(to);
+  };
+
+  const onPrimary = () => {
+    if (checked) go(1);
+    else if (isAnswered(question, answers[index])) check(answers[index]);
+  };
+
+  useQuizKeys({
+    onNext: () => phase === 'playing' && onPrimary(),
+    onPrev: () => phase === 'playing' && go(-1),
+    onChoose: (i, letter) => {
+      if (phase !== 'playing' || !question || checked) return;
+      if (question.type === 'MCQ') { const opt = question.mcqData.options[i]; if (opt) onChange(opt.id); }
+      else if (question.type === 'TRUE_FALSE') { if (letter === 't' || i === 0) onChange(true); else if (letter === 'f' || i === 1) onChange(false); }
+    },
+  }, phase === 'playing');
+
+  // ── Results ────────────────────────────────────────────────────────────────────────
+  const tally = useMemo(() => {
+    const t = { correct: 0, partial: 0, wrong: 0, seen: 0 };
+    deck.forEach((_, i) => { const v = verdictOf(checks[i]); if (v) t[v] += 1; });
+    return t;
+  }, [deck, checks]);
+  const gradable = deck.length - tally.seen;
+  const pct = gradable > 0 ? Math.round((tally.correct / gradable) * 100) : 0;
+  const missed = deck.filter((_, i) => ['wrong', 'partial'].includes(verdictOf(checks[i])) || checks[i]?.revealed);
+
+  // ── Screens ────────────────────────────────────────────────────────────────────────
+  if (phase === 'error') {
     return (
-      <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Decorative background grid and blobs */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      <main className="grid min-h-dvh place-items-center bg-[hsl(var(--background))] px-6">
+        <div className="max-w-md text-center">
+          <p className="eyebrow">Practice unavailable</p>
+          <h1 className="text-hero mt-3 text-4xl">{error}</h1>
+          <Button className="mt-7" onClick={() => navigate('/browse')}>Browse quizzes</Button>
         </div>
-
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg p-8 w-full max-w-lg text-[hsl(var(--foreground))] text-center shadow-md">
-          <Trophy className="w-10 h-10 text-[hsl(var(--primary))] mx-auto mb-3" />
-          <h1 className="text-xl font-bold tracking-tight mb-1">Practice Complete!</h1>
-          <p className="text-xs text-[hsl(var(--muted-foreground))] mb-6">{quiz.title}</p>
-
-          <div className="w-28 h-28 mx-auto rounded-full bg-[hsl(var(--muted))]/30 border border-[hsl(var(--border))] flex flex-col items-center justify-center mb-6">
-            <span className="text-3xl font-bold text-[hsl(var(--primary))]">{scorePct}%</span>
-            <span className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">{score}/{quiz.questions.length} correct</span>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {quiz.questions.map((q, i) => (
-              <div key={i} className={`flex items-center gap-3 text-left px-3 py-2 rounded-md text-xs border ${results[i].correct === true ? 'bg-[hsl(var(--primary))]/5 border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : results[i].correct === false ? 'bg-red-500/5 border-red-500/20 text-red-400' : 'bg-[hsl(var(--muted))]/20 border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]'}`}>
-                {results[i].correct === true ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> :
-                 results[i].correct === false ? <XCircle className="w-3.5 h-3.5 shrink-0" /> :
-                 <Eye className="w-3.5 h-3.5 shrink-0" />}
-                <span className="truncate">{q.questionText}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-3 mt-6">
-            <Button onClick={reset} variant="outline" className="flex-1 gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]">
-              <RotateCcw className="w-3.5 h-3.5" /> Again
-            </Button>
-            <Button onClick={() => navigate('/')} className="flex-1 gap-2 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-hover))] text-[hsl(var(--primary-foreground))] border-0">
-              <Home className="w-3.5 h-3.5" /> Home
-            </Button>
-          </div>
-        </motion.div>
-      </div>
+      </main>
     );
   }
 
-  // ── Active question ──────────────────────────────────────────────────────────
-  const variants = {
-    enter: d => ({ x: d > 0 ? 120 : -120, opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: d => ({ x: d < 0 ? 120 : -120, opacity: 0 }),
-  };
+  if (phase === 'loading') {
+    return (
+      <main className="grid min-h-dvh place-items-center bg-[hsl(var(--background))]">
+        <div className="flex flex-col items-center gap-4" role="status">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[hsl(var(--border))] border-t-[hsl(var(--ink))]" />
+          <p className="eyebrow">Loading practice</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (phase === 'done') {
+    return (
+      <main className="relative min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+        {pct === 100 && gradable > 0 && <Confetti count={90} />}
+        <motion.div variants={stagger(0.07)} initial="hidden" animate="show" className="mx-auto max-w-2xl px-5 pb-20 pt-16 sm:px-6 sm:pt-24">
+          <motion.p variants={rise} className="eyebrow">Practice complete</motion.p>
+          <motion.h1 variants={rise} className="text-hero mt-3 text-6xl leading-none sm:text-7xl">
+            <AnimatedNumber value={pct} format={(n) => `${Math.round(n)}%`} duration={1} />
+          </motion.h1>
+          <motion.p variants={rise} className="mt-3 text-[hsl(var(--muted-foreground))]">{quiz.title}</motion.p>
+
+          <motion.dl variants={rise} className="mt-10 grid grid-cols-3 divide-x divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+            {[['Right', tally.correct], ['Missed', tally.wrong + tally.partial], ['Best run', bestCombo]].map(([label, value], i) => (
+              <div key={label} className={`py-5 ${i === 0 ? 'pr-5' : 'px-5'}`}>
+                <dt className="eyebrow">{label}</dt>
+                <dd className="mt-2 text-3xl font-medium"><AnimatedNumber value={value} duration={0.8} delay={0.3} /></dd>
+              </div>
+            ))}
+          </motion.dl>
+
+          <motion.ul variants={stagger(0.03)} className="mt-8 divide-y divide-[hsl(var(--border))]">
+            {deck.map((q, i) => {
+              const v = verdictOf(checks[i]) || 'seen';
+              const Icon = { correct: PiCheckCircleFill, partial: PiMinusCircleFill, wrong: PiXCircleFill, seen: PiEyeBold }[v];
+              const color = { correct: 'text-[hsl(var(--primary))]', partial: 'text-[hsl(var(--tint-yellow-fg))]', wrong: 'text-[hsl(var(--destructive))]', seen: 'text-[hsl(var(--muted-foreground))]' }[v];
+              return (
+                <motion.li key={q.id ?? i} variants={rise} className="flex items-center gap-3 py-3 text-sm">
+                  <Icon className={`h-4 w-4 shrink-0 ${color}`} aria-label={v} />
+                  <span className="min-w-0 flex-1 truncate">{q.questionText}</span>
+                </motion.li>
+              );
+            })}
+          </motion.ul>
+
+          <motion.div variants={rise} className="mt-10 flex flex-wrap gap-3">
+            {missed.length > 0 && <Button variant="brand" size="lg" onClick={() => begin(missed)}>Practice the {missed.length} I missed <PiArrowRightBold /></Button>}
+            <Button variant={missed.length ? 'outline' : 'default'} size="lg" onClick={() => begin(quiz.questions)}>Start over</Button>
+            <Button variant="ghost" size="lg" onClick={() => navigate('/browse')}>Back to quizzes</Button>
+          </motion.div>
+        </motion.div>
+      </main>
+    );
+  }
+
+  const states = deck.map((_, i) => (i === index ? 'current' : verdictOf(checks[i]) || 'upcoming'));
+  const ready = isAnswered(question, answers[index]);
+  const hasOptions = question.type === 'MCQ' || question.type === 'TRUE_FALSE';
 
   return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex flex-col items-center py-8 px-4 relative overflow-x-hidden">
-      {/* Decorative background grid and blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-      </div>
+    <div className="relative flex min-h-dvh flex-col bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(55%_100%_at_50%_0%,hsl(var(--brand)/0.07),transparent)]" />
 
-      {/* Header */}
-      <div className="relative z-10 w-full max-w-2xl flex items-center justify-between mb-6">
-        <Link to="/" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
-          <Home className="w-4 h-4" />
-        </Link>
-        <div className="text-center">
-          <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-widest font-semibold mb-0.5">Practice Mode</p>
-          <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))] truncate max-w-48">{quiz.title}</p>
+      <header className="relative mx-auto flex w-full max-w-3xl items-center gap-4 px-5 pt-5 sm:px-6">
+        <button type="button" onClick={leave} aria-label="Leave practice" className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]">
+          <PiXBold className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <p className="truncate text-sm font-medium"><span className="eyebrow mr-2">Practice</span>{quiz.title}</p>
+            <div className="flex shrink-0 items-center gap-3">
+              <ComboChip n={combo} />
+              <p className="eyebrow tabular">{index + 1} / {deck.length}</p>
+            </div>
+          </div>
+          <div className="flex gap-1" role="progressbar" aria-valuemin={1} aria-valuemax={deck.length} aria-valuenow={index + 1} aria-label="Practice progress">
+            {states.map((s, i) => (
+              <motion.div
+                key={i}
+                animate={{ scaleY: i === index ? 1.9 : 1 }}
+                transition={spring}
+                className={`h-1.5 min-w-[3px] flex-1 origin-center rounded-full transition-colors duration-200 ${s === 'current' ? (checks[i] ? SEGMENT[verdictOf(checks[i])] : SEGMENT.seen) : SEGMENT[s]}`}
+              />
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setSoundOn(toggleSound())} title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
-            className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
-            {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-          </button>
-          <Badge variant="outline" className="bg-[hsl(var(--muted))]/50 border-[hsl(var(--border))] text-xs">
-            {index + 1}/{quiz.questions.length}
-          </Badge>
+        <button type="button" onClick={() => setSoundOn(toggleSound())} aria-label={soundOn ? 'Mute sounds' : 'Unmute sounds'} className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]">
+          {soundOn ? <PiSpeakerHighBold className="h-4 w-4" /> : <PiSpeakerSlashBold className="h-4 w-4" />}
+        </button>
+      </header>
+
+      <main className="relative mx-auto w-full max-w-3xl flex-1 px-5 py-9 sm:px-6 sm:py-12">
+        <AnimatePresence mode="wait" custom={direction} initial={false}>
+          <motion.div key={`${index}-${deck.length}`} custom={direction} variants={slideQuestion} initial="enter" animate="center" exit="exit">
+            {/* Once a question is checked its answer is final, so it stops taking input. */}
+            <div inert={checked ? true : undefined} className={checked ? 'opacity-90' : ''}>
+              <QuestionView question={question} answer={answers[index]} onChange={onChange} onDragEnd={onDragEnd} onEnter={onPrimary} reveal={!!checked} />
+            </div>
+            {checked && <Feedback question={question} check={checked} combo={combo} />}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      <footer className="sticky bottom-0 z-10 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))]/85 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-5 py-3.5 sm:px-6">
+          <Button variant="ghost" aria-label="Back" onClick={() => go(-1)} disabled={index === 0}><PiArrowLeftBold /> <span className="hidden sm:inline">Back</span></Button>
+
+          <p className="hidden text-xs text-[hsl(var(--muted-foreground))] sm:[@media(pointer:fine)]:block">
+            {hasOptions && !checked
+              ? <span className="inline-flex items-center gap-1.5"><Kbd>1</Kbd> to <Kbd>{question.type === 'TRUE_FALSE' ? '2' : Math.min(question.mcqData?.options?.length || 4, 9)}</Kbd> answers at once</span>
+              : <span className="inline-flex items-center gap-1.5"><Kbd>Enter</Kbd> {checked ? 'next' : 'check'}</span>}
+          </p>
+
+          <div className="flex items-center gap-2">
+            {!checked && <Button variant="ghost" onClick={reveal}><PiEyeBold /> Show answer</Button>}
+            {checked ? (
+              <Button size="lg" variant={isLast ? 'brand' : 'default'} onClick={onPrimary}>{isLast ? 'Finish' : 'Next'} {isLast ? <PiCheckBold /> : <PiArrowRightBold />}</Button>
+            ) : (
+              <Button size="lg" onClick={onPrimary} disabled={!ready}>Check <PiCheckBold /></Button>
+            )}
+          </div>
         </div>
-      </div>
-
-      {/* Progress */}
-      <div className="w-full max-w-2xl mb-6">
-        <div className="h-1 bg-[hsl(var(--muted))] rounded-full overflow-hidden">
-          <motion.div className="h-full bg-[hsl(var(--primary))]"
-            animate={{ width: `${((index + 1) / quiz.questions.length) * 100}%` }}
-            transition={{ duration: 0.2 }} />
-        </div>
-        <div className="flex justify-center gap-1 mt-2">
-          {quiz.questions.map((_, i) => (
-            <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i === index ? 'bg-[hsl(var(--primary))] scale-110' : results[i].correct === true ? 'bg-[hsl(var(--primary))]/80' : results[i].correct === false ? 'bg-red-500/80' : results[i].answered ? 'bg-[hsl(var(--muted-foreground))]' : 'bg-[hsl(var(--muted))]'}`} />
-          ))}
-        </div>
-      </div>
-
-      {/* Question card */}
-      <AnimatePresence initial={false} custom={direction} mode="wait">
-        <motion.div key={index} custom={direction} variants={variants} initial="enter" animate="center" exit="exit"
-          transition={{ type: 'tween', ease: 'easeInOut', duration: 0.2 }}
-          className="w-full max-w-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-lg p-6 mb-6">
-
-          {/* The picture, clip or recording the question is about. Comprehension
-              questions keep theirs inside visualData / listeningData. */}
-          {getMainMedia(q) && (
-            <div className="mb-4 flex justify-center">
-              <MediaRenderer media={getMainMedia(q)} transform="question_main"
-                className={mediaKind(getMainMedia(q)) === 'audio' ? 'w-full max-w-md' : 'block max-w-full max-h-72 rounded-lg'} />
-            </div>
-          )}
-
-          <p className="text-lg font-bold leading-relaxed mb-4">{q.questionText}</p>
-
-          {/* Comprehension: media above, several questions below */}
-          {isComprehension(q.type) && (
-            <PracticeComprehension key={`${quizId}-${index}`} q={q} answered={r.answered} savedPicks={r.selected}
-              onFinish={(correct, picks) => answer({ correct, selected: picks })} />
-          )}
-
-          {/* MCQ */}
-          {q.type === 'MCQ' && (
-            <div className="flex flex-col gap-2">
-              {isMultiSelect && !r.answered && (
-                <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold -mt-1 mb-1">Select all that apply</p>
-              )}
-              {q.mcqData.options.map(opt => {
-                const liveSelection = r.answered ? r.selected : mcqSelection;
-                const isSelected = (liveSelection || []).includes(opt.id);
-                const isCorrectOpt = q.mcqData.correctOptions.includes(opt.id);
-                let cls = 'border-[hsl(var(--border))] bg-transparent hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/40';
-                if (r.answered) {
-                  if (isCorrectOpt) cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
-                  else if (isSelected) cls = 'border-red-500 bg-red-500/5 text-red-400';
-                  else cls = 'border-[hsl(var(--border))] bg-transparent opacity-40';
-                } else if (isSelected) {
-                  cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
-                }
-                return (
-                  // A div, not a button: an option can hold a video or audio player, and
-                  // interactive controls inside a <button> do not work in every browser.
-                  <div key={opt.id} role="button" tabIndex={r.answered ? -1 : 0} aria-disabled={r.answered}
-                    onClick={() => { if (!r.answered) handleMCQ(opt.id); }}
-                    onKeyDown={(e) => { if (!r.answered && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleMCQ(opt.id); } }}
-                    className={`flex items-center gap-3 p-3 rounded-md border text-xs text-left transition-all ${r.answered ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
-                    <div className={`w-4 h-4 ${isMultiSelect ? 'rounded' : 'rounded-full'} border flex items-center justify-center shrink-0 transition-all ${r.answered && isCorrectOpt ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : r.answered && isSelected ? 'border-red-500 bg-red-500' : isSelected ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]' : 'border-[hsl(var(--border))]'}`}>
-                      {r.answered && isCorrectOpt && <CheckCircle2 className="w-2.5 h-2.5 text-[hsl(var(--primary-foreground))]" />}
-                      {r.answered && isSelected && !isCorrectOpt && <XCircle className="w-2.5 h-2.5 text-white" />}
-                      {!r.answered && isSelected && <CheckCircle2 className="w-2.5 h-2.5 text-[hsl(var(--primary-foreground))]" />}
-                    </div>
-                    <MiniMedia media={opt.media} />
-                    <span className="font-medium">{opt.text}</span>
-                  </div>
-                );
-              })}
-              {isMultiSelect && !r.answered && (
-                <Button onClick={() => submitMcq(mcqSelection)} disabled={!mcqSelection.length}
-                  className="mt-1 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-hover))] text-[hsl(var(--primary-foreground))] border-0">
-                  Submit Answer
-                </Button>
-              )}
-              {r.answered && (
-                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  className={`mt-2 px-3 py-2 rounded-md text-xs font-semibold ${r.correct ? 'bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                  {r.correct ? 'Correct!' : 'Not quite — the correct answer is highlighted.'}
-                </motion.div>
-              )}
-            </div>
-          )}
-
-          {/* True / False */}
-          {q.type === 'TRUE_FALSE' && (
-            <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-2 gap-3">
-                {[true, false].map(val => {
-                  const isSelected = r.selected === val;
-                  const isCorrectVal = q.trueFalseData.correctAnswer === val;
-                  let cls = 'border-[hsl(var(--border))] bg-transparent hover:border-[hsl(var(--primary))]/40 hover:bg-[hsl(var(--muted))]/40';
-                  if (r.answered) {
-                    if (isCorrectVal) cls = 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 text-[hsl(var(--primary))]';
-                    else if (isSelected) cls = 'border-red-500 bg-red-500/5 text-red-400';
-                    else cls = 'border-[hsl(var(--border))] bg-transparent opacity-40';
-                  }
-                  return (
-                    <button key={String(val)} disabled={r.answered} onClick={() => handleTrueFalse(val)}
-                      className={`flex items-center justify-center gap-2 py-3 rounded-md border font-bold text-sm transition-all ${r.answered ? 'cursor-default' : 'cursor-pointer'} ${cls}`}>
-                      {val ? 'True' : 'False'}
-                    </button>
-                  );
-                })}
-              </div>
-              {r.answered && (
-                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  className={`mt-1 px-3 py-2 rounded-md text-xs font-semibold ${r.correct ? 'bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                  {r.correct ? 'Correct!' : 'Not quite — the correct answer is highlighted.'}
-                </motion.div>
-              )}
-            </div>
-          )}
-
-          {/* Fill in blank */}
-          {q.type === 'FILL_IN_THE_BLANK' && (
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <Input value={fillInput} onChange={e => setFillInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleFill()}
-                  disabled={r.answered}
-                  placeholder="Type your answer…"
-                  className="bg-transparent border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))]/40 focus-visible:border-[hsl(var(--primary))]" />
-                {!r.answered && (
-                  <Button onClick={handleFill} className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-[hsl(var(--primary-foreground))] border-0 shrink-0 text-xs py-1.5 px-3 rounded-md">
-                    Check
-                  </Button>
-                )}
-              </div>
-              {r.answered && (
-                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  className={`px-3 py-2 rounded-md text-xs ${r.correct ? 'bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                  {r.correct ? 'Correct!' : <>Correct answer: <strong>{q.fillBlankData.answers.map(a => a.text).join(' / ')}</strong></>}
-                </motion.div>
-              )}
-            </div>
-          )}
-
-          {/* Other types */}
-          {!['MCQ', 'TRUE_FALSE', 'FILL_IN_THE_BLANK'].includes(q.type) && !isComprehension(q.type) && (
-            <div>
-              {!r.answered ? (
-                <Button onClick={handleReveal} variant="outline" className="gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] text-xs py-1.5 px-3">
-                  <Eye className="w-3.5 h-3.5" /> Reveal Answer
-                </Button>
-              ) : (
-                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  className="border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 rounded-md p-3">
-                  <p className="text-[10px] font-bold text-[hsl(var(--primary))] uppercase tracking-wide mb-1.5">Correct Answer</p>
-                  <CorrectAnswer q={q} />
-                </motion.div>
-              )}
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Navigation */}
-      <div className="relative z-10 w-full max-w-2xl flex items-center justify-between">
-        <Button onClick={goPrev} disabled={index === 0} variant="ghost"
-          className="gap-1.5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/20 disabled:opacity-20 text-xs py-1 px-3">
-          <ChevronLeft className="w-3.5 h-3.5" /> Prev
-        </Button>
-        {r.answered && (
-          <Button onClick={goNext} className="gap-1.5 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90 text-[hsl(var(--primary-foreground))] border-0 px-6 text-xs h-8 rounded-md">
-            {index < quiz.questions.length - 1 ? 'Next' : 'Finish'}
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Button>
-        )}
-        {!r.answered && <div />}
-      </div>
+      </footer>
     </div>
   );
-};
-
-export default Practice;
+}
