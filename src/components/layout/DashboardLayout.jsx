@@ -1,347 +1,220 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useEffect, useState } from 'react';
+import { Link, matchPath, useLocation, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Badge } from '../ui/badge';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+  PiArrowsLeftRightBold, PiBookOpenBold, PiBooksBold, PiCaretLeftBold, PiGraduationCapBold, PiListBold,
+  PiMoonBold, PiPlayCircleBold, PiSignOutBold, PiSpeakerHighBold, PiSpeakerSlashBold, PiSquaresFourBold,
+  PiSunBold, PiTrophyBold, PiUserCircleBold, PiXBold,
+} from 'react-icons/pi';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProgress } from '@/contexts/ProgressContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
-  LayoutDashboard,
-  BookOpen,
-  GraduationCap,
-  Library,
-  PlayCircle,
-  Trophy,
-  BarChart2,
-  User,
-  Sun,
-  Moon,
-  Menu,
-  X,
-  ChevronRight,
-  LogOut,
-  Sparkles,
-  Volume2,
-  VolumeX,
-} from 'lucide-react';
-import NotificationBell from '../NotificationBell';
-import { isSoundEnabled, toggleSound } from '../../utils/sounds';
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import Logo from '@/components/Logo';
+import NotificationBell from '@/components/NotificationBell';
+import LevelBadge from '@/components/game/LevelBadge';
+import StreakChip from '@/components/game/StreakChip';
+import { isSoundEnabled, toggleSound } from '@/utils/sounds';
+import { spring } from '@/lib/motion';
 
-const DashboardLayout = ({ children }) => {
+/**
+ * Pages that sit under another page get a back link in the top bar instead of a breadcrumb
+ * trail. (The trail used to read "Home > Student > Dashboard" for a three item menu, and two
+ * of those links led to a 404.) Anything not listed here is a top level page: no back link.
+ */
+const NESTED = [
+  { pattern: '/teacher/create-quiz', label: 'New quiz', parent: ['/teacher/your-quizzes', 'Your quizzes'] },
+  { pattern: '/teacher/edit-quiz/:quizId', label: 'Edit quiz', parent: ['/teacher/your-quizzes', 'Your quizzes'] },
+  { pattern: '/teacher/analytics/:quizId', label: 'Analytics', parent: ['/teacher/your-quizzes', 'Your quizzes'] },
+  { pattern: '/teacher/grading/:quizId', label: 'Grading', parent: ['/teacher/your-quizzes', 'Your quizzes'] },
+];
+
+const LINKS = {
+  teacher: [
+    { path: '/teacher/home', label: 'Dashboard', icon: PiSquaresFourBold },
+    { path: '/teacher/your-quizzes', label: 'Your quizzes', icon: PiBookOpenBold },
+    { path: '/teacher/classes', label: 'Classes', icon: PiGraduationCapBold },
+    { path: '/teacher/question-bank', label: 'Question bank', icon: PiBooksBold },
+  ],
+  student: [
+    { path: '/student/dashboard', label: 'Dashboard', icon: PiSquaresFourBold },
+    { path: '/student/attend-quiz', label: 'Join a quiz', icon: PiPlayCircleBold },
+    { path: '/student/results', label: 'Results', icon: PiTrophyBold },
+  ],
+};
+
+const IconButton = ({ label, onClick, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    className="grid h-9 w-9 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"
+  >
+    {children}
+  </button>
+);
+
+export default function DashboardLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, userRole, signOut: ctxSignOut, switchRole, displayName } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { level, stats } = useProgress();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
 
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [location.pathname]);
+  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
   const handleSignOut = async () => {
-    try {
-      await ctxSignOut();
-      navigate('/login');
-    } catch {
-      toast.error('Failed to sign out.');
-    }
+    try { await ctxSignOut(); navigate('/login'); } catch { toast.error('We could not sign you out.'); }
   };
 
   const handleSwitchRole = async () => {
-    const targetRole = userRole === 'teacher' ? 'student' : 'teacher';
+    const target = userRole === 'teacher' ? 'student' : 'teacher';
     try {
-      await switchRole(targetRole);
-      toast.success(`Switched to ${targetRole === 'teacher' ? 'Teacher' : 'Student'} mode`);
-      navigate(targetRole === 'teacher' ? '/teacher/home' : '/student/dashboard');
-    } catch {
-      toast.error('Failed to switch roles.');
-    }
+      await switchRole(target);
+      toast.success(`Switched to ${target} mode`);
+      navigate(target === 'teacher' ? '/teacher/home' : '/student/dashboard');
+    } catch { toast.error('We could not switch modes.'); }
   };
 
-  // Define sidebar links based on role
-  const getLinks = () => {
-    if (userRole === 'teacher') {
-      return [
-        { path: '/teacher/home', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/teacher/your-quizzes', label: 'Your Quizzes', icon: BookOpen },
-        { path: '/teacher/classes', label: 'My Classes', icon: GraduationCap },
-        { path: '/teacher/question-bank', label: 'Question Bank', icon: Library },
-      ];
-    } else {
-      return [
-        { path: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/student/attend-quiz', label: 'Join Quiz', icon: PlayCircle },
-        { path: '/student/results', label: 'Results & History', icon: Trophy },
-      ];
-    }
-  };
-
-  const links = getLinks();
+  const links = LINKS[userRole === 'teacher' ? 'teacher' : 'student'];
   const initials = displayName
     ? displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
-    : currentUser?.email?.split('@')[0]?.slice(0, 2).toUpperCase() || 'U';
+    : currentUser?.email?.slice(0, 2).toUpperCase() || 'U';
 
-  // Breadcrumbs generation
-  const pathnames = location.pathname.split('/').filter((x) => x);
-  // `/student` and `/teacher` are namespace prefixes, not routes. Linking to
-  // them lands on the 404 page, so they render as plain text instead.
-  const NON_ROUTE_SEGMENTS = new Set(['student', 'teacher', 'guest']);
+  const nested = NESTED.find((n) => matchPath(n.pattern, location.pathname));
+  const isStudent = userRole !== 'teacher';
 
-  const breadcrumbs = pathnames.map((value, index) => {
-    const to = `/${pathnames.slice(0, index + 1).join('/')}`;
-    const isLast = index === pathnames.length - 1;
-    const formattedValue = value
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, (char) => char.toUpperCase());
+  const Sidebar = () => (
+    <div className="flex h-full flex-col bg-[hsl(var(--background))]">
+      <div className="flex h-16 shrink-0 items-center px-5"><Link to="/" aria-label="Quizlike home"><Logo /></Link></div>
 
-    return {
-      to,
-      label: formattedValue,
-      isLast,
-      isLinkable: !NON_ROUTE_SEGMENTS.has(value.toLowerCase()),
-    };
-  });
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-[hsl(var(--surface))]">
-      {/* Brand Logo */}
-      <div className="h-14 flex items-center gap-3 px-6 border-b border-[hsl(var(--border))] shrink-0 bg-[hsl(var(--surface-dim))]">
-        <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center text-[hsl(var(--primary-foreground))] font-black text-sm">
-          Q
-        </div>
-        <span className="text-[hsl(var(--foreground))] font-bold text-base tracking-tight">
-          Quizlike
-        </span>
-      </div>
-
-      {/* Nav List */}
-      <nav className="flex-1 py-6 space-y-1 overflow-y-auto px-3">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2" aria-label="Main">
         {links.map((link) => {
-          const isActive = location.pathname === link.path;
+          const active = location.pathname === link.path;
           const Icon = link.icon;
           return (
             <Link
               key={link.path}
               to={link.path}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-interactive text-sm font-semibold transition-all relative group ${
-                isActive
-                  ? 'bg-[hsl(var(--surface-container-high))] text-[hsl(var(--foreground))]'
-                  : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-container-low))]'
-              }`}
+              aria-current={active ? 'page' : undefined}
+              className={`relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${active ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]/60 hover:text-[hsl(var(--foreground))]'}`}
             >
-              {/* 2px green vertical pill on active far left */}
-              {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-6 bg-[hsl(var(--primary))] rounded-r-full" />
-              )}
-              <Icon
-                className={`w-4.5 h-4.5 shrink-0 ${
-                  isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--foreground))]'
-                }`}
-              />
-              <span>{link.label}</span>
+              {/* The highlight slides between items instead of jumping. */}
+              {active && <motion.span layoutId="nav-active" transition={spring} className="absolute inset-0 rounded-lg bg-[hsl(var(--muted))]" />}
+              <Icon className="relative h-[18px] w-[18px] shrink-0" />
+              <span className="relative">{link.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* Switcher & Profile Footer */}
-      <div className="p-4 border-t border-[hsl(var(--border))] shrink-0 bg-[hsl(var(--surface-container-lowest))] space-y-3">
-        <button
-          onClick={handleSwitchRole}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold rounded-interactive border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/5 text-[hsl(var(--foreground))] transition-all cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
-          Switch to {userRole === 'teacher' ? 'Student' : 'Teacher'}
-        </button>
-
-        <div className="flex items-center justify-between">
-          <Link to="/profile" className="flex items-center gap-2 min-w-0 group">
-            <Avatar className="w-8 h-8 border border-[hsl(var(--border))] group-hover:border-[hsl(var(--primary))] transition-all">
-              <AvatarFallback className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] font-bold text-xs">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[hsl(var(--foreground))] truncate leading-tight group-hover:text-[hsl(var(--primary))] transition-colors">
-                {displayName || 'User'}
-              </p>
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] truncate leading-tight">
-                {userRole === 'teacher' ? 'Teacher' : 'Student'} Account
-              </p>
+      <div className="shrink-0 space-y-3 border-t border-[hsl(var(--border))] p-4">
+        {/* Students always see where they stand. */}
+        {isStudent && level && (
+          <Link to="/student/dashboard" className="block rounded-lg p-1 hover:bg-[hsl(var(--muted))]/60" aria-label="Your progress">
+            <div className="flex items-center gap-3">
+              <LevelBadge level={level.level} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium">{level.title}</p>
+                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[hsl(var(--border))]">
+                  <motion.div className="h-full origin-left rounded-full bg-[hsl(var(--brand))]" initial={{ scaleX: 0 }} animate={{ scaleX: level.progress }} transition={{ ...spring, delay: 0.1 }} />
+                </div>
+              </div>
+              {stats && <StreakChip days={stats.streak.current} doneToday={stats.streak.doneToday} className="!px-2 !py-0.5 text-[11px]" />}
             </div>
           </Link>
-          <button
-            onClick={handleSignOut}
-            className="p-1.5 rounded-interactive hover:bg-red-500/10 text-red-500 hover:text-red-600 transition-colors cursor-pointer"
-            title="Sign Out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+        )}
+
+        <button type="button" onClick={handleSwitchRole} className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-xs font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">
+          <PiArrowsLeftRightBold className="h-3.5 w-3.5" /> Switch to {userRole === 'teacher' ? 'student' : 'teacher'} mode
+        </button>
+
+        <div className="flex items-center justify-between gap-2">
+          <Link to="/profile" className="group flex min-w-0 items-center gap-2.5">
+            <Avatar className="h-8 w-8 border border-[hsl(var(--border))]"><AvatarFallback className="bg-[hsl(var(--muted))] text-xs font-medium">{initials}</AvatarFallback></Avatar>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium leading-tight group-hover:underline">{displayName || 'Your account'}</span>
+              <span className="block truncate text-[11px] capitalize leading-tight text-[hsl(var(--muted-foreground))]">{userRole || 'student'}</span>
+            </span>
+          </Link>
+          <IconButton label="Sign out" onClick={handleSignOut}><PiSignOutBold className="h-4 w-4" /></IconButton>
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen flex bg-[hsl(var(--background))] text-[hsl(var(--foreground))] overflow-x-hidden">
-      {/* Desktop Sidebar (Fixed 240px) */}
-      <aside className="hidden md:block w-[240px] shrink-0 border-r border-[hsl(var(--border))] h-screen sticky top-0 overflow-hidden z-20">
-        <SidebarContent />
-      </aside>
+    <div className="flex min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-[hsl(var(--border))] md:block"><Sidebar /></aside>
 
-      {/* Mobile Drawer Overlay */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-30 flex">
-          {/* Overlay backdrop */}
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-200"
-            onClick={() => setMobileOpen(false)}
-          />
-          {/* Sidebar Drawer */}
-          <div className="relative flex flex-col w-[240px] max-w-xs h-full bg-[hsl(var(--surface))] animate-slide-in-right z-40">
-            <SidebarContent />
-            {/* Close Button inside Drawer */}
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="absolute top-4.5 right-4 w-7 h-7 flex items-center justify-center rounded-interactive border border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--surface-bright))] cursor-pointer hover:bg-[hsl(var(--surface-container-high))]"
-            >
-              <X className="w-4 h-4" />
-            </button>
+      <AnimatePresence>
+        {mobileOpen && (
+          <div className="fixed inset-0 z-40 md:hidden">
+            <motion.div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} />
+            <motion.div className="absolute inset-y-0 left-0 w-64 border-r border-[hsl(var(--border))]" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={spring}>
+              <Sidebar />
+              <button type="button" onClick={() => setMobileOpen(false)} aria-label="Close menu" className="absolute right-3 top-4 grid h-8 w-8 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"><PiXBold className="h-4 w-4" /></button>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
-      {/* Main Body Stack */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        {/* Sticky 56px Top Header with Glassmorphism */}
-        <header className="sticky top-0 z-10 h-14 flex items-center justify-between px-6 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))]/80 backdrop-blur-md shrink-0">
-          <div className="flex items-center gap-3">
-            {/* Hamburger Button */}
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="md:hidden p-1.5 rounded-interactive border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] text-[hsl(var(--foreground))] cursor-pointer transition-colors"
-            >
-              <Menu className="w-4 h-4" />
-            </button>
-
-            {/* Breadcrumbs */}
-            <nav className="flex items-center gap-1.5 text-xs select-none">
-              <Link
-                to="/"
-                className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] font-semibold"
-              >
-                Home
-              </Link>
-              {breadcrumbs.length > 0 && <ChevronRight className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />}
-              {breadcrumbs.map((crumb, idx) => (
-                <React.Fragment key={crumb.to}>
-                  {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />}
-                  {crumb.isLast || !crumb.isLinkable ? (
-                    <span
-                      className={`truncate ${
-                        crumb.isLast
-                          ? 'text-[hsl(var(--foreground))] font-semibold max-w-[120px] sm:max-w-[200px]'
-                          : 'text-[hsl(var(--muted-foreground))] font-semibold max-w-[100px]'
-                      }`}
-                    >
-                      {crumb.label}
-                    </span>
-                  ) : (
-                    <Link
-                      to={crumb.to}
-                      className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] font-semibold truncate max-w-[100px]"
-                    >
-                      {crumb.label}
-                    </Link>
-                  )}
-                </React.Fragment>
-              ))}
-            </nav>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]/85 px-4 backdrop-blur-md md:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={() => setMobileOpen(true)} aria-label="Open menu" className="grid h-9 w-9 place-items-center rounded-lg text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] md:hidden"><PiListBold className="h-5 w-5" /></button>
+            <Link to="/" className="md:hidden" aria-label="Quizlike home"><Logo withWord={false} size={26} /></Link>
+            {nested && (
+              <nav aria-label="Back" className="flex min-w-0 items-center gap-2 text-sm">
+                <Link to={nested.parent[0]} className="inline-flex items-center gap-1 font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">
+                  <PiCaretLeftBold className="h-3.5 w-3.5" />{nested.parent[1]}
+                </Link>
+                <span className="text-[hsl(var(--border))]">/</span>
+                <span className="truncate font-medium">{nested.label}</span>
+              </nav>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
             <NotificationBell />
-
-            {/* Sound Toggle */}
-            <button
-              onClick={() => setSoundOn(toggleSound())}
-              className="w-8 h-8 rounded-interactive bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted))]/80 text-[hsl(var(--foreground))] flex items-center justify-center transition-colors border border-[hsl(var(--border))] cursor-pointer"
-              aria-label="Toggle Sound"
-              title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
-            >
-              {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </button>
-
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="w-8 h-8 rounded-interactive bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted))]/80 text-[hsl(var(--foreground))] flex items-center justify-center transition-colors border border-[hsl(var(--border))] cursor-pointer"
-              aria-label="Toggle Theme"
-            >
-              {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            {/* Header User Badge & Quick Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Avatar className="w-8 h-8 border border-[hsl(var(--border))] cursor-pointer hover:border-[hsl(var(--primary))] transition-colors shrink-0">
-                  <AvatarFallback className="bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] font-bold text-xs">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))]">
-                <DropdownMenuLabel className="font-normal p-3">
-                  <p className="font-semibold text-sm">{displayName || 'User'}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                    {userRole === 'teacher' ? 'Teacher' : 'Student'} mode
-                  </p>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-[hsl(var(--border))]" />
-                <DropdownMenuItem
-                  onClick={() => navigate('/profile')}
-                  className="gap-2 cursor-pointer text-sm py-2 px-3 hover:bg-[hsl(var(--muted))]/50"
-                >
-                  <User className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-                  My Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleSwitchRole}
-                  className="gap-2 cursor-pointer text-sm py-2 px-3 hover:bg-[hsl(var(--muted))]/50"
-                >
-                  <Sparkles className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-                  Switch Mode
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-[hsl(var(--border))]" />
-                <DropdownMenuItem
-                  onClick={handleSignOut}
-                  className="gap-2 cursor-pointer text-sm py-2 px-3 text-red-500 focus:text-red-500 hover:bg-red-500/10"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <IconButton label={soundOn ? 'Mute sounds' : 'Unmute sounds'} onClick={() => setSoundOn(toggleSound())}>
+              {soundOn ? <PiSpeakerHighBold className="h-4 w-4" /> : <PiSpeakerSlashBold className="h-4 w-4" />}
+            </IconButton>
+            <IconButton label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleTheme}>
+              {theme === 'dark' ? <PiSunBold className="h-4 w-4" /> : <PiMoonBold className="h-4 w-4" />}
+            </IconButton>
+            <div className="md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" aria-label="Account menu" className="ml-1 rounded-full">
+                    <Avatar className="h-8 w-8 border border-[hsl(var(--border))]"><AvatarFallback className="bg-[hsl(var(--muted))] text-xs font-medium">{initials}</AvatarFallback></Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52 border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))]">
+                  <DropdownMenuLabel className="p-3 font-normal">
+                    <p className="text-sm font-medium">{displayName || 'Your account'}</p>
+                    <p className="text-xs capitalize text-[hsl(var(--muted-foreground))]">{userRole} mode</p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-[hsl(var(--border))]" />
+                  <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer gap-2 px-3 py-2 text-sm"><PiUserCircleBold className="h-4 w-4" />Profile</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSwitchRole} className="cursor-pointer gap-2 px-3 py-2 text-sm"><PiArrowsLeftRightBold className="h-4 w-4" />Switch mode</DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-[hsl(var(--border))]" />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 px-3 py-2 text-sm text-[hsl(var(--destructive))]"><PiSignOutBold className="h-4 w-4" />Sign out</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </header>
 
-        {/* Page Content viewport */}
-        <main className="flex-1 p-4 md:p-6 relative">
-          {children}
-        </main>
+        <main className="relative flex-1 px-4 py-8 md:px-8 md:py-10">{children}</main>
       </div>
     </div>
   );
-};
-
-export default DashboardLayout;
+}

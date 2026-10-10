@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { addDoc, collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProgress } from '@/contexts/ProgressContext';
 import QuizRunner from '@/components/quiz/QuizRunner';
 import { createNotification } from '@/utils/notifications';
 import { normalizeResult } from '@/utils/gamification';
@@ -15,6 +16,7 @@ export default function TakeQuiz() {
   const { quizId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { refresh: refreshProgress } = useProgress();
 
   // Earlier attempts by this student, which is what XP, level and streak are worked out from.
   const loadHistory = async () => {
@@ -30,6 +32,7 @@ export default function TakeQuiz() {
 
   // A paragraph answer needs a teacher. Tell them there is something to mark.
   const afterSave = async ({ id, quiz, needsManual }) => {
+    refreshProgress();                       // the sidebar and dashboard pick up the new XP
     if (!needsManual || !quiz.createdBy) return;
     const profile = await getDoc(doc(db, 'users', currentUser.uid));
     const studentName = (profile.exists() && profile.data().displayName) || currentUser.displayName || 'A student';

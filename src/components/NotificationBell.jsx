@@ -15,9 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
-import { Bell, BellRing, Check, Inbox, GraduationCap, CheckSquare } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { PiBellBold, PiBellRingingBold, PiCheckBold, PiGraduationCapBold, PiNotePencilBold, PiTrayBold } from 'react-icons/pi';
+import { motion } from 'framer-motion';
 
 const NotificationBell = () => {
   const navigate = useNavigate();
@@ -85,14 +84,15 @@ const NotificationBell = () => {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
 
+  // Each kind of notification gets a small tinted tile, from the theme so it follows dark mode.
   const getIcon = (type) => {
     switch (type) {
       case 'grading':
-        return <CheckSquare className="w-4 h-4 text-amber-500" />;
+        return <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[hsl(var(--tint-yellow))] text-[hsl(var(--tint-yellow-fg))]"><PiNotePencilBold className="h-4 w-4" /></span>;
       case 'grade_released':
-        return <GraduationCap className="w-4 h-4 text-green-500" />;
+        return <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[hsl(var(--tint-green))] text-[hsl(var(--tint-green-fg))]"><PiGraduationCapBold className="h-4 w-4" /></span>;
       default:
-        return <Inbox className="w-4 h-4 text-blue-500" />;
+        return <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[hsl(var(--tint-blue))] text-[hsl(var(--tint-blue-fg))]"><PiTrayBold className="h-4 w-4" /></span>;
     }
   };
 
@@ -100,74 +100,57 @@ const NotificationBell = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="relative w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all border border-white/10 cursor-pointer focus:outline-none"
-          aria-label="Notifications"
+          type="button"
+          className="relative grid h-9 w-9 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] outline-none hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))] focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+          aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+          title="Notifications"
         >
           {unreadCount > 0 ? (
-            <motion.div
-              animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
-              transition={{ repeat: Infinity, repeatDelay: 5, duration: 0.5 }}
-            >
-              <BellRing className="w-4 h-4 text-amber-300" />
-            </motion.div>
+            <motion.span animate={{ rotate: [0, -12, 12, -8, 8, 0] }} transition={{ repeat: Infinity, repeatDelay: 6, duration: 0.6 }} className="inline-flex text-[hsl(var(--foreground))]">
+              <PiBellRingingBold className="h-4 w-4" />
+            </motion.span>
           ) : (
-            <Bell className="w-4 h-4" />
+            <PiBellBold className="h-4 w-4" />
           )}
-
           {unreadCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-[#e85a19]">
+            <span className="tabular absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[hsl(var(--primary))] px-1 text-[10px] font-medium leading-none text-[hsl(var(--primary-foreground))] ring-2 ring-[hsl(var(--background))]">
               {unreadCount}
             </span>
           )}
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-80 md:w-96 max-h-[450px] overflow-hidden flex flex-col p-0 bg-[hsl(var(--card))] border border-[hsl(var(--border))]">
-        <div className="flex items-center justify-between px-4 py-3 shrink-0">
-          <DropdownMenuLabel className="font-bold text-sm text-[hsl(var(--foreground))]">
-            Notifications
-          </DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="flex max-h-[450px] w-80 flex-col overflow-hidden border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-0 md:w-96">
+        <div className="flex shrink-0 items-center justify-between px-4 py-3">
+          <DropdownMenuLabel className="p-0 text-sm font-semibold text-[hsl(var(--foreground))]">Notifications</DropdownMenuLabel>
           {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="flex items-center gap-1 text-xs font-semibold text-[#e85a19] hover:underline cursor-pointer bg-transparent border-none p-0 focus:outline-none"
-            >
-              <Check className="w-3.5 h-3.5" /> Mark all read
+            <button type="button" onClick={handleMarkAllRead} className="inline-flex items-center gap-1 text-xs font-medium text-[hsl(var(--foreground))] underline-offset-4 hover:underline">
+              <PiCheckBold className="h-3.5 w-3.5" /> Mark all read
             </button>
           )}
         </div>
 
         <DropdownMenuSeparator className="m-0" />
 
-        <div className="overflow-y-auto flex-1 max-h-[350px]">
+        <div className="max-h-[350px] flex-1 overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400">
-              <Inbox className="w-8 h-8 opacity-40 mb-2" />
-              <p className="text-xs">No notifications yet</p>
+            <div className="flex flex-col items-center justify-center py-10 text-center text-[hsl(var(--muted-foreground))]">
+              <PiTrayBold className="mb-2 h-7 w-7 opacity-50" />
+              <p className="text-sm">Nothing new</p>
             </div>
           ) : (
             notifications.map((n) => (
               <DropdownMenuItem
                 key={n.id}
                 onClick={() => handleNotificationClick(n)}
-                className={`flex gap-3 px-4 py-3.5 cursor-pointer text-left focus:bg-[hsl(var(--muted))]/50 border-b border-[hsl(var(--border))]/50 last:border-0 ${
-                  !n.read ? 'bg-[hsl(var(--muted))]/20' : ''
-                }`}
+                className="flex cursor-pointer gap-3 border-b border-[hsl(var(--border))] px-4 py-3.5 text-left last:border-0 focus:bg-[hsl(var(--muted))]/60"
               >
-                <div className="w-8 h-8 rounded-lg bg-[hsl(var(--muted))] flex items-center justify-center shrink-0">
-                  {getIcon(n.type)}
+                {getIcon(n.type)}
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm leading-snug text-[hsl(var(--foreground))] ${!n.read ? 'font-medium' : 'text-[hsl(var(--muted-foreground))]'}`}>{n.message}</p>
+                  <span className="mt-1 block text-[11px] text-[hsl(var(--muted-foreground))]">{formatTime(n.createdAt)}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-xs leading-normal text-[hsl(var(--foreground))] ${!n.read ? 'font-semibold' : ''}`}>
-                    {n.message}
-                  </p>
-                  <span className="text-[10px] text-[hsl(var(--muted-foreground))] block mt-1">
-                    {formatTime(n.createdAt)}
-                  </span>
-                </div>
-                {!n.read && (
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0 self-center" />
-                )}
+                {!n.read && <span className="h-2 w-2 shrink-0 self-center rounded-full bg-[hsl(var(--primary))]" aria-label="Unread" />}
               </DropdownMenuItem>
             ))
           )}
