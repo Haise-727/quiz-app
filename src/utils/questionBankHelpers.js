@@ -76,7 +76,8 @@ export const getBankQuestions = async (teacherId) => {
   const snap = await getDocs(
     query(collection(db, 'question_bank'), where('teacherId', '==', teacherId))
   );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // The document id goes last: the saved question carries its own id, which must not hide it.
+  return snap.docs.map(d => ({ ...d.data(), id: d.id }));
 };
 
 /** Delete a bank question by its document ID. */
