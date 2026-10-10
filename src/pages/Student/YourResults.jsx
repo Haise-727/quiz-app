@@ -1,28 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../firebase';
-import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
-import { motion, AnimatePresence } from 'framer-motion';
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
-import MediaRenderer from '../../components/MediaRenderer';
-import { MiniMedia, CorrectAnswer } from '../../components/AnswerReveal';
-import { getMainMedia, getSubQuestions } from '../../utils/media';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { PiArrowRightBold, PiClockBold, PiEyeBold } from 'react-icons/pi';
+import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/firebase';
+import MediaRenderer from '@/components/MediaRenderer';
+import { CorrectAnswer, MiniMedia } from '@/components/AnswerReveal';
+import PageHeader from '@/components/layout/PageHeader';
+import AnimatedNumber from '@/components/game/AnimatedNumber';
+import { TINT } from '@/components/game/icons';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Trophy, Target, TrendingUp, Clock, Eye,
-  PlayCircle, CheckCircle2, XCircle, AlertCircle,
-} from 'lucide-react';
-import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getMainMedia, getSubQuestions } from '@/utils/media';
+import { ease, rise, stagger } from '@/lib/motion';
+
+/** Which pastel tint a score earns. Pending work is yellow, a strong score green, a weak one red. */
+const toneFor = (pct, status) => (status !== 'completed' ? 'yellow' : pct >= 80 ? 'green' : pct >= 60 ? 'blue' : pct >= 40 ? 'yellow' : 'red');
+const BAR = { green: 'bg-[hsl(var(--brand))]', blue: 'bg-[hsl(var(--tint-blue-fg))]', yellow: 'bg-[hsl(var(--tint-yellow-fg))]/70', red: 'bg-[hsl(var(--destructive))]/75' };
+
+const Chip = ({ tone = 'neutral', children }) => (
+  <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium tabular ${TINT[tone]}`}>{children}</span>
+);
 
 // ── Question review card ──────────────────────────────────────────────────────
 const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
@@ -31,9 +32,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
   const isPartial = !isPending && !isCorrect && studentAnswerData.pointsAwarded > 0;
   const mainMedia = getMainMedia(originalQuestion);
 
-  const statusColor = isPending ? 'border-l-amber-400' : isCorrect ? 'border-l-green-500' : 'border-l-red-400';
-  const statusBadge = isPending ? 'warning' : isCorrect ? 'success' : isPartial ? 'info' : 'destructive';
-  const statusLabel = isPending ? 'Pending' : isCorrect ? 'Correct' : isPartial ? 'Partial' : 'Incorrect';
+    const statusLabel = isPending ? 'Pending' : isCorrect ? 'Correct' : isPartial ? 'Partial' : 'Incorrect';
 
   const renderUserAnswer = () => {
     const ua = studentAnswerData.userAnswer;
@@ -65,7 +64,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
           <ol className="flex flex-col gap-1 list-none p-0 m-0">
             {ua.map((item, i) => (
               <li key={item.id} className="flex items-center gap-2 text-sm">
-                <span className="w-5 h-5 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
+                <span className="w-5 h-5 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] flex items-center justify-center text-xs font-medium shrink-0">{i + 1}</span>
                 <MediaRenderer media={item.media} transform="thumbnail" />
                 {item.text}
               </li>
@@ -93,7 +92,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
                 <div className="flex items-center gap-1 bg-[hsl(var(--muted))] px-2 py-0.5 rounded">
                   <MediaRenderer media={p.promptMedia} transform="thumbnail" />{p.prompt}
                 </div>
-                <span className="text-[hsl(var(--muted-foreground))]">→</span>
+                <span className="text-[hsl(var(--muted-foreground))]">to</span>
                 <div className="flex items-center gap-1 bg-[hsl(var(--muted))] px-2 py-0.5 rounded">
                   {ua.pairs?.[p.id]
                     ? <><MediaRenderer media={ua.pairs[p.id].answerMedia} transform="thumbnail" />{ua.pairs[p.id].answerText}</>
@@ -150,7 +149,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
           <ol className="flex flex-col gap-1 list-none p-0 m-0">
             {originalQuestion.reorderData.items.map((item, i) => (
               <li key={item.id} className="flex items-center gap-2 text-sm">
-                <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</span>
+                <span className="w-5 h-5 rounded-full bg-[hsl(var(--tint-green))] text-[hsl(var(--tint-green-fg))] flex items-center justify-center text-xs font-medium shrink-0">{i + 1}</span>
                 <MiniMedia media={item.media} />
                 {item.text}
               </li>
@@ -162,7 +161,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
           <div className="flex flex-col gap-1">
             {originalQuestion.matchData.pairs.map(p => (
               <div key={p.id} className="flex items-center gap-2 flex-wrap text-sm">
-                <MiniMedia media={p.promptMedia} />{p.prompt} → <MiniMedia media={p.answerMedia} />{p.answer}
+                <MiniMedia media={p.promptMedia} />{p.prompt} <span className="text-[hsl(var(--muted-foreground))]">to</span> <MiniMedia media={p.answerMedia} />{p.answer}
               </div>
             ))}
           </div>
@@ -186,42 +185,45 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
     }
   };
 
+  const tone = isPending ? 'yellow' : isCorrect ? 'green' : isPartial ? 'blue' : 'red';
   return (
-    <div className={`border-l-4 ${statusColor} bg-[hsl(var(--muted))]/30 rounded-r-xl p-4`}>
-      <div className="flex items-start gap-3 mb-3">
-        <span className="w-7 h-7 rounded-full bg-[hsl(var(--foreground))] text-[hsl(var(--background))] flex items-center justify-center text-xs font-black shrink-0">
-          {index + 1}
-        </span>
-        <p className="font-semibold text-[hsl(var(--foreground))] text-sm flex-1 leading-relaxed">{originalQuestion.questionText}</p>
-        <Badge variant={statusBadge} className="shrink-0">
-          {isPending ? 'Pending' : `${studentAnswerData.pointsAwarded}/${originalQuestion.points}`} — {statusLabel}
-        </Badge>
-      </div>
-
-      {mainMedia && (
-        <div className="max-h-48 overflow-hidden rounded-lg mb-3">
-          <MediaRenderer media={mainMedia} transform="question_main" />
-        </div>
-      )}
-
-      <div className="pl-10 flex flex-col gap-2">
-        <div className="rounded-lg p-3 bg-[#eef2ff] border border-[#c7d2fe]">
-          <p className="text-xs font-bold text-[#4338ca] uppercase tracking-wide mb-1.5">Your Answer</p>
-          <div className="text-sm text-[hsl(var(--foreground))]">{renderUserAnswer()}</div>
-        </div>
-        {!isCorrect && !isPending && (
-          <div className="rounded-lg p-3 bg-green-50 border border-green-200">
-            <p className="text-xs font-bold text-green-700 uppercase tracking-wide mb-1.5">Correct Answer</p>
-            <div className="text-sm text-green-800">{renderCorrectAnswer()}</div>
+    <li className="py-7">
+      <div className="flex items-start gap-4">
+        <span className="tabular mt-1 w-6 shrink-0 font-mono text-xs text-[hsl(var(--muted-foreground))]">{String(index + 1).padStart(2, '0')}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <p className="min-w-0 flex-1 text-base font-medium leading-snug">{originalQuestion.questionText}</p>
+            <Chip tone={tone}>{isPending ? 'Pending' : `${studentAnswerData.pointsAwarded}/${originalQuestion.points} ${statusLabel.toLowerCase()}`}</Chip>
           </div>
-        )}
+
+          {mainMedia && (
+            <div className="mt-4 max-h-48 overflow-hidden rounded-lg">
+              <MediaRenderer media={mainMedia} transform="question_main" />
+            </div>
+          )}
+
+          <div className="mt-4 flex flex-col gap-2.5">
+            <div className={`rounded-lg px-4 py-3 ${isCorrect ? TINT.green : 'bg-[hsl(var(--muted))]'}`}>
+              <p className="eyebrow mb-1.5">Your answer</p>
+              <div className="text-sm text-[hsl(var(--foreground))]">{renderUserAnswer()}</div>
+            </div>
+            {!isCorrect && !isPending && (
+              <div className={`rounded-lg px-4 py-3 ${TINT.green}`}>
+                <p className="eyebrow mb-1.5 !text-current opacity-80">Correct answer</p>
+                <div className="text-sm">{renderCorrectAnswer()}</div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </li>
   );
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-const YourResults = () => {
+const Skeleton = ({ className = '' }) => <div className={`animate-pulse rounded-md bg-[hsl(var(--muted))] ${className}`} />;
+
+export default function YourResults() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
@@ -234,22 +236,19 @@ const YourResults = () => {
 
   useEffect(() => {
     if (!currentUser) { navigate('/login'); return; }
-    const fetch = async () => {
+    (async () => {
       try {
-        const snap = await getDocs(
-          query(collection(db, 'quiz_results'), where('userId', '==', currentUser.uid), orderBy('completedAt', 'desc'))
-        );
-        setResults(snap.docs.map(d => {
+        const snap = await getDocs(query(collection(db, 'quiz_results'), where('userId', '==', currentUser.uid), orderBy('completedAt', 'desc')));
+        setResults(snap.docs.map((d) => {
           const data = d.data();
           const display = data.status === 'completed' ? data.finalScore : data.score;
           const pct = data.maxScore > 0 ? Math.round((display / data.maxScore) * 100) : 0;
-          const correct = (data.answers || []).filter(a => a.pointsAwarded > 0).length;
+          const correct = (data.answers || []).filter((a) => a.pointsAwarded > 0).length;
           return { id: d.id, ...data, displayScore: display, percentage: pct, correctCount: correct };
         }));
-      } catch { toast.error('Failed to load results.'); }
+      } catch { toast.error('We could not load your results.'); }
       finally { setLoading(false); }
-    };
-    fetch();
+    })();
   }, [currentUser, navigate]);
 
   const openReview = async (result) => {
@@ -262,312 +261,190 @@ const YourResults = () => {
   };
 
   const relDate = (ts) => {
-    if (!ts?.toDate) return 'Unknown';
+    if (!ts?.toDate) return 'Unknown date';
     const d = ts.toDate(), s = Math.round((Date.now() - d) / 1000);
     if (s < 60) return 'Just now';
-    const m = Math.round(s / 60); if (m < 60) return `${m}m ago`;
-    const h = Math.round(m / 60); if (h < 24) return `${h}h ago`;
+    const m = Math.round(s / 60); if (m < 60) return `${m} min ago`;
+    const h = Math.round(m / 60); if (h < 24) return `${h} h ago`;
     const dy = Math.round(h / 24); if (dy === 1) return 'Yesterday';
-    if (dy < 7) return `${dy}d ago`;
+    if (dy < 7) return `${dy} days ago`;
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const scoreBadge = (pct, status) => {
-    if (status !== 'completed') return 'warning';
-    if (pct >= 80) return 'success';
-    if (pct >= 60) return 'info';
-    if (pct >= 40) return 'warning';
-    return 'destructive';
-  };
+  const completed = results.filter((r) => r.status === 'completed');
+  const avgScore = completed.length ? Math.round(completed.reduce((t, r) => t + r.percentage, 0) / completed.length) : 0;
+  const bestScore = completed.length ? Math.max(...completed.map((r) => r.percentage)) : 0;
 
-  const scoreIcon = (pct, status) => {
-    if (status !== 'completed') return <AlertCircle className="w-4 h-4" />;
-    if (pct >= 60) return <CheckCircle2 className="w-4 h-4" />;
-    return <XCircle className="w-4 h-4" />;
-  };
+  // Only finished attempts: one that is still waiting for marking has no real score yet.
+  const trend = useMemo(() => [...results].filter((r) => r.status === 'completed').reverse().map((r) => ({
+    date: r.completedAt?.toDate ? r.completedAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+    Score: r.percentage,
+    title: r.quizTitle,
+  })), [results]);
 
-  // Summary stats
-  const totalTaken = results.length;
-  const completed = results.filter(r => r.status === 'completed');
-  const avgScore = completed.length > 0 ? Math.round(completed.reduce((s, r) => s + r.percentage, 0) / completed.length) : 0;
-  const bestScore = completed.length > 0 ? Math.max(...completed.map(r => r.percentage)) : 0;
+  // Average per subject (or quiz title when there is no subject), best first.
+  const breakdown = useMemo(() => {
+    const groups = {};
+    results.filter((r) => r.status === 'completed').forEach((r) => {
+      const key = r.subject || r.quizTitle || 'Unknown';
+      groups[key] = groups[key] || { name: key, total: 0, count: 0 };
+      groups[key].total += r.percentage; groups[key].count += 1;
+    });
+    return Object.values(groups).map((g) => ({ name: g.name, avg: Math.round(g.total / g.count), count: g.count })).sort((a, b) => b.avg - a.avg);
+  }, [results]);
 
-  if (loading) return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
-    </div>
-  );
+  const stats = [
+    ['Quizzes taken', results.length, (n) => Math.round(n).toString()],
+    ['Average score', avgScore, (n) => `${Math.round(n)}%`],
+    ['Best score', bestScore, (n) => `${Math.round(n)}%`],
+  ];
 
   return (
-    <div className="w-full relative">
-      {/* Hero */}
-      <div className="relative z-10 pb-6">
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl md:text-4xl font-black text-[hsl(var(--foreground))]">Your Results</h1>
-          <p className="text-[hsl(var(--muted-foreground))] mt-1">{totalTaken} quiz{totalTaken !== 1 ? 'zes' : ''} completed</p>
-        </motion.div>
-      </div>
+    <div className="mx-auto max-w-4xl">
+      <PageHeader serif eyebrow="Student" title="Your results." description={loading ? ' ' : `${results.length} ${results.length === 1 ? 'attempt' : 'attempts'} so far.`} />
 
-      {/* Main */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="relative z-10 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] shadow-sm overflow-hidden"
-      >
-        <div className="p-4 md:p-6 flex flex-col gap-8">
-
-          {/* Summary stats */}
-          {totalTaken > 0 && (
-            <section>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { icon: Target, label: 'Taken', value: totalTaken, borderColor: 'border-t-purple-500', iconBg: 'bg-purple-500/10', iconColor: 'text-purple-500' },
-                  { icon: TrendingUp, label: 'Average', value: `${avgScore}%`, borderColor: 'border-t-blue-500', iconBg: 'bg-blue-500/10', iconColor: 'text-blue-500' },
-                  { icon: Trophy, label: 'Best', value: `${bestScore}%`, borderColor: 'border-t-emerald-500', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
-                ].map(({ icon: Icon, label, value, borderColor, iconBg, iconColor }, i) => (
-                  <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
-                    <Card className={`border border-[hsl(var(--border))] border-t-4 ${borderColor} shadow-sm overflow-hidden bg-[hsl(var(--card))] rounded-2xl`}>
-                      <CardContent className="pt-4 pb-5 flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
-                          <Icon className={`w-4 h-4 ${iconColor}`} />
-                        </div>
-                        <div>
-                          <p className="text-xl font-black text-[hsl(var(--foreground))]">{value}</p>
-                          <p className="text-xs text-[hsl(var(--muted-foreground))] font-medium mt-0.5">{label}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Charts Section */}
-          {totalTaken > 0 && (
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
-              {/* Score Trend Line Chart */}
-              <Card className="border border-[hsl(var(--border))] shadow-sm p-4 bg-[hsl(var(--card))] rounded-2xl">
-                <CardHeader className="pb-2 pl-2">
-                  <CardTitle className="text-sm font-bold flex items-center gap-2 text-[hsl(var(--foreground))]">
-                    <TrendingUp className="w-4 h-4 text-[hsl(var(--primary))]" /> Score Trend
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="h-64 pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={[...results].reverse().map(r => ({
-                      date: r.completedAt?.toDate ? r.completedAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A',
-                      Score: r.percentage,
-                      title: r.quizTitle
-                    }))}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                      <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted-foreground)' }} />
-                      <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} tick={{ fill: 'var(--muted-foreground)' }} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid var(--border)', color: 'hsl(var(--foreground))' }}
-                        labelStyle={{ fontWeight: 'bold', color: 'hsl(var(--primary))', fontSize: '12px' }}
-                        itemStyle={{ fontSize: '12px', color: 'hsl(var(--foreground))' }}
-                        formatter={(value, name, props) => [`${value}%`, `Score (${props.payload.title})`]}
-                      />
-                      <Line type="monotone" dataKey="Score" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Quiz Breakdown Bar Chart (Show only if >= 3 results) */}
-              {totalTaken >= 3 ? (
-                <Card className="border border-[hsl(var(--border))] shadow-sm p-4 bg-[hsl(var(--card))] rounded-2xl">
-                  <CardHeader className="pb-2 pl-2">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-[hsl(var(--foreground))]">
-                      <Trophy className="w-4 h-4 text-[hsl(var(--primary))]" /> Quiz Breakdown
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="h-64 pt-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={(() => {
-                        const groups = {};
-                        results.forEach(r => {
-                          const key = r.subject || r.quizTitle || 'Unknown';
-                          if (!groups[key]) {
-                            groups[key] = { name: key, total: 0, count: 0 };
-                          }
-                          groups[key].total += r.percentage;
-                          groups[key].count += 1;
-                        });
-                        return Object.values(groups).map(g => ({
-                          name: g.name.length > 15 ? g.name.substring(0, 12) + '...' : g.name,
-                          fullName: g.name,
-                          Average: Math.round(g.total / g.count)
-                        }));
-                      })()}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                        <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'var(--muted-foreground)' }} />
-                        <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} tick={{ fill: 'var(--muted-foreground)' }} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid var(--border)', color: 'hsl(var(--foreground))' }}
-                          labelStyle={{ fontWeight: 'bold', color: 'hsl(var(--primary))', fontSize: '12px' }}
-                          itemStyle={{ fontSize: '12px', color: 'hsl(var(--foreground))' }}
-                          formatter={(value, name, props) => [`${value}%`, `Average Score (${props.payload.fullName})`]}
-                        />
-                        <Bar dataKey="Average" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={25} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="border border-[hsl(var(--border))] shadow-sm p-6 bg-[hsl(var(--card))] rounded-2xl flex flex-col items-center justify-center text-center h-full min-h-[200px]">
-                  <Trophy className="w-8 h-8 text-[hsl(var(--muted-foreground))] mb-2" />
-                  <p className="font-bold text-sm text-[hsl(var(--foreground))]">Quiz Breakdown</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1 max-w-[280px]">
-                    Complete at least 3 quizzes to unlock subject/quiz breakdown analysis.
-                  </p>
-                </Card>
-              )}
-            </section>
-          )}
-
-          {/* Results list */}
-          {results.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--muted))] flex items-center justify-center mb-4">
-                <PlayCircle className="w-8 h-8 text-[hsl(var(--muted-foreground))]" />
-              </div>
-              <p className="font-semibold text-[hsl(var(--foreground))]">No results yet</p>
-              <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1 mb-6">Complete a quiz to see your results here.</p>
-              <Button variant="student" onClick={() => navigate('/student/attend-quiz')} className="gap-2">
-                <PlayCircle className="w-4 h-4" /> Join a Quiz
-              </Button>
-            </div>
-          ) : (
-            <section>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {results.map((result, i) => (
-                  <motion.div key={result.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                    <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 overflow-hidden rounded-2xl">
-                      <div className={`h-1 ${result.percentage >= 80 ? 'bg-emerald-500' : result.percentage >= 60 ? 'bg-blue-500' : result.percentage >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} />
-                      <CardContent className="pt-4 pb-5">
-                        <div className="flex items-start justify-between gap-3 mb-4">
-                          <div className="flex items-center gap-2">
-                            {scoreIcon(result.percentage, result.status)}
-                            <h3 className="font-bold text-[hsl(var(--foreground))] leading-snug">{result.quizTitle}</h3>
-                          </div>
-                          <Badge variant={scoreBadge(result.percentage, result.status)} className="shrink-0">
-                            {result.status === 'completed' ? `${result.percentage}%` : 'Pending'}
-                          </Badge>
-                        </div>
-
-                        <div className="flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))] mb-4">
-                          <span>{result.correctCount}/{result.answers?.length} correct</span>
-                          <span>·</span>
-                          <span>{relDate(result.completedAt)}</span>
-                          {result.status === 'completed' && (
-                            <>
-                              <span>·</span>
-                              <span>{result.finalScore}/{result.maxScore} pts</span>
-                            </>
-                          )}
-                        </div>
-
-                        {result.status === 'completed' && (
-                          <div className="mb-4">
-                            <Progress value={result.percentage} className="h-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border))]"
-                              indicatorClassName={result.percentage >= 80 ? 'bg-emerald-500' : result.percentage >= 60 ? 'bg-blue-500' : result.percentage >= 40 ? 'bg-amber-500' : 'bg-red-500'}
-                            />
-                          </div>
-                        )}
-
-                        {result.status === 'pending' && (
-                          <div className="flex items-center gap-2 text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-xs mb-4">
-                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                            Some answers are pending teacher review.
-                          </div>
-                        )}
-
-                        <Button variant="outline" size="sm" onClick={() => openReview(result)} className="w-full gap-2">
-                          <Eye className="w-3.5 h-3.5" /> View Review
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-            </section>
-          )}
+      {loading ? (
+        <div className="mt-12 space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-48 w-full" /><Skeleton className="h-24 w-full" /></div>
+      ) : results.length === 0 ? (
+        <div className="mt-12 border-y border-[hsl(var(--border))] py-20 text-center">
+          <p className="text-hero text-4xl">Nothing here yet.</p>
+          <p className="mt-3 text-sm text-[hsl(var(--muted-foreground))]">Finish a quiz and your score shows up here.</p>
+          <Button className="mt-7" variant="brand" size="lg" onClick={() => navigate('/student/attend-quiz')}>Join a quiz <PiArrowRightBold /></Button>
         </div>
-      </motion.div>
+      ) : (
+        <motion.div variants={stagger(0.06)} initial="hidden" animate="show">
+          <motion.dl variants={rise} className="mt-12 grid grid-cols-3 divide-x divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+            {stats.map(([label, value, format], i) => (
+              <div key={label} className={`py-5 ${i === 0 ? 'pr-5' : 'px-5'}`}>
+                <dt className="eyebrow">{label}</dt>
+                <dd className="mt-2 text-3xl font-medium"><AnimatedNumber value={value} format={format} duration={0.8} /></dd>
+              </div>
+            ))}
+          </motion.dl>
 
-      {/* Review Dialog */}
-      <Dialog open={!!selectedResult} onOpenChange={open => { if (!open) { setSelectedResult(null); setReviewQuiz(null); setShowWrongOnly(false); } }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-          <DialogHeader className="shrink-0 pb-4 border-b border-[hsl(var(--border))]">
-            <DialogTitle className="text-xl">{selectedResult?.quizTitle} — Review</DialogTitle>
-            {selectedResult && (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-2">
-                <div className="flex items-center gap-3">
-                  <Badge variant={scoreBadge(selectedResult.percentage, selectedResult.status)}>
-                    {selectedResult.status === 'completed' ? `${selectedResult.percentage}%` : 'Pending'}
-                  </Badge>
-                  <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                    {selectedResult.correctCount}/{selectedResult.answers?.length} correct · {selectedResult.finalScore}/{selectedResult.maxScore} pts
-                  </span>
-                </div>
-                {selectedResult.status === 'completed' && (
-                  <label className="flex items-center gap-2 text-xs font-semibold text-red-600 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1 cursor-pointer select-none hover:bg-red-100 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={showWrongOnly}
-                      onChange={e => setShowWrongOnly(e.target.checked)}
-                      className="accent-red-600 cursor-pointer"
+          {trend.length >= 2 && (
+            <motion.section variants={rise} aria-label="Score trend" className="mt-12">
+              <h2 className="text-xl font-semibold tracking-tight">Score trend</h2>
+              <div className="mt-5 h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+                    <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tickLine={false} axisLine={false} fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis domain={[0, 100]} tickLine={false} axisLine={false} fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                    <Tooltip
+                      cursor={{ stroke: 'hsl(var(--border))' }}
+                      contentStyle={{ background: 'hsl(var(--card))', borderRadius: 10, border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', fontSize: 12 }}
+                      formatter={(value, _n, item) => [`${value}%`, item.payload.title]}
                     />
-                    <span>Show Wrong Answers Only</span>
+                    <Line type="monotone" dataKey="Score" stroke="hsl(var(--brand))" strokeWidth={2.5} dot={{ r: 3.5, strokeWidth: 0, fill: 'hsl(var(--brand))' }} activeDot={{ r: 5.5 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.section>
+          )}
+
+          {breakdown.length >= 2 && (
+            <motion.section variants={rise} aria-label="Average by subject" className="mt-12">
+              <h2 className="text-xl font-semibold tracking-tight">By subject</h2>
+              <ul className="mt-5 space-y-4">
+                {breakdown.map((g) => (
+                  <li key={g.name}>
+                    <div className="flex items-baseline justify-between gap-4 text-sm">
+                      <span className="min-w-0 truncate">{g.name}</span>
+                      <span className="tabular font-mono text-xs text-[hsl(var(--muted-foreground))]">{g.avg}% over {g.count}</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[hsl(var(--muted))]">
+                      <motion.div initial={{ scaleX: 0 }} animate={{ scaleX: g.avg / 100 }} transition={{ duration: 0.8, ease, delay: 0.2 }} className="h-full origin-left rounded-full bg-[hsl(var(--brand))]" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </motion.section>
+          )}
+
+          <motion.section variants={rise} aria-label="All attempts" className="mt-14">
+            <h2 className="text-xl font-semibold tracking-tight">All attempts</h2>
+            <ul className="mt-4 divide-y divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+              {results.map((result) => {
+                const tone = toneFor(result.percentage, result.status);
+                return (
+                  <li key={result.id} className="grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-3 py-5">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-base font-medium">{result.quizTitle}</h3>
+                      <p className="tabular mt-1 flex flex-wrap items-center gap-x-3 font-mono text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                        <span>{relDate(result.completedAt)}</span>
+                        <span>{result.correctCount}/{result.answers?.length} right</span>
+                        {result.status === 'completed' && <span>{result.finalScore}/{result.maxScore} pts</span>}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {result.status === 'completed'
+                        ? <span className={`tabular w-14 text-right text-2xl font-medium ${tone === 'red' ? 'text-[hsl(var(--destructive))]' : ''}`}>{result.percentage}%</span>
+                        : <Chip tone="yellow"><PiClockBold className="mr-1 h-3 w-3" /> Pending</Chip>}
+                      <Button variant="outline" size="sm" onClick={() => openReview(result)}><PiEyeBold /> Review</Button>
+                    </div>
+                    {result.status === 'completed' && (
+                      <div className="col-span-2 h-1 overflow-hidden rounded-full bg-[hsl(var(--muted))]">
+                        <div className={`h-full rounded-full ${BAR[tone]}`} style={{ width: `${result.percentage}%` }} />
+                      </div>
+                    )}
+                    {result.status === 'pending' && (
+                      <p className={`col-span-2 rounded-lg px-3 py-2 text-xs ${TINT.yellow}`}>Some answers are waiting for your teacher to mark them.</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </motion.section>
+        </motion.div>
+      )}
+
+      <Dialog open={!!selectedResult} onOpenChange={(open) => { if (!open) { setSelectedResult(null); setReviewQuiz(null); setShowWrongOnly(false); } }}>
+        <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden">
+          <DialogHeader className="shrink-0 border-b border-[hsl(var(--border))] pb-4">
+            <DialogTitle className="text-hero text-3xl font-normal">{selectedResult?.quizTitle}</DialogTitle>
+            {selectedResult && (
+              <div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <p className="tabular flex items-center gap-3 text-sm text-[hsl(var(--muted-foreground))]">
+                  <Chip tone={toneFor(selectedResult.percentage, selectedResult.status)}>{selectedResult.status === 'completed' ? `${selectedResult.percentage}%` : 'Pending'}</Chip>
+                  {selectedResult.correctCount}/{selectedResult.answers?.length} right
+                  {selectedResult.status === 'completed' && <>, {selectedResult.finalScore}/{selectedResult.maxScore} pts</>}
+                </p>
+                {selectedResult.status === 'completed' && (
+                  <label className="flex cursor-pointer select-none items-center gap-2 text-sm">
+                    <input type="checkbox" checked={showWrongOnly} onChange={(e) => setShowWrongOnly(e.target.checked)} className="h-4 w-4 cursor-pointer accent-[hsl(var(--ink))]" />
+                    Only the ones I missed
                   </label>
                 )}
               </div>
             )}
           </DialogHeader>
 
-          <div className="overflow-y-auto flex-1 pt-4">
+          <div className="flex-1 overflow-y-auto px-5">
             {reviewLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="w-8 h-8 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
-              </div>
-            ) : reviewQuiz && selectedResult ? (
-              <div className="flex flex-col gap-4">
-                {(() => {
-                  const filtered = reviewQuiz.questions
-                    .map((q, i) => ({ q, ans: selectedResult.answers[i], origIndex: i }))
-                    .filter(({ ans }) => {
-                      if (!showWrongOnly) return true;
-                      const isPending = ans?.status === 'pending_review';
-                      const isCorrect = !isPending && !!ans?.isCorrect;
-                      return !isCorrect;
-                    });
-                  
-                  if (filtered.length === 0) {
-                    return (
-                      <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                        No incorrect answers found! Outstanding job!
-                      </div>
-                    );
-                  }
-
-                  return filtered.map(({ q, ans, origIndex }) => (
-                    <QuestionReview key={q.id || origIndex} originalQuestion={q} studentAnswerData={ans} index={origIndex} />
-                  ));
-                })()}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-[hsl(var(--muted-foreground))]">
-                Could not load review details — the quiz may have been deleted.
-              </div>
+              <div className="space-y-4 py-6"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>
+            ) : reviewQuiz && selectedResult ? (() => {
+              const rows = reviewQuiz.questions
+                .map((q, i) => ({ q, ans: selectedResult.answers[i], origIndex: i }))
+                .filter(({ ans }) => {
+                  if (!showWrongOnly) return true;
+                  const pending = ans?.status === 'pending_review';
+                  return pending || !ans?.isCorrect;
+                });
+              if (rows.length === 0) return <p className="py-14 text-center text-[hsl(var(--muted-foreground))]">You got every one right.</p>;
+              return (
+                <AnimatePresence initial={false}>
+                  <ul className="divide-y divide-[hsl(var(--border))]">
+                    {rows.map(({ q, ans, origIndex }) => <QuestionReview key={q.id || origIndex} originalQuestion={q} studentAnswerData={ans} index={origIndex} />)}
+                  </ul>
+                </AnimatePresence>
+              );
+            })() : (
+              <p className="py-14 text-center text-[hsl(var(--muted-foreground))]">We could not load the details. The quiz may have been deleted.</p>
             )}
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
-};
-
-export default YourResults;
+}
