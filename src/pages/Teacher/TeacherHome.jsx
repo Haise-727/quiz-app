@@ -6,47 +6,31 @@ import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import PageHeader from '@/components/layout/PageHeader';
+import AnimatedNumber from '@/components/game/AnimatedNumber';
+import Skeleton from '@/components/teacher/Skeleton';
+import { pop, rise, spring, stagger } from '@/lib/motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
-  Plus, LayoutDashboard, BookOpen, Activity, Radio,
-  CheckSquare, AlignLeft, GitCompare, Grid3X3, ArrowUpDown, ToggleLeft,
-  BookMarked, Image, Layers, GraduationCap, Trash2, Sparkles, Loader2, Wrench,
-} from 'lucide-react';
+  PiPlusBold, PiBroadcastBold, PiStackBold, PiChalkboardTeacherBold, PiBooksBold, PiArrowRightBold,
+  PiCheckSquareBold, PiTextAlignLeftBold, PiArrowsLeftRightBold, PiSquaresFourBold, PiArrowsDownUpBold,
+  PiToggleLeftBold, PiImageBold, PiHeadphonesBold, PiShuffleBold, PiTrashBold,
+  PiSparkleBold, PiSpinnerGapBold, PiNotePencilBold, PiWrenchBold,
+} from 'react-icons/pi';
 import { clearInvalidQuizzes, seedTestQuiz, clearAllQuizResults } from '../../utils/devTools';
 
-const AnimatedCounter = ({ value, duration = 1500 }) => {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    const end = parseInt(value, 10);
-    if (!end) { setCount(0); return; }
-    const step = Math.ceil(duration / end);
-    let cur = 0;
-    const t = setInterval(() => { cur += 1; setCount(cur); if (cur >= end) clearInterval(t); }, step);
-    return () => clearInterval(t);
-  }, [value, duration]);
-  return <span>{count.toLocaleString()}</span>;
-};
-
 const QUIZ_TYPES = [
-  { type: 'MCQ',                    icon: CheckSquare, label: 'Multiple Choice',      desc: 'Classic auto-graded choices.' },
-  { type: 'TRUE_FALSE',             icon: ToggleLeft,  label: 'True / False',         desc: 'Quick binary questions.' },
-  { type: 'FILL_IN_THE_BLANK',      icon: AlignLeft,   label: 'Fill in the Blank',    desc: 'Short, specific answers.' },
-  { type: 'PARAGRAPH',              icon: BookOpen,    label: 'Paragraph',            desc: 'Long-form, manual grading.' },
-  { type: 'MATCH_THE_FOLLOWING',    icon: GitCompare,  label: 'Match the Following',  desc: 'Connect pairs correctly.' },
-  { type: 'CATEGORIZE',             icon: Grid3X3,     label: 'Categorize Items',     desc: 'Sort into groups.' },
-  { type: 'REORDER',                icon: ArrowUpDown, label: 'Reorder Sequence',     desc: 'Arrange in correct order.' },
-  { type: 'VISUAL_COMPREHENSION',   icon: Image,       label: 'Visual Comprehension', desc: 'Image/video with follow-ups.' },
-  { type: 'LISTENING_COMPREHENSION', icon: BookMarked, label: 'Listening Comprehension', desc: 'Audio with follow-ups.' },
-  { type: 'MIXED',                  icon: Layers,      label: 'Mixed / Custom',       desc: 'Combine all question types.' },
-];
-
-const STAT_COLORS = [
-  'bg-[hsl(var(--primary))]',
-  'bg-blue-500',
-  'bg-emerald-500',
-  'bg-amber-500',
+  { type: 'MCQ',                     icon: PiCheckSquareBold,     label: 'Multiple choice',         desc: 'Auto graded choices.' },
+  { type: 'TRUE_FALSE',              icon: PiToggleLeftBold,      label: 'True or false',           desc: 'Quick binary questions.' },
+  { type: 'FILL_IN_THE_BLANK',       icon: PiTextAlignLeftBold,   label: 'Fill in the blank',       desc: 'Short, specific answers.' },
+  { type: 'PARAGRAPH',               icon: PiNotePencilBold,      label: 'Paragraph',               desc: 'Long answers, marked by hand.' },
+  { type: 'MATCH_THE_FOLLOWING',     icon: PiArrowsLeftRightBold, label: 'Match the following',     desc: 'Connect pairs correctly.' },
+  { type: 'CATEGORIZE',              icon: PiSquaresFourBold,     label: 'Categorize items',        desc: 'Sort into groups.' },
+  { type: 'REORDER',                 icon: PiArrowsDownUpBold,    label: 'Reorder a sequence',      desc: 'Arrange in the right order.' },
+  { type: 'VISUAL_COMPREHENSION',    icon: PiImageBold,           label: 'Visual comprehension',    desc: 'Image or video with follow ups.' },
+  { type: 'LISTENING_COMPREHENSION', icon: PiHeadphonesBold,      label: 'Listening comprehension', desc: 'Audio with follow ups.' },
+  { type: 'MIXED',                   icon: PiShuffleBold,         label: 'Mixed',                   desc: 'Combine all question types.' },
 ];
 
 const TeacherHome = () => {
@@ -86,8 +70,8 @@ const TeacherHome = () => {
       const activity = quizzes
         .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
         .slice(0, 5)
-        .map(q => ({ message: `Created "${q.title}"`, timestamp: q.createdAt, active: q.active }));
-      setRecentActivity(activity.length ? activity : [{ message: 'Welcome! Create your first quiz.', timestamp: null, active: false }]);
+        .map(q => ({ id: q.id, title: q.title, timestamp: q.createdAt, active: q.active }));
+      setRecentActivity(activity);
     } catch (err) {
       toast.error('Failed to load dashboard data.');
       console.error(err);
@@ -118,7 +102,7 @@ const TeacherHome = () => {
     setDevLoading('seed');
     try {
       const id = await seedTestQuiz(currentUser.uid);
-      toast.success(`Test quiz created! ID: ${id}`);
+      toast.success(`Test quiz created. ID: ${id}`);
       fetched.current = false;
       fetchData();
     } catch {
@@ -144,221 +128,158 @@ const TeacherHome = () => {
   };
 
   const formatDate = (ts) => {
-    if (!ts) return 'Just now';
+    if (!ts) return 'just now';
     const d = ts.toDate ? ts.toDate() : new Date(ts);
     const h = (Date.now() - d) / 3600000;
-    if (h < 1) return 'Just now';
+    if (h < 1) return 'just now';
     if (h < 24) return `${Math.floor(h)}h ago`;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   };
 
-  if (loading) return (
-    <div className="w-full min-h-[60vh] flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
-    </div>
-  );
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const first = displayName?.split(' ')[0] || 'Teacher';
 
   const statCards = [
-    { label: 'Active Quizzes',     value: stats.activeQuizzes,     color: STAT_COLORS[0] },
-    { label: 'Total Quizzes',      value: stats.totalQuizzes,      color: STAT_COLORS[1] },
-    { label: 'Unique Students',    value: stats.totalStudents,     color: STAT_COLORS[2] },
-    { label: 'Completed Sessions', value: stats.completedSessions, color: STAT_COLORS[3] },
+    { label: 'Active quizzes',     value: stats.activeQuizzes },
+    { label: 'Total quizzes',      value: stats.totalQuizzes },
+    { label: 'Unique students',    value: stats.totalStudents },
+    { label: 'Completed sessions', value: stats.completedSessions },
+  ];
+
+  const links = [
+    { icon: PiBroadcastBold, label: 'Host a live game', desc: 'Run a session in real time', to: '/teacher/your-quizzes' },
+    { icon: PiStackBold, label: 'Your quizzes', desc: 'Edit, preview and grade', to: '/teacher/your-quizzes' },
+    { icon: PiChalkboardTeacherBold, label: 'Classes', desc: 'Rosters and assignments', to: '/teacher/classes' },
+    { icon: PiBooksBold, label: 'Question bank', desc: 'Questions you can reuse', to: '/teacher/question-bank' },
   ];
 
   return (
-    <div className="w-full relative">
-      {/* Greeting Header */}
-      <div className="pb-4">
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="animate-fade-in">
-          <p className="text-[11px] font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
-            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}
-          </p>
-          <h1 className="text-3xl font-bold text-[hsl(var(--foreground))] tracking-tight mt-1">
-            {displayName?.split(' ')[0] || 'Teacher'}
-          </h1>
-          <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">Here is what is happening with your quizzes today.</p>
-        </motion.div>
-      </div>
+    <div className="mx-auto w-full max-w-5xl pb-16">
+      <PageHeader
+        eyebrow="Dashboard"
+        serif
+        title={`${greeting}, ${first}.`}
+        actions={<Button size="lg" onClick={() => setQuizModalOpen(true)}><PiPlusBold /> Create quiz</Button>}
+      />
 
-      {/* 70/30 Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8 mt-4">
-          
-          {/* LEFT Column (70%) */}
-          <div className="flex flex-col gap-6">
-            
-            {/* Quick Actions (Flashcard grid) */}
-            <section>
-              <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-3">Quick Actions</h2>
-              <motion.div 
-                variants={{
-                  hidden: { opacity: 0 },
-                  show: {
-                    opacity: 1,
-                    transition: { staggerChildren: 0.05 }
-                  }
-                }}
-                initial="hidden"
-                animate="show"
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-              >
-                {[
-                  { icon: Plus, label: 'Create Quiz', desc: 'Build a new assessment', onClick: () => setQuizModalOpen(true) },
-                  { icon: Radio, label: 'Host Live Game', desc: 'Run a real-time session', onClick: () => navigate('/teacher/your-quizzes') },
-                  { icon: LayoutDashboard, label: 'Your Quizzes', desc: 'Manage & grade quizzes', onClick: () => navigate('/teacher/your-quizzes') },
-                  { icon: GraduationCap, label: 'My Classes', desc: 'Manage classes & rosters', onClick: () => navigate('/teacher/classes') },
-                  { icon: BookOpen, label: 'Question Bank', desc: 'Reusable questions list', onClick: () => navigate('/teacher/question-bank') },
-                ].map(({ icon: Icon, label, desc, onClick }) => (
-                  <motion.button
-                    key={label}
-                    onClick={onClick}
-                    variants={{
-                      hidden: { opacity: 0, y: 12 },
-                      show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } }
-                    }}
-                    whileHover={{ y: -4, scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex flex-col items-center justify-center p-5 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] text-center cursor-pointer transition-all duration-200 group relative overflow-hidden min-h-[140px] shadow-sm hover:shadow-md"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-[hsl(var(--muted))] border border-[hsl(var(--border))] flex items-center justify-center mb-3 group-hover:bg-[hsl(var(--primary))]/10 group-hover:border-[hsl(var(--primary))]/30 transition-colors duration-200">
-                      <Icon className="w-5 h-5 text-[hsl(var(--muted-foreground))] group-hover:text-[hsl(var(--primary))] transition-colors duration-200" />
-                    </div>
-                    <span className="text-sm font-bold text-[hsl(var(--foreground))] tracking-tight">{label}</span>
-                    <span className="text-[11px] text-[hsl(var(--muted-foreground))] mt-1 leading-snug px-2">{desc}</span>
-                  </motion.button>
-                ))}
-              </motion.div>
-            </section>
-
-            {/* Recent Activity */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Recent Activity</h2>
-                <Activity className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
-              </div>
-              <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] rounded-lg overflow-hidden">
-                <CardContent className="p-0">
-                  {recentActivity.map((a, i) => (
-                    <div key={i} className={`flex items-center justify-between px-4 py-3 transition-colors hover:bg-[hsl(var(--muted))]/20 ${i !== recentActivity.length - 1 ? 'border-b border-[hsl(var(--border))]' : ''}`}>
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-[hsl(var(--muted))] flex items-center justify-center flex-shrink-0">
-                          <BookOpen className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm text-[hsl(var(--foreground))] font-semibold truncate">{a.message}</p>
-                          <p className="text-xs text-[hsl(var(--muted-foreground))]">{formatDate(a.timestamp)}</p>
-                        </div>
-                      </div>
-                      {a.active !== undefined && (
-                        <Badge variant="outline" className={`text-xs rounded px-1.5 py-0.5 border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 ${a.active ? 'text-[hsl(var(--primary))] border-[hsl(var(--primary))]/20' : 'text-[hsl(var(--muted-foreground))]'}`}>
-                          {a.active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </section>
-
+      {/* The numbers. */}
+      <dl className="mt-10 grid grid-cols-2 border-y border-[hsl(var(--border))] sm:grid-cols-4 sm:divide-x sm:divide-[hsl(var(--border))]">
+        {statCards.map(({ label, value }, i) => (
+          <div key={label} className={`py-5 ${i === 0 ? 'sm:pr-6' : i === statCards.length - 1 ? 'sm:pl-6' : 'sm:px-6'}`}>
+            <dt className="eyebrow">{label}</dt>
+            <dd className="mt-2 text-3xl font-medium text-[hsl(var(--foreground))]">
+              {loading ? <Skeleton className="h-8 w-14" /> : <AnimatedNumber value={value} duration={0.8} />}
+            </dd>
           </div>
+        ))}
+      </dl>
 
-          {/* RIGHT Column (30%) - Sidebar */}
-          <div className="flex flex-col gap-6">
-            
-            {/* Stats Panel */}
-            <section>
-              <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-3">Metrics</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {statCards.map(({ label, value }) => (
-                  <Card key={label} className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3.5 flex flex-col justify-between rounded-lg">
-                    <div>
-                      <p className="text-2xl font-bold text-[hsl(var(--foreground))] tracking-tight">
-                        <AnimatedCounter value={value} />
-                      </p>
-                      <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-tight mt-1">{label}</p>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </section>
-
-            {/* Dev Tools */}
-            <section>
-              <h2 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-3">Developer tools</h2>
-              <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 rounded-lg">
-                <div className="flex flex-col gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={devLoading === 'clear'}
-                    onClick={handleClearInvalid}
-                    className="w-full gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
-                  >
-                    {devLoading === 'clear'
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : <Trash2 className="w-3.5 h-3.5" />
-                    }
-                    Clear Invalid Quizzes
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={devLoading === 'seed'}
-                    onClick={handleSeedQuiz}
-                    className="w-full gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]"
-                  >
-                    {devLoading === 'seed'
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : <Sparkles className="w-3.5 h-3.5" />
-                    }
-                    Seed Test Quiz (All Types)
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={devLoading === 'clearResults'}
-                    onClick={() => setConfirmClearResults(true)}
-                    className="w-full gap-2 border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30"
-                  >
-                    {devLoading === 'clearResults'
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : <Trash2 className="w-3.5 h-3.5" />
-                    }
-                    Clear All Quiz Results
-                  </Button>
-                  <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-2 leading-relaxed">
-                    Clear Invalid removes outdated schemas. Seed creates a test quiz with all 7 question types.
-                    Clear All Quiz Results permanently deletes every submission/review for your quizzes.
-                  </p>
-                </div>
-              </Card>
-            </section>
-
-          </div>
-
+      {/* Recent quizzes. */}
+      <section aria-label="Recent quizzes" className="mt-12">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-xl font-semibold tracking-tight">Recent quizzes</h2>
+          {recentActivity.length > 0 && (
+            <button type="button" onClick={() => navigate('/teacher/your-quizzes')} className="cursor-pointer text-sm font-medium text-[hsl(var(--foreground))] underline underline-offset-4">View all</button>
+          )}
         </div>
+        {loading ? (
+          <div className="space-y-3 border-t border-[hsl(var(--border))] pt-4">
+            {[0, 1, 2].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+          </div>
+        ) : recentActivity.length === 0 ? (
+          <motion.div variants={pop} initial="hidden" animate="show" className="mt-2 border-t border-[hsl(var(--border))] pt-8">
+            <p className="text-lg font-medium">No quizzes yet.</p>
+            <p className="mt-1 text-[hsl(var(--muted-foreground))]">Create your first quiz and share the code with your students.</p>
+            <Button className="mt-5" variant="brand" size="lg" onClick={() => setQuizModalOpen(true)}>Create quiz <PiArrowRightBold /></Button>
+          </motion.div>
+        ) : (
+          <motion.ul variants={stagger(0.05)} initial="hidden" animate="show" className="divide-y divide-[hsl(var(--border))] border-t border-[hsl(var(--border))]">
+            {recentActivity.map((a) => (
+              <motion.li key={a.id} variants={rise} className="flex items-center gap-4 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{a.title}</p>
+                  <p className="text-xs text-[hsl(var(--muted-foreground))]">Created {formatDate(a.timestamp)}</p>
+                </div>
+                <Badge variant={a.active ? 'success' : 'secondary'}>{a.active ? 'Active' : 'Draft'}</Badge>
+              </motion.li>
+            ))}
+          </motion.ul>
+        )}
+      </section>
+
+      {/* Where to go next. */}
+      <section aria-label="Shortcuts" className="mt-12">
+        <h2 className="text-xl font-semibold tracking-tight">Jump to</h2>
+        <motion.ul variants={stagger(0.05)} initial="hidden" animate="show" className="mt-2 grid border-t border-[hsl(var(--border))] sm:grid-cols-2 sm:gap-x-12">
+          {links.map(({ icon: Icon, label, desc, to }) => (
+            <motion.li key={label} variants={rise} className="border-b border-[hsl(var(--border))]">
+              <motion.button
+                type="button"
+                onClick={() => navigate(to)}
+                whileTap={{ scale: 0.985 }}
+                transition={spring}
+                className="group flex w-full cursor-pointer items-center gap-4 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+              >
+                <Icon className="h-5 w-5 shrink-0 text-[hsl(var(--muted-foreground))] transition-colors group-hover:text-[hsl(var(--foreground))]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{label}</span>
+                  <span className="block text-xs text-[hsl(var(--muted-foreground))]">{desc}</span>
+                </span>
+                <PiArrowRightBold className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] transition-transform group-hover:translate-x-0.5 group-hover:text-[hsl(var(--foreground))]" />
+              </motion.button>
+            </motion.li>
+          ))}
+        </motion.ul>
+      </section>
+
+      {/* Developer tools: kept, but quiet. */}
+      <section aria-label="Developer tools" className="mt-14 border-t border-[hsl(var(--border))] pt-6">
+        <h2 className="eyebrow flex items-center gap-2"><PiWrenchBold className="h-3.5 w-3.5" /> Developer tools</h2>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" disabled={devLoading === 'clear'} onClick={handleClearInvalid}>
+            {devLoading === 'clear' ? <PiSpinnerGapBold className="animate-spin" /> : <PiTrashBold />}
+            Clear invalid quizzes
+          </Button>
+          <Button variant="outline" size="sm" disabled={devLoading === 'seed'} onClick={handleSeedQuiz}>
+            {devLoading === 'seed' ? <PiSpinnerGapBold className="animate-spin" /> : <PiSparkleBold />}
+            Seed test quiz
+          </Button>
+          <Button variant="destructive" size="sm" disabled={devLoading === 'clearResults'} onClick={() => setConfirmClearResults(true)}>
+            {devLoading === 'clearResults' ? <PiSpinnerGapBold className="animate-spin" /> : <PiTrashBold />}
+            Clear all quiz results
+          </Button>
+        </div>
+        <p className="mt-3 max-w-prose text-xs leading-relaxed text-[hsl(var(--muted-foreground))]">
+          Clear invalid removes outdated schemas. Seed creates a test quiz with every question type.
+          Clear all quiz results permanently deletes every submission and review for your quizzes.
+        </p>
+      </section>
 
       {/* Quiz type modal */}
       <Dialog open={quizModalOpen} onOpenChange={setQuizModalOpen}>
         <DialogContent className="max-w-2xl bg-[hsl(var(--card))] border-[hsl(var(--border))]">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-[hsl(var(--foreground))]">Choose Quiz Type</DialogTitle>
-            <DialogDescription className="text-xs text-[hsl(var(--muted-foreground))]">Select the format that best fits your assessment goal.</DialogDescription>
+            <DialogTitle className="text-lg font-semibold text-[hsl(var(--foreground))]">Choose a quiz type</DialogTitle>
+            <DialogDescription className="text-sm text-[hsl(var(--muted-foreground))]">Pick the format that fits what you want to assess.</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 pt-1">
+          <ul className="grid gap-x-8 px-6 pb-6 sm:grid-cols-2">
             {QUIZ_TYPES.map(({ type, icon: Icon, label, desc }) => (
-              <button
-                key={type}
-                onClick={() => handleSelectType(type)}
-                className="flex flex-col items-center gap-2 p-3.5 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 text-center transition-all hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/5 cursor-pointer text-left"
-              >
-                <Icon className="w-4 h-4 text-[hsl(var(--muted-foreground))] mb-1" />
-                <div>
-                  <p className="font-semibold text-xs text-[hsl(var(--foreground))]">{label}</p>
-                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] leading-snug mt-0.5">{desc}</p>
-                </div>
-              </button>
+              <li key={type} className="border-b border-[hsl(var(--border))]">
+                <button
+                  type="button"
+                  onClick={() => handleSelectType(type)}
+                  className="group flex w-full cursor-pointer items-center gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))] transition-colors group-hover:text-[hsl(var(--primary))]" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-[hsl(var(--foreground))]">{label}</span>
+                    <span className="block text-xs text-[hsl(var(--muted-foreground))]">{desc}</span>
+                  </span>
+                </button>
+              </li>
             ))}
-          </div>
+          </ul>
         </DialogContent>
       </Dialog>
 
@@ -366,16 +287,16 @@ const TeacherHome = () => {
       <Dialog open={confirmClearResults} onOpenChange={setConfirmClearResults}>
         <DialogContent className="max-w-sm bg-[hsl(var(--card))] border-[hsl(var(--border))]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[hsl(var(--foreground))]">
-              <Trash2 className="w-5 h-5 text-red-500" /> Clear All Quiz Results?
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-[hsl(var(--foreground))]">
+              <PiTrashBold className="h-5 w-5 text-[hsl(var(--destructive))]" /> Clear all quiz results?
             </DialogTitle>
             <DialogDescription>
-              This permanently deletes every submission and review for all of your quizzes - students will lose access to their past results. This cannot be undone.
+              This permanently deletes every submission and review for all of your quizzes. Students will lose access to their past results. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setConfirmClearResults(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleClearResults}>Delete Everything</Button>
+            <Button variant="destructive" onClick={handleClearResults}>Delete everything</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
