@@ -1,99 +1,93 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { useAuth, handleAuthError } from '../contexts/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useId, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { FcGoogle } from 'react-icons/fc';
+import { PiArrowLeftBold, PiBookOpenTextBold, PiCheckBold, PiEyeBold, PiEyeSlashBold, PiGraduationCapBold, PiSpinnerGapBold } from 'react-icons/pi';
+import { handleAuthError, useAuth } from '@/contexts/AuthContext';
+import PublicNav from '@/components/layout/PublicNav';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { FaGoogle } from 'react-icons/fa';
-import { Eye, EyeOff, GraduationCap, BookOpen, ArrowLeft, Loader2 } from 'lucide-react';
+import { ease, rise, spring, stagger } from '@/lib/motion';
 
-// ── Role selection modal (for new Google users) ────────────────────────────────
-const RoleSelectionModal = ({ user, onSelect, loading }) => (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-    <motion.div
-      initial={{ scale: 0.95, opacity: 0, y: 16 }}
-      animate={{ scale: 1, opacity: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-      className="w-full max-w-md"
-    >
-      <Card className="w-full shadow-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] overflow-hidden rounded-2xl">
-        <CardHeader className="relative text-center pb-2">
-          <div className="w-14 h-14 rounded-2xl bg-[hsl(var(--primary))]/10 mx-auto mb-3 flex items-center justify-center text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">
-            <GraduationCap className="w-7 h-7" />
-          </div>
-          <CardTitle className="text-[hsl(var(--foreground))] text-2xl">One last step</CardTitle>
-          <CardDescription className="text-[hsl(var(--muted-foreground))] text-base">
-            How do you use Quizlike, {user?.displayName?.split(' ')[0] || 'friend'}?
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="relative flex flex-col gap-3 pb-6">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { role: 'student', icon: GraduationCap, label: 'Student', desc: 'Join & take quizzes', colorClass: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-              { role: 'teacher', icon: BookOpen,      label: 'Teacher', desc: 'Create & host quizzes', colorClass: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
-            ].map(({ role, icon: Icon, label, desc, colorClass }) => (
-              <button
-                key={role}
-                onClick={() => onSelect(role)}
-                disabled={loading}
-                className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 hover:bg-[hsl(var(--muted))]/70 hover:border-[hsl(var(--primary))]/50 transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <div className={`w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${colorClass} border`}>
-                  <Icon className="w-7 h-7" />
-                </div>
-                <div className="text-center">
-                  <p className="font-bold text-[hsl(var(--foreground))]">{label}</p>
-                  <p className="text-[hsl(var(--muted-foreground))] text-xs mt-0.5">{desc}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-          {loading && (
-            <div className="flex items-center justify-center gap-2 text-[hsl(var(--muted-foreground))] text-sm pt-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Setting up your account...
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
-  </div>
-);
+const ROLES = [
+  { id: 'student', label: 'Student', hint: 'Take quizzes, earn XP', Icon: PiGraduationCapBold },
+  { id: 'teacher', label: 'Teacher', hint: 'Build and host quizzes', Icon: PiBookOpenTextBold },
+];
 
-// ── Main Login page ────────────────────────────────────────────────────────────
-const Login = () => {
+/** Two options side by side: a hairline box, with the chosen one outlined in ink. */
+function RolePicker({ value, onChange, disabled }) {
+  return (
+    <div role="radiogroup" aria-label="I am a" className="grid grid-cols-2 gap-3">
+      {ROLES.map(({ id, label, hint, Icon }) => {
+        const on = value === id;
+        return (
+          <motion.button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            disabled={disabled}
+            whileTap={{ scale: 0.97 }}
+            transition={spring}
+            onClick={() => onChange(id)}
+            className={`relative flex cursor-pointer flex-col items-start gap-3 rounded-xl border p-4 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] disabled:opacity-50 ${on ? 'border-[hsl(var(--ink))]' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--input))]'}`}
+          >
+            <Icon className={`h-5 w-5 ${on ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]'}`} />
+            <span>
+              <span className="block text-sm font-medium">{label}</span>
+              <span className="mt-0.5 block text-xs text-[hsl(var(--muted-foreground))]">{hint}</span>
+            </span>
+            <AnimatePresence>
+              {on && (
+                <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={spring} className="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-full bg-[hsl(var(--ink))] text-[hsl(var(--ink-foreground))]">
+                  <PiCheckBold className="h-3 w-3" />
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A label above a field that is only an underline, so a form is a column of lines, not boxes. */
+function Field({ label, trailing, ...input }) {
+  const id = useId();
+  return (
+    <div>
+      <label htmlFor={id} className="eyebrow">{label}</label>
+      <div className="mt-1 flex items-center gap-2 border-b-2 border-[hsl(var(--input))] transition-colors focus-within:border-[hsl(var(--ink))]">
+        <input id={id} {...input} className="min-w-0 flex-1 bg-transparent py-2.5 text-base outline-none placeholder:text-[hsl(var(--muted-foreground))]/50" />
+        {trailing}
+      </div>
+    </div>
+  );
+}
+
+export default function Login() {
   const [searchParams] = useSearchParams();
-  const defaultTab  = searchParams.get('tab') === 'signup' ? 'signup' : 'signin';
-  const defaultRole = searchParams.get('role') || '';
-
-  const [tab, setTab]                 = useState(defaultTab);
-  const [email, setEmail]             = useState('');
-  const [password, setPassword]       = useState('');
-  const [name, setName]               = useState('');
-  const [role, setRole]               = useState(defaultRole);
-  const [showPw, setShowPw]           = useState(false);
-  const [error, setError]             = useState('');
-  const [loading, setLoading]         = useState(false);
+  const [tab, setTab] = useState(searchParams.get('tab') === 'signup' ? 'signup' : 'signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState(searchParams.get('role') || '');
+  const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [pendingGoogleUser, setPending] = useState(null);
   const [roleLoading, setRoleLoading] = useState(false);
 
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, createUserProfile, currentUser, userRole } = useAuth();
   const navigate = useNavigate();
-
-  // Auto-redirect if already logged in
-  useEffect(() => {
-    if (currentUser && userRole) {
-      navigate(userRole === 'teacher' ? '/teacher/home' : '/student/dashboard', { replace: true });
-    }
-  }, [currentUser, userRole]);
-
   const goHome = (r) => navigate(r === 'teacher' ? '/teacher/home' : '/student/dashboard', { replace: true });
+  const signup = tab === 'signup';
 
-  // ── Google ─────────────────────────────────────────────────────────────────
+  // Someone who is already signed in has no use for this page.
+  useEffect(() => {
+    if (currentUser && userRole) navigate(userRole === 'teacher' ? '/teacher/home' : '/student/dashboard', { replace: true });
+  }, [currentUser, userRole, navigate]);
+
   const handleGoogle = async () => {
     setError(''); setLoading(true);
     try {
@@ -101,7 +95,7 @@ const Login = () => {
       if (isNewUser) {
         setPending(user);
       } else {
-        toast.success(`Welcome back, ${user.displayName?.split(' ')[0] || 'there'}!`);
+        toast.success(`Welcome back, ${user.displayName?.split(' ')[0] || 'there'}`);
         goHome(existingRole);
       }
     } catch (err) {
@@ -112,34 +106,38 @@ const Login = () => {
     }
   };
 
+  // A new Google account has no role yet, so ask before creating the profile.
   const handleRoleSelect = async (selectedRole) => {
     if (!pendingGoogleUser) return;
     setRoleLoading(true);
     try {
-      await createUserProfile(
-        pendingGoogleUser.uid,
-        pendingGoogleUser.email,
-        selectedRole,
-        pendingGoogleUser.displayName || pendingGoogleUser.email.split('@')[0]
-      );
-      toast.success('Account created! Welcome to Quizlike.');
+      await createUserProfile(pendingGoogleUser.uid, pendingGoogleUser.email, selectedRole, pendingGoogleUser.displayName || pendingGoogleUser.email.split('@')[0]);
+      toast.success('Account created. Welcome to Quizlike.');
       goHome(selectedRole);
     } catch {
-      setError('Failed to set up account. Please try again.');
+      setError('We could not set up your account. Please try again.');
       setPending(null);
     } finally {
       setRoleLoading(false);
     }
   };
 
-  // ── Email sign-in ─────────────────────────────────────────────────────────
-  const handleSignIn = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (!email || !password) { setError('Please fill in all fields.'); return; }
+    if (signup) {
+      if (!email || !password || !name) { setError('Fill in every field.'); return; }
+      if (!role) { setError('Choose Student or Teacher.'); return; }
+      if (password.length < 6) { setError('Your password needs at least 6 characters.'); return; }
+    } else if (!email || !password) { setError('Enter your email and password.'); return; }
     setError(''); setLoading(true);
     try {
-      await signInWithEmail(email, password);
-      // redirect handled by useEffect
+      if (signup) {
+        await signUpWithEmail(email, password, name, role);
+        toast.success('Account created. Welcome to Quizlike.');
+        goHome(role);
+      } else {
+        await signInWithEmail(email, password);   // the effect above does the redirect
+      }
     } catch (err) {
       setError(handleAuthError(err));
     } finally {
@@ -147,227 +145,103 @@ const Login = () => {
     }
   };
 
-  // ── Email sign-up ─────────────────────────────────────────────────────────
-  const handleSignUp = async (e) => {
-    e.preventDefault();
-    if (!email || !password || !name) { setError('Please fill in all fields.'); return; }
-    if (!role)  { setError('Please choose Student or Teacher.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
-    setError(''); setLoading(true);
-    try {
-      await signUpWithEmail(email, password, name, role);
-      toast.success('Account created! Welcome to Quizlike.');
-      goHome(role);
-    } catch (err) {
-      setError(handleAuthError(err));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const switchTab = () => { setTab(signup ? 'signin' : 'signup'); setError(''); };
 
   return (
-    <>
-      {pendingGoogleUser && (
-        <RoleSelectionModal user={pendingGoogleUser} onSelect={handleRoleSelect} loading={roleLoading} />
-      )}
+    <div className="min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <PublicNav bare />
 
-      <div className="relative min-h-screen w-screen flex items-center justify-center bg-[hsl(var(--background))] text-[hsl(var(--foreground))] overflow-hidden p-4">
-        {/* Background grid and blobs */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-16 px-5 pb-20 pt-12 sm:px-8 lg:grid-cols-[1fr_28rem] lg:items-center lg:pt-24">
+        <div className="hidden lg:block">
+          <p className="eyebrow">{signup ? 'Create an account' : 'Welcome back'}</p>
+          <h1 className="text-hero mt-5 text-7xl leading-[0.98]">{signup ? 'Start with a first quiz.' : 'Your streak is waiting.'}</h1>
+          <p className="mt-6 max-w-sm text-lg text-[hsl(var(--muted-foreground))]">
+            {signup ? 'Free for students and teachers. Takes a minute.' : 'Pick up where you left off: your level, your badges and your results.'}
+          </p>
         </div>
 
-        <div className="relative z-10 w-full max-w-md flex flex-col gap-6">
+        <motion.div variants={stagger(0.05)} initial="hidden" animate="show" className="w-full max-w-md justify-self-center lg:justify-self-end">
+          <motion.h1 variants={rise} className="text-hero text-5xl leading-none lg:hidden">{signup ? 'Create an account' : 'Welcome back'}</motion.h1>
 
-          {/* Logo */}
-          <Link to="/" className="flex items-center justify-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-[hsl(var(--primary))] flex items-center justify-center text-white font-black text-base shadow-sm">Q</div>
-            <span className="text-[hsl(var(--foreground))] font-bold text-2xl tracking-tight">Quizlike</span>
-          </Link>
+          <motion.div variants={rise} className="mt-8 lg:mt-0">
+            <Button type="button" variant="outline" size="xl" className="w-full" onClick={handleGoogle} disabled={loading}>
+              {loading ? <PiSpinnerGapBold className="animate-spin" /> : <FcGoogle className="!size-5" />}
+              Continue with Google
+            </Button>
+          </motion.div>
 
-          {/* Card */}
-          <Card className="border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm text-[hsl(var(--foreground))] rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-[hsl(var(--foreground))] text-2xl text-center">
-                {tab === 'signin' ? 'Welcome back' : 'Join Quizlike'}
-              </CardTitle>
-              <CardDescription className="text-[hsl(var(--muted-foreground))] text-center">
-                {tab === 'signin'
-                  ? 'Sign in to continue your journey'
-                  : 'Create your free account today'}
-              </CardDescription>
-            </CardHeader>
+          <motion.div variants={rise} className="my-7 flex items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
+            <span className="h-px flex-1 bg-[hsl(var(--border))]" />or with email<span className="h-px flex-1 bg-[hsl(var(--border))]" />
+          </motion.div>
 
-            <CardContent className="flex flex-col gap-4">
-              {/* Google */}
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={handleGoogle}
-                disabled={loading}
-                className="w-full font-semibold border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 hover:bg-[hsl(var(--muted))]/85 text-[hsl(var(--foreground))] shadow-sm flex items-center justify-center gap-2.5"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-[hsl(var(--foreground))]" />
-                ) : (
-                  <FaGoogle className="text-[#4285f4]" />
-                )}
-                Continue with Google
-              </Button>
-
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <Separator className="flex-1 bg-[hsl(var(--border))]" />
-                <span className="text-[hsl(var(--muted-foreground))] text-xs font-medium">or continue with email</span>
-                <Separator className="flex-1 bg-[hsl(var(--border))]" />
-              </div>
-
-              {/* Form */}
-              <form onSubmit={tab === 'signin' ? handleSignIn : handleSignUp} className="flex flex-col gap-3">
-
-                {/* Sign-up extras */}
-                <AnimatePresence>
-                  {tab === 'signup' && (
-                    <motion.div
-                      key="signup-fields"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="flex flex-col gap-3 overflow-hidden"
-                    >
-                      {/* Name */}
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-[hsl(var(--muted-foreground))]">Display name</Label>
-                        <Input
-                          placeholder="Your name"
-                          value={name}
-                          onChange={e => setName(e.target.value)}
-                          className="bg-[hsl(var(--muted))]/30 border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))]/50 focus-visible:border-[hsl(var(--primary))] focus-visible:ring-[hsl(var(--primary))]/20"
-                          autoComplete="name"
-                        />
-                      </div>
-
-                      {/* Role */}
-                      <div className="flex flex-col gap-1.5">
-                        <Label className="text-[hsl(var(--muted-foreground))]">I am a...</Label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { r: 'student', icon: GraduationCap, label: 'Student' },
-                            { r: 'teacher', icon: BookOpen,      label: 'Teacher' },
-                          ].map(({ r, icon: Icon, label }) => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => setRole(r)}
-                              className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer ${
-                                role === r
-                                  ? 'border-[hsl(var(--primary))] text-[hsl(var(--foreground))] bg-[hsl(var(--primary))]/5'
-                                  : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--primary))]/50 hover:bg-[hsl(var(--muted))]/50'
-                              }`}
-                            >
-                              <Icon className={`w-4 h-4 ${role === r ? 'text-[hsl(var(--primary))]' : ''}`} />
-                              {label}
-                              {role === r && <span className="ml-auto text-xs text-[hsl(var(--primary))]">✓</span>}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Email */}
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-[hsl(var(--muted-foreground))]">Email</Label>
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="bg-[hsl(var(--muted))]/30 border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))]/50 focus-visible:border-[hsl(var(--primary))] focus-visible:ring-[hsl(var(--primary))]/20"
-                    autoComplete="email"
-                    required
-                  />
-                </div>
-
-                {/* Password */}
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-[hsl(var(--muted-foreground))]">Password</Label>
-                  <div className="relative">
-                    <Input
-                      type={showPw ? 'text' : 'password'}
-                      placeholder={tab === 'signup' ? 'Min. 6 characters' : 'Your password'}
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      className="bg-[hsl(var(--muted))]/30 border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder-[hsl(var(--muted-foreground))]/50 focus-visible:border-[hsl(var(--primary))] focus-visible:ring-[hsl(var(--primary))]/20 pr-10"
-                      autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPw(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))]/50 hover:text-[hsl(var(--muted-foreground))] transition-colors"
-                    >
-                      {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+          <motion.form variants={rise} onSubmit={submit} noValidate className="flex flex-col gap-6">
+            <AnimatePresence initial={false}>
+              {signup && (
+                <motion.div key="extras" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28, ease }} className="-mx-1 overflow-hidden px-1">
+                  <div className="flex flex-col gap-6 pb-1">
+                    <Field label="Display name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="name" />
+                    <div>
+                      <p className="eyebrow mb-2">I am a</p>
+                      <RolePicker value={role} onChange={setRole} disabled={loading} />
+                    </div>
                   </div>
-                </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                {/* Error */}
-                <AnimatePresence>
-                  {error && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="text-red-500 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-center"
-                    >
-                      {error}
-                    </motion.p>
-                  )}
-                </AnimatePresence>
-
-                <Button
-                  type="submit"
-                  size="lg"
-                  variant="default"
-                  disabled={loading}
-                  className="w-full font-bold bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary-hover))]"
-                >
-                  {loading ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                  ) : tab === 'signin' ? (
-                    'Sign In'
-                  ) : (
-                    'Create Account'
-                  )}
-                </Button>
-              </form>
-
-              {/* Tab toggle */}
-              <p className="text-center text-[hsl(var(--muted-foreground))] text-sm">
-                {tab === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-                <button
-                  onClick={() => { setTab(tab === 'signin' ? 'signup' : 'signin'); setError(''); }}
-                  className="text-[hsl(var(--primary))] hover:underline font-semibold transition-colors cursor-pointer bg-transparent border-0"
-                >
-                  {tab === 'signin' ? 'Sign Up Free' : 'Sign In'}
+            <Field label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" />
+            <Field
+              label="Password"
+              type={showPw ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={signup ? 'At least 6 characters' : 'Your password'}
+              autoComplete={signup ? 'new-password' : 'current-password'}
+              trailing={
+                <button type="button" onClick={() => setShowPw((v) => !v)} aria-label={showPw ? 'Hide password' : 'Show password'} className="grid h-8 w-8 cursor-pointer place-items-center rounded-md text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">
+                  {showPw ? <PiEyeSlashBold className="h-4 w-4" /> : <PiEyeBold className="h-4 w-4" />}
                 </button>
-              </p>
-            </CardContent>
-          </Card>
+              }
+            />
 
-          {/* Back link */}
-          <Link to="/" className="flex items-center justify-center gap-1.5 text-[hsl(var(--muted-foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm transition-colors">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back to home
-          </Link>
-        </div>
-      </div>
-    </>
+            <AnimatePresence>
+              {error && (
+                <motion.p key={error} role="alert" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="-mt-2 rounded-lg bg-[hsl(var(--tint-red))] px-3 py-2 text-sm text-[hsl(var(--tint-red-fg))]">
+                  {error}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            <Button type="submit" size="xl" disabled={loading} className="w-full">
+              {loading ? <><PiSpinnerGapBold className="animate-spin" /> Working</> : signup ? 'Create account' : 'Sign in'}
+            </Button>
+          </motion.form>
+
+          <motion.p variants={rise} className="mt-7 text-sm text-[hsl(var(--muted-foreground))]">
+            {signup ? 'Already have an account?' : 'New to Quizlike?'}{' '}
+            <button type="button" onClick={switchTab} className="cursor-pointer font-medium text-[hsl(var(--foreground))] underline underline-offset-4">{signup ? 'Sign in' : 'Create an account'}</button>
+          </motion.p>
+          <motion.div variants={rise} className="mt-10">
+            <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-[hsl(var(--muted-foreground))] transition-colors hover:text-[hsl(var(--foreground))]"><PiArrowLeftBold className="h-3.5 w-3.5" /> Back to home</Link>
+          </motion.div>
+        </motion.div>
+      </main>
+
+      {/* New Google accounts choose a role before anything is created. */}
+      <AnimatePresence>
+        {pendingGoogleUser && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 grid place-items-center bg-[hsl(var(--background))]/80 p-5 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Choose your role">
+            <motion.div initial={{ opacity: 0, y: 16, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={spring} className="w-full max-w-md rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-7">
+              <p className="eyebrow">One last step</p>
+              <h2 className="text-hero mt-3 text-4xl">How will you use Quizlike, {pendingGoogleUser.displayName?.split(' ')[0] || 'friend'}?</h2>
+              <div className="mt-6">
+                <RolePicker value="" onChange={handleRoleSelect} disabled={roleLoading} />
+              </div>
+              {roleLoading && <p className="mt-4 flex items-center gap-2 text-sm text-[hsl(var(--muted-foreground))]"><PiSpinnerGapBold className="animate-spin" /> Setting up your account</p>}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
-};
-
-export default Login;
+}

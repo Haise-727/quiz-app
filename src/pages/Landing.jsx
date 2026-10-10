@@ -1,422 +1,186 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Layers,
-  Zap,
-  Sparkles,
-  Trophy,
-  Smartphone,
-  GraduationCap,
-  BookOpen,
-  ArrowRight,
-  ChevronRight,
-  Sun,
-  Moon
-} from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { PiArrowRightBold, PiSpinnerGapBold } from 'react-icons/pi';
+import PublicNav from '@/components/layout/PublicNav';
+import PublicFooter from '@/components/layout/PublicFooter';
+import HeroDemo from '@/components/landing/HeroDemo';
+import LevelDemo from '@/components/landing/LevelDemo';
+import LiveOption from '@/components/live/LiveOption';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { findActiveQuizByCode } from '@/utils/quizLookup';
+import { rise, stagger, shake } from '@/lib/motion';
 
-const Landing = () => {
-  const [code, setCode] = useState(Array(6).fill(''));
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [shake, setShake] = useState(false);
-  const refs = useRef([]);
+/** A block that eases in the first time it scrolls into view. */
+const Reveal = ({ children, className = '' }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 24 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: '-12% 0px' }}
+    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+);
+
+const FACTS = [
+  ['Question types', 'Multiple choice, true or false, fill in the blank, match, reorder, categorize and comprehension.'],
+  ['Pictures, audio and video', 'Put media in a question or in an answer. Players see it on their own screen.'],
+  ['Live games', 'Share a PIN or a QR code. Choose streak bonuses, power-ups and shuffle in the lobby.'],
+  ['Results that explain', 'See which questions missed, who needs help, and export it all to a spreadsheet.'],
+];
+
+export default function Landing() {
   const navigate = useNavigate();
   const { currentUser, userRole } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0);
+  const input = useRef(null);
 
-  const handleChange = (i, val) => {
-    const char = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(-1);
-    const next = [...code];
-    next[i] = char;
-    setCode(next);
-    setError('');
-    if (char && i < 5) refs.current[i + 1]?.focus();
-  };
-
-  const handleKeyDown = (i, e) => {
-    if (e.key === 'Backspace') {
-      e.preventDefault();
-      const next = [...code];
-      if (next[i]) {
-        next[i] = '';
-        setCode(next);
-      } else if (i > 0) {
-        next[i - 1] = '';
-        setCode(next);
-        refs.current[i - 1]?.focus();
-      }
-    } else if (e.key === 'ArrowLeft' && i > 0) refs.current[i - 1]?.focus();
-    else if (e.key === 'ArrowRight' && i < 5) refs.current[i + 1]?.focus();
-    else if (e.key === 'Enter') handleJoin();
-  };
-
-  const handlePaste = (e) => {
+  const join = async (e) => {
     e.preventDefault();
-    const text = e.clipboardData.getData('text').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
-    const next = Array(6).fill('');
-    text.split('').forEach((c, i) => { next[i] = c; });
-    setCode(next);
-    refs.current[Math.min(text.length, 5)]?.focus();
-  };
-
-  const handleJoin = async () => {
-    const fullCode = code.join('');
-    if (fullCode.length < 6) {
-      setError('Enter the full 6-character code.');
-      setShake(true);
-      setTimeout(() => setShake(false), 600);
-      refs.current[code.findIndex(c => !c)]?.focus();
+    if (code.length < 6) {
+      setError('A quiz code has six letters or numbers.');
+      setShakeKey((k) => k + 1);
+      input.current?.focus();
       return;
     }
-    setLoading(true);
+    setBusy(true);
     setError('');
     try {
-      const snap = await getDocs(
-        query(collection(db, 'quizzes'), where('code', '==', fullCode), where('active', '==', true))
-      );
-      if (snap.empty) {
-        setError("No active quiz found with that code. Double-check and try again.");
-        setShake(true);
-        setTimeout(() => setShake(false), 600);
-        setCode(Array(6).fill(''));
-        refs.current[0]?.focus();
+      const id = await findActiveQuizByCode(code);
+      if (!id) {
+        setError('No open quiz has that code. Check it and try again.');
+        setShakeKey((k) => k + 1);
         return;
       }
-      // If authenticated student, use their account
-      if (currentUser && userRole === 'student') {
-        navigate(`/student/quiz/${snap.docs[0].id}`);
-      } else {
-        navigate(`/quiz/${snap.docs[0].id}`);
-      }
+      navigate(currentUser && userRole === 'student' ? `/student/quiz/${id}` : `/quiz/${id}`);
     } catch {
-      setError('Connection error. Please try again.');
+      setError('Could not reach the server. Check your connection and try again.');
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
-  };
-
-  const filled = code.filter(Boolean).length;
-  const allFilled = filled === 6;
-
-  // Features list
-  const features = [
-    { icon: Layers, label: '7 Question Types', desc: 'From MCQ to Match, Categorize, Reorder & Comprehension' },
-    { icon: Zap, label: 'Real-time Results', desc: 'Instant feedback, scoring, and auto-grading' },
-    { icon: Sparkles, label: 'Guest Mode', desc: 'Join and play quizzes instantly with a game PIN' },
-    { icon: Trophy, label: 'Instant Leaderboards', desc: 'Earn points and compete live with classmates' },
-    { icon: Smartphone, label: 'Mobile Friendly', desc: 'Fully responsive UI optimized for student devices' },
-    { icon: GraduationCap, label: 'Teacher Analytics', desc: 'Track class performance and customize grading' }
-  ];
-
-  // Motion variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.08 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } }
   };
 
   return (
-    <div className="relative min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex flex-col overflow-x-hidden">
-      {/* Decorative background grid and blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[linear-gradient(to_right,hsl(var(--foreground))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--foreground))_1px,transparent_1px)] bg-[size:3rem_3rem]" />
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/10 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-      </div>
+    <div className="min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <PublicNav />
 
-      {/* Navbar */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-5 border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]/80 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center text-white font-black text-sm">Q</div>
-          <span className="text-[hsl(var(--foreground))] font-bold text-xl tracking-tight">Quizlike</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link to="/play" className="text-[hsl(var(--foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors">
-            🔴 Play Live
-          </Link>
-          {currentUser ? (
-            <button
-              onClick={() => navigate(userRole === 'teacher' ? '/teacher/home' : '/student/dashboard')}
-              className="bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-hover))] text-white text-sm font-semibold px-4 py-2 rounded-full transition-all cursor-pointer shadow-sm"
-            >
-              My Dashboard →
-            </button>
-          ) : (
-            <>
-              <Link to="/browse" className="text-[hsl(var(--foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors">Browse Quizzes</Link>
-              <Link to="/login" className="text-[hsl(var(--foreground))]/70 hover:text-[hsl(var(--foreground))] text-sm font-medium transition-colors">Sign In</Link>
-              <Link to="/login?tab=signup" className="bg-[hsl(var(--primary))] text-white text-sm font-bold px-4 py-2 rounded-full hover:bg-[hsl(var(--primary-hover))] transition-all shadow-sm">
-                Sign Up Free
-              </Link>
-            </>
-          )}
-          <button
-            onClick={toggleTheme}
-            className="w-9 h-9 rounded-xl bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted))]/80 text-[hsl(var(--foreground))] flex items-center justify-center transition-colors border border-[hsl(var(--border))] cursor-pointer"
-            aria-label="Toggle dark mode"
-          >
-            {theme === 'dark' ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
-          </button>
-        </div>
-      </nav>
+      <main>
+        {/* Hero: one idea, one field. */}
+        <section className="relative overflow-hidden">
+          <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-48 h-[34rem] w-[34rem] rounded-full bg-[hsl(var(--brand))]/[0.07] blur-3xl" />
+          <div className="relative mx-auto grid max-w-6xl grid-cols-1 items-center gap-16 px-5 pb-24 pt-16 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:pb-32 lg:pt-24">
+            <motion.div variants={stagger(0.07)} initial="hidden" animate="show">
+              <motion.p variants={rise} className="eyebrow">Quizzes with a score to beat</motion.p>
+              <motion.h1 variants={rise} className="text-hero mt-5 text-[clamp(3.25rem,8vw,6.25rem)] leading-[0.98]">
+                Quizzes you actually want to finish.
+              </motion.h1>
+              <motion.p variants={rise} className="mt-6 max-w-md text-lg text-[hsl(var(--muted-foreground))]">
+                Earn XP, keep a streak and climb the board. Join with a code, no account needed.
+              </motion.p>
 
-      {/* Hero Content Wrapper */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-start px-4 py-16 gap-16">
-        
-        {/* Hero Entry Section */}
-        <div className="flex flex-col items-center gap-8 w-full max-w-2xl">
-          {/* Headline */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-center"
-          >
-            <h1 className="text-5xl md:text-7xl font-black text-[hsl(var(--foreground))] leading-tight tracking-tight">
-              Play. Learn.{' '}
-              <span className="text-[hsl(var(--primary))]">
-                Repeat.
-              </span>
-            </h1>
-            <p className="mt-4 text-[hsl(var(--muted-foreground))] text-lg md:text-xl max-w-md mx-auto leading-relaxed">
-              Enter your game code and join the quiz in seconds — no account needed.
-            </p>
-          </motion.div>
+              <motion.form variants={rise} onSubmit={join} className="mt-10 max-w-md" noValidate>
+                <label htmlFor="join-code" className="eyebrow">Quiz code</label>
+                <motion.div key={shakeKey} animate={shakeKey ? shake : undefined} className="mt-2 flex items-end gap-3">
+                  <input
+                    id="join-code"
+                    ref={input}
+                    value={code}
+                    onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)); setError(''); }}
+                    placeholder="AB12CD"
+                    maxLength={6}
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'join-error' : undefined}
+                    className="min-w-0 flex-1 border-0 border-b-2 border-[hsl(var(--input))] bg-transparent pb-2 font-mono text-3xl tracking-[0.2em] text-[hsl(var(--foreground))] outline-none transition-colors placeholder:tracking-[0.2em] placeholder:text-[hsl(var(--muted-foreground))]/35 focus:border-[hsl(var(--ink))]"
+                  />
+                  <Button type="submit" variant="brand" size="lg" disabled={busy}>
+                    {busy && <PiSpinnerGapBold className="animate-spin" />}Join<PiArrowRightBold />
+                  </Button>
+                </motion.div>
+                {error && <p id="join-error" role="alert" className="mt-3 text-sm text-[hsl(var(--destructive))]">{error}</p>}
+              </motion.form>
 
-          {/* Code input section */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-            className="flex flex-col items-center gap-5 w-full max-w-md bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6 shadow-sm"
-          >
-            {/* The 6 boxes */}
-            <motion.div
-              animate={shake ? { x: [-8, 8, -8, 8, -4, 4, 0] } : {}}
-              transition={{ duration: 0.5 }}
-              className="flex gap-2 md:gap-3"
-            >
-              {code.map((char, i) => (
-                <input
-                  key={i}
-                  ref={el => refs.current[i] = el}
-                  type="text"
-                  inputMode="text"
-                  maxLength={2}
-                  value={char}
-                  onChange={e => handleChange(i, e.target.value)}
-                  onKeyDown={e => handleKeyDown(i, e)}
-                  onPaste={handlePaste}
-                  onFocus={e => e.target.select()}
-                  className={`
-                    w-12 h-14 md:w-14 md:h-16 text-center text-2xl md:text-3xl font-black rounded-xl
-                    bg-[hsl(var(--muted))]/30 border-2 text-[hsl(var(--foreground))] outline-none select-all
-                    transition-all duration-200 caret-transparent
-                    ${char ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 scale-105' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary))]/50'}
-                    focus:border-[hsl(var(--primary))] focus:bg-[hsl(var(--primary))]/5 focus:scale-105
-                  `}
-                />
-              ))}
+              <motion.p variants={rise} className="mt-6 text-sm text-[hsl(var(--muted-foreground))]">
+                Got a live PIN? <Link to="/play" className="font-medium text-[hsl(var(--foreground))] underline underline-offset-4">Join the game</Link>
+                <span className="mx-2 text-[hsl(var(--border))]">|</span>
+                <Link to="/browse" className="font-medium text-[hsl(var(--foreground))] underline underline-offset-4">Browse public quizzes</Link>
+              </motion.p>
             </motion.div>
 
-            {/* Progress dots */}
-            <div className="flex gap-1.5">
-              {code.map((c, i) => (
-                <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${c ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--muted-foreground))]/30'}`} />
-              ))}
-            </div>
-
-            {/* Error */}
-            <AnimatePresence>
-              {error && (
-                <motion.p
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="text-red-500 text-sm font-medium text-center bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1.5"
-                >
-                  {error}
-                </motion.p>
-              )}
-            </AnimatePresence>
-
-            {/* Join button */}
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              onClick={handleJoin}
-              disabled={loading}
-              className={`
-                w-full py-4 rounded-xl font-black text-lg tracking-wide transition-all duration-300 cursor-pointer
-                ${allFilled
-                  ? 'bg-[hsl(var(--primary))] text-white shadow-sm hover:bg-[hsl(var(--primary-hover))]'
-                  : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]/50 cursor-not-allowed border border-[hsl(var(--border))]'
-                }
-                disabled:opacity-60 disabled:cursor-not-allowed
-              `}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Finding quiz...
-                </span>
-              ) : 'Join Quiz →'}
-            </motion.button>
-
-            {/* Live game CTA */}
-            <Link
-              to="/play"
-              className="w-full py-3 rounded-xl font-bold text-sm tracking-wide text-center border-2 border-red-500/30 bg-red-500/5 text-red-500 hover:bg-red-500/10 hover:border-red-500/50 transition-all flex items-center justify-center gap-2"
-            >
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              Join a Live Game →
-            </Link>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4 w-full">
-              <div className="flex-1 h-px bg-[hsl(var(--border))]" />
-              <span className="text-[hsl(var(--muted-foreground))] text-xs font-medium">or login as</span>
-              <div className="flex-1 h-px bg-[hsl(var(--border))]" />
-            </div>
-
-            {/* Teacher/Student Sign-In Cards */}
-            <div className="flex flex-col sm:flex-row gap-4 w-full mt-1">
-              {/* Teacher Card */}
-              <motion.div
-                whileHover={{ y: -4 }}
-                className="flex-1 p-4.5 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/10 text-left flex flex-col justify-between gap-4 transition-colors hover:bg-[hsl(var(--muted))]/30"
-              >
-                <div className="flex flex-col gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-                    <GraduationCap className="w-4.5 h-4.5 text-amber-500" />
-                  </div>
-                  <h4 className="text-[hsl(var(--foreground))] font-bold text-sm">Teacher Portal</h4>
-                  <p className="text-[hsl(var(--muted-foreground))] text-[11px] leading-relaxed">Create and manage live quizzes, classes, and view real-time analytics.</p>
-                </div>
-                <Link
-                  to="/login?role=teacher"
-                  className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold text-center transition-colors shadow-sm"
-                >
-                  Access Teacher →
-                </Link>
-              </motion.div>
-
-              {/* Student Card */}
-              <motion.div
-                whileHover={{ y: -4 }}
-                className="flex-1 p-4.5 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/10 text-left flex flex-col justify-between gap-4 transition-colors hover:bg-[hsl(var(--muted))]/30"
-              >
-                <div className="flex flex-col gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-[hsl(var(--primary))]/10 flex items-center justify-center border border-[hsl(var(--primary))]/20">
-                    <BookOpen className="w-4.5 h-4.5 text-[hsl(var(--primary))]" />
-                  </div>
-                  <h4 className="text-[hsl(var(--foreground))] font-bold text-sm">Student Portal</h4>
-                  <p className="text-[hsl(var(--muted-foreground))] text-[11px] leading-relaxed">Join a class, play practice quizzes, and view results history.</p>
-                </div>
-                <Link
-                  to="/login?role=student"
-                  className="w-full py-2 rounded-xl bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary-hover))] text-white text-xs font-bold text-center transition-colors shadow-sm"
-                >
-                  Access Student →
-                </Link>
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Animated Feature Strip */}
-        <div className="w-full max-w-5xl px-6 flex flex-col items-center">
-          <div className="w-12 h-0.5 bg-[hsl(var(--border))] mb-10" />
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-100px" }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full"
-          >
-            {features.map((feat, idx) => {
-              const Icon = feat.icon;
-              return (
-                <motion.div
-                  key={idx}
-                  variants={itemVariants}
-                  whileHover={{ y: -5, scale: 1.01, backgroundColor: 'var(--muted)', borderColor: 'hsl(var(--primary))' }}
-                  className="p-6 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] flex flex-col gap-3 transition-all duration-300 shadow-sm hover:shadow-md group"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-[hsl(var(--primary))]/10 flex items-center justify-center border border-[hsl(var(--border))] group-hover:bg-[hsl(var(--primary))]/20 transition-colors">
-                    <Icon className="w-5 h-5 text-[hsl(var(--primary))] group-hover:scale-105 transition-all" />
-                  </div>
-                  <h3 className="text-[hsl(var(--foreground))] font-bold text-base">{feat.label}</h3>
-                  <p className="text-[hsl(var(--muted-foreground))] text-xs leading-relaxed">{feat.desc}</p>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        </div>
-
-        {/* How It Works Section */}
-        <div className="w-full max-w-5xl px-6 flex flex-col items-center">
-          <div className="w-12 h-0.5 bg-[hsl(var(--border))] mb-12" />
-          <h2 className="text-3xl font-black text-[hsl(var(--foreground))] mb-2 text-center">How It Works</h2>
-          <p className="text-[hsl(var(--muted-foreground))] text-base mb-12 text-center">Getting started is simple, whether you are a teacher or student.</p>
-
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-4 w-full relative">
-            {/* Steps */}
-            {[
-              { step: '01', title: 'Create Quiz', desc: 'Design custom quizzes with 7+ rich question types.', borderColor: 'border-t-amber-500' },
-              { step: '02', title: 'Share Code', desc: 'Get a 6-digit game PIN to share with students instantly.', borderColor: 'border-t-blue-500' },
-              { step: '03', title: 'Play & Learn', desc: 'Compete in real time, see stats, and track progress.', borderColor: 'border-t-emerald-500' }
-            ].map((stepObj, idx) => (
-              <React.Fragment key={idx}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.15 }}
-                  className={`flex-1 max-w-xs p-6 rounded-2xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] border-t-4 ${stepObj.borderColor} flex flex-col items-center gap-4 relative overflow-hidden group text-center shadow-sm`}
-                >
-                  <div className="w-11 h-11 rounded-full bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] font-black flex items-center justify-center text-sm">
-                    {stepObj.step}
-                  </div>
-                  <h3 className="text-[hsl(var(--foreground))] font-bold text-base">{stepObj.title}</h3>
-                  <p className="text-[hsl(var(--muted-foreground))] text-xs leading-relaxed">{stepObj.desc}</p>
-                </motion.div>
-
-                {idx < 2 && (
-                  <div className="hidden md:flex items-center text-[hsl(var(--muted-foreground))]/45 text-3xl font-black mx-2 select-none">
-                    →
-                  </div>
-                )}
-                {idx < 2 && (
-                  <div className="flex md:hidden items-center text-[hsl(var(--muted-foreground))]/45 text-3xl font-black my-2 select-none">
-                    ↓
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
+            <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}>
+              <HeroDemo />
+            </motion.div>
           </div>
-        </div>
+        </section>
 
-      </div>
+        {/* Three things that make it feel like a game. Rows, not cards. */}
+        <section className="border-t border-[hsl(var(--border))]">
+          <div className="mx-auto max-w-6xl divide-y divide-[hsl(var(--border))] px-5 sm:px-8">
+            <Reveal className="grid grid-cols-1 items-center gap-10 py-20 md:grid-cols-2 md:gap-20 md:py-28">
+              <div>
+                <p className="eyebrow">01 &nbsp; Play together</p>
+                <h2 className="text-hero mt-4 text-5xl leading-[1.02] sm:text-6xl">Everyone on the same countdown.</h2>
+                <p className="mt-5 max-w-md text-[hsl(var(--muted-foreground))]">
+                  A shared 3, 2, 1 starts every question on every screen at once. Fast right answers score more, and each answer in a row adds up to 50%.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5" aria-hidden="true">
+                {['Faster', 'Streaks', '50/50', 'Double'].map((t, i) => <LiveOption key={t} index={i} state="display">{t}</LiveOption>)}
+              </div>
+            </Reveal>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-[hsl(var(--border))] py-8 text-center text-[hsl(var(--muted-foreground))]/70 text-xs">
-        &copy; {new Date().getFullYear()} Quizlike. All rights reserved.
-      </footer>
+            <Reveal className="grid grid-cols-1 items-center gap-10 py-20 md:grid-cols-2 md:gap-20 md:py-28">
+              <div className="md:order-2">
+                <p className="eyebrow">02 &nbsp; Level up</p>
+                <h2 className="text-hero mt-4 text-5xl leading-[1.02] sm:text-6xl">Every quiz moves a bar.</h2>
+                <p className="mt-5 max-w-md text-[hsl(var(--muted-foreground))]">
+                  Quizzes earn XP, XP becomes levels, and a daily streak keeps you coming back. There are badges to chase too. Nothing to set up: it all comes from your results.
+                </p>
+              </div>
+              <div className="md:order-1"><LevelDemo /></div>
+            </Reveal>
+
+            <Reveal className="grid grid-cols-1 items-start gap-10 py-20 md:grid-cols-2 md:gap-20 md:py-28">
+              <div>
+                <p className="eyebrow">03 &nbsp; Teach</p>
+                <h2 className="text-hero mt-4 text-5xl leading-[1.02] sm:text-6xl">Build in minutes, run it anywhere.</h2>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Button size="lg" onClick={() => navigate('/login?role=teacher')}>Start teaching<PiArrowRightBold /></Button>
+                </div>
+              </div>
+              <dl className="divide-y divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+                {FACTS.map(([term, text]) => (
+                  <div key={term} className="py-5">
+                    <dt className="text-base font-medium">{term}</dt>
+                    <dd className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{text}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* The close. */}
+        <section className="border-t border-[hsl(var(--border))]">
+          <Reveal className="mx-auto max-w-6xl px-5 py-24 text-center sm:px-8 md:py-32">
+            <h2 className="text-hero mx-auto max-w-3xl text-5xl leading-[1.02] sm:text-7xl">Ready when you are.</h2>
+            <div className="mt-10 flex flex-wrap justify-center gap-3">
+              <Button size="xl" onClick={() => navigate('/login?tab=signup&role=student')}>Create a free account</Button>
+              <Button size="xl" variant="outline" onClick={() => navigate('/browse')}>Try a quiz first</Button>
+            </div>
+          </Reveal>
+        </section>
+      </main>
+
+      <PublicFooter />
     </div>
   );
-};
-
-export default Landing;
+}
