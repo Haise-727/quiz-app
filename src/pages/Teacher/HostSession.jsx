@@ -1,586 +1,429 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
+import {
+  PiArrowRightBold, PiCheckBold, PiCopyBold, PiDownloadSimpleBold, PiEyeBold, PiLinkBold, PiPlayFill,
+  PiSpinnerGapBold, PiTrophyBold, PiUsersBold, PiXBold,
+} from 'react-icons/pi';
+import { db } from '@/firebase';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import Confetti from '../../components/Confetti';
-import MediaRenderer from '../../components/MediaRenderer';
+import Logo from '@/components/Logo';
+import MediaRenderer from '@/components/MediaRenderer';
+import { CorrectAnswer } from '@/components/AnswerReveal';
+import AnswerBars from '@/components/live/AnswerBars';
+import Countdown from '@/components/live/Countdown';
+import LiveClock from '@/components/live/LiveClock';
+import LiveOption from '@/components/live/LiveOption';
+import Leaderboard from '@/components/live/Leaderboard';
+import LobbySettings from '@/components/live/LobbySettings';
+import Podium from '@/components/live/Podium';
+import { downloadCsv, safeFileName } from '@/utils/csv';
+import { getMainMedia, getSubQuestions, mediaKind } from '@/utils/media';
+import { shuffle } from '@/utils/quizAttempt';
 import {
-  listenToSession, startGame, revealQuestion, showLeaderboard,
-  nextQuestion, endGame, deleteSession, setQuestionDeadline,
-  getPlayableQuestions, getMainMedia, getSubQuestions, getSubAnswers,
-  isGradableSubQuestion, isComprehension, subAnswerKey, questionDeadline,
-} from '../../utils/liveSession';
-import { playComplete, playTick } from '../../utils/sounds';
-import {
-  Users, Play, Eye, Trophy, ChevronRight, Hash, Loader2,
-  Crown, Medal, X, Clock, Copy, Check, Link2,
-} from 'lucide-react';
+  deleteSession, endGame, getPlaySequence, kickPlayer, listenToSession, nextQuestion, questionDeadline, rankPlayers,
+  revealQuestion, serverNow, setQuestionDeadline, showLeaderboard, startGame, updateSettings,
+} from '@/utils/liveSession';
+import { playComplete } from '@/utils/sounds';
+import { pop, rise, stagger } from '@/lib/motion';
 
-const shuffleArray = (arr) => (Array.isArray(arr) ? [...arr].sort(() => Math.random() - 0.5) : []);
+const TYPE_LABEL = {
+  MCQ: 'Multiple choice', TRUE_FALSE: 'True or false', FILL_IN_THE_BLANK: 'Type the answer',
+  MATCH_THE_FOLLOWING: 'Match them up', REORDER: 'Put in order', CATEGORIZE: 'Sort into groups',
+  VISUAL_COMPREHENSION: 'Look, then answer', LISTENING_COMPREHENSION: 'Listen, then answer',
+};
 
-const HostSession = () => {
-  const [copied, setCopied] = useState(null); // 'link' | 'code' | null
+/** What the room sees while players work: the choices, but never the answer. */
+function ProjectorBody({ question, pieces }) {
+  switch (question.type) {
+    case 'MCQ':
+      return (
+        <div className="grid gap-4 md:grid-cols-2">
+          {question.mcqData.options.map((opt, i) => <LiveOption key={opt.id} index={i} size="xl" media={opt.media} state="display">{opt.text}</LiveOption>)}
+        </div>
+      );
+    case 'TRUE_FALSE':
+      return <div className="grid grid-cols-2 gap-4">{[true, false].map((v, i) => <LiveOption key={String(v)} index={i} size="xl" state="display">{v ? 'True' : 'False'}</LiveOption>)}</div>;
+    case 'FILL_IN_THE_BLANK':
+      return <p className="border-b-2 border-dashed border-[hsl(var(--input))] pb-3 text-3xl text-[hsl(var(--muted-foreground))]">Players are typing their answer</p>;
+    case 'MATCH_THE_FOLLOWING':
+      return (
+        <div className="grid gap-8 md:grid-cols-2">
+          <ul className="flex flex-col gap-3">{question.matchData.pairs.map((p) => <li key={p.id} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3 text-xl font-medium">{p.prompt}</li>)}</ul>
+          <ul className="flex flex-col gap-3">{pieces.map((p) => <li key={p.id} className="rounded-xl border border-dashed border-[hsl(var(--input))] px-4 py-3 text-xl">{p.text}</li>)}</ul>
+        </div>
+      );
+    case 'REORDER':
+      return <ul className="flex flex-col gap-3">{pieces.map((p) => <li key={p.id} className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-3 text-xl font-medium">{p.text}</li>)}</ul>;
+    case 'CATEGORIZE':
+      return (
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap gap-3">{question.categorizeData.categories.map((c) => <span key={c.id} className="rounded-xl bg-[hsl(var(--ink))] px-4 py-2 text-lg font-medium text-[hsl(var(--ink-foreground))]">{c.name}</span>)}</div>
+          <div className="flex flex-wrap gap-3">{pieces.map((p) => <span key={p.id} className="rounded-xl border border-dashed border-[hsl(var(--input))] px-4 py-2.5 text-xl">{p.text}</span>)}</div>
+        </div>
+      );
+    case 'VISUAL_COMPREHENSION':
+    case 'LISTENING_COMPREHENSION':
+      return (
+        <ol className="flex flex-col gap-8">
+          {getSubQuestions(question).filter((s) => s?.mcqData).map((s, i) => (
+            <li key={s.id ?? i}>
+              <p className="mb-3 text-xl font-medium">{i + 1}. {s.questionText}</p>
+              <div className="grid gap-3 md:grid-cols-2">{s.mcqData.options.map((o, k) => <LiveOption key={o.id} index={k} state="display">{o.text}</LiveOption>)}</div>
+            </li>
+          ))}
+        </ol>
+      );
+    default: return null;
+  }
+}
+
+/**
+ * The teacher's screen, built to be put on a projector. It controls the game: it holds the
+ * lobby and its rules, starts each question with a shared 3, 2, 1, keeps the clock, reveals the
+ * answer with how the room voted, shows the standings and ends on a podium. Players' phones
+ * follow whatever state this page writes to the session.
+ */
+export default function HostSession() {
   const { pin } = useParams();
   const navigate = useNavigate();
 
   const [quiz, setQuiz] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(null);
-  const tickedRef = useRef(false);
+  const [copied, setCopied] = useState(null);
+  const [opened, setOpened] = useState(false);
+  const [zeroed, setZeroed] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
-  // Direct join link for this session, so the teacher can share a URL
-  // rather than reading the code out loud.
   const joinUrl = `${window.location.origin}/play/${pin}`;
+  const joinHost = `${window.location.host}/play`;
 
-  const handleCopy = async (value, kind) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(kind);
-      toast.success(kind === 'link' ? 'Join link copied' : 'Game code copied');
-      setTimeout(() => setCopied(null), 2000);
-    } catch {
-      // Clipboard needs a secure context; fall back to showing the value.
-      toast.error('Could not copy. Share this instead: ' + value);
-    }
-  };
-
-  // Load quiz + subscribe to session
   useEffect(() => {
     const unsub = listenToSession(pin, (s) => {
       setSession(s);
       setLoading(false);
       if (!s) return;
-      if (!quiz) {
-        getDoc(doc(db, 'quizzes', s.quizId)).then(snap => {
-          if (snap.exists()) setQuiz(snap.data());
-        });
-      }
+      setQuiz((current) => {
+        if (!current) getDoc(doc(db, 'quizzes', s.quizId)).then((snap) => { if (snap.exists()) setQuiz(snap.data()); });
+        return current;
+      });
     });
     return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
-  const playableQuestions = useMemo(() => getPlayableQuestions(quiz), [quiz]);
+  const sequence = useMemo(() => getPlaySequence(quiz, session?.order), [quiz, session?.order]);
+  const idx = session?.currentQuestionIndex ?? 0;
+  const question = sequence[idx] || null;
+  const media = getMainMedia(question);
+  const ranked = useMemo(() => rankPlayers(session?.players), [session?.players]);
+  const answers = useMemo(() => session?.answers?.[idx] || {}, [session?.answers, idx]);
+  const answeredCount = Object.keys(answers).length;
+  const limitMs = (parseInt(question?.timeLimit, 10) || 30) * 1000;
+  const endsAt = questionDeadline(session, question);
 
-  const currentQuestion = session ? playableQuestions[session.currentQuestionIndex] : null;
-  const mainMedia = getMainMedia(currentQuestion);
-  const isComprehensionQuestion = isComprehension(currentQuestion?.type);
-  const subQuestions = getSubQuestions(currentQuestion);
-  const players = session?.players ? Object.entries(session.players).map(([id, p]) => ({ id, ...p })) : [];
-  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-  const currentAnswers = session?.answers?.[session.currentQuestionIndex] || {};
-  const answeredCount = Object.keys(currentAnswers).length;
-
-  // The projector shows the loose pieces of a drag-and-drop question while
-  // players work. Shuffled once per question, because the stored order of a
-  // Reorder question is the answer.
-  const shuffledPieces = useMemo(() => {
-    switch (currentQuestion?.type) {
-      case 'MATCH_THE_FOLLOWING':
-        return shuffleArray(currentQuestion.matchData?.pairs).map(pair => ({ id: pair.id, text: pair.answer, media: pair.answerMedia }));
-      case 'REORDER':
-        return shuffleArray(currentQuestion.reorderData?.items);
-      case 'CATEGORIZE':
-        return shuffleArray(currentQuestion.categorizeData?.items);
-      default:
-        return [];
+  // Loose pieces of a drag question, shuffled once per question: the stored order of a Reorder
+  // question IS the answer, so it must never be shown as it is.
+  const pieces = useMemo(() => {
+    switch (question?.type) {
+      case 'MATCH_THE_FOLLOWING': return shuffle(question.matchData?.pairs).map((p) => ({ id: p.id, text: p.answer }));
+      case 'REORDER': return shuffle(question.reorderData?.items).map((i) => ({ id: i.id, text: i.text }));
+      case 'CATEGORIZE': return shuffle(question.categorizeData?.items).map((i) => ({ id: i.id, text: i.text }));
+      default: return [];
     }
-  }, [currentQuestion]);
+  }, [question]);
 
-  // ── The shared clock ───────────────────────────────────────────────────────
-  // The projector holds the countdown until its own copy of the question's
-  // media has loaded, then restarts it by writing the deadline everyone reads.
-  // Audio and video get the length of the clip on top of the configured limit,
-  // because a 30 second question cannot hold a 90 second recording.
+  // The 3, 2, 1. The question opens at a server time every screen was given.
+  useEffect(() => {
+    if (session?.state !== 'question') { setOpened(false); return undefined; }
+    const wait = (session.questionStartedAt || 0) - serverNow();
+    if (wait <= 0) { setOpened(true); return undefined; }
+    setOpened(false);
+    const id = setTimeout(() => setOpened(true), wait);
+    return () => clearTimeout(id);
+  }, [session?.state, session?.currentQuestionIndex, session?.questionStartedAt]);
+
+  // ── The shared clock ────────────────────────────────────────────────────────────────
+  // The clock is held until THIS screen's copy of the question's media has loaded, then moved
+  // out by writing the deadline everyone reads. Audio and video also get the clip's length on
+  // top of the limit, because a 30 second question cannot hold a 90 second recording. The media
+  // stays mounted but hidden during the 3, 2, 1, so it is already loading and can be measured.
   const mediaBoxRef = useRef(null);
   const [clockSettledFor, setClockSettledFor] = useState(null);
-  const clockSettled = !mainMedia || clockSettledFor === session?.currentQuestionIndex;
+  const clockSettled = !media || clockSettledFor === idx;
 
   useEffect(() => {
-    if (!session || session.state !== 'question' || !currentQuestion || !session.questionStartedAt) return;
-    const index = session.currentQuestionIndex;
-    if (!mainMedia) { setClockSettledFor(index); return; }
+    if (!session || session.state !== 'question' || !question || !session.questionStartedAt) return undefined;
+    if (!media) { setClockSettledFor(idx); return undefined; }
 
     setClockSettledFor(null);
-    const limitMs = (parseInt(currentQuestion.timeLimit, 10) || 30) * 1000;
     const startedAt = session.questionStartedAt;
     let settled = false;
     const settle = (clipMs) => {
       if (settled) return;
       settled = true;
-      // Never pull the deadline in — a player's clock only ever moves outward.
-      setQuestionDeadline(pin, Math.max(startedAt + limitMs, Date.now() + (clipMs || 0) + limitMs)).catch(() => {});
-      setClockSettledFor(index);
+      // The clip is counted from the moment the question opens, or from now if the media was slow.
+      // A deadline only ever moves later, so nobody's clock is cut short.
+      setQuestionDeadline(pin, Math.max(startedAt, serverNow()) + (clipMs || 0) + limitMs).catch(() => {});
+      setClockSettledFor(idx);
     };
     const element = mediaBoxRef.current?.querySelector('img, video, audio');
-    if (!element) { settle(0); return; } // media of a kind we cannot measure
+    if (!element) { settle(0); return undefined; }
     const onMetadata = () => settle(Number.isFinite(element.duration) ? Math.round(element.duration * 1000) : 0);
     const onSettled = () => settle(0);
 
     if (element.tagName === 'IMG') {
-      if (element.complete) { settle(0); return; }
+      if (element.complete) { settle(0); return undefined; }
       element.addEventListener('load', onSettled);
     } else {
-      if (element.readyState >= 1) { onMetadata(); return; } // HAVE_METADATA
+      if (element.readyState >= 1) { onMetadata(); return undefined; }
       element.addEventListener('loadedmetadata', onMetadata);
     }
     element.addEventListener('error', onSettled);
-    // A file that never arrives must not freeze the game.
-    const failsafe = setTimeout(onSettled, 10000);
+    const failsafe = setTimeout(onSettled, 10000);       // a file that never arrives must not freeze the game
     return () => {
       clearTimeout(failsafe);
       element.removeEventListener('load', onSettled);
       element.removeEventListener('loadedmetadata', onMetadata);
       element.removeEventListener('error', onSettled);
     };
-  }, [session?.state, session?.currentQuestionIndex, session?.questionStartedAt, currentQuestion, mainMedia, pin]);
+  }, [session?.state, idx, session?.questionStartedAt, question, media, pin, limitMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Countdown timer during 'question' state
+  // The clock hit zero. Reveal as soon as the media has settled, so the room never misses the
+  // picture the question is about.
+  useEffect(() => { setZeroed(false); }, [idx, session?.questionEndsAt, session?.state]);
   useEffect(() => {
-    const deadline = session?.state === 'question' ? questionDeadline(session, currentQuestion) : null;
-    if (!deadline) {
-      setTimeLeft(null);
-      return;
-    }
-    tickedRef.current = false;
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setTimeLeft(remaining);
-      if (remaining <= 10 && remaining > 0) playTick();
-      // Hold the reveal while the media is still loading, or the class never
-      // sees the picture the question is about.
-      if (remaining === 0 && clockSettled && !tickedRef.current) {
-        tickedRef.current = true;
-        revealQuestion(pin);
-      }
-    }, 250);
-    return () => clearInterval(interval);
-  }, [session?.state, session?.currentQuestionIndex, session?.questionStartedAt, session?.questionEndsAt, currentQuestion, clockSettled, pin]);
+    if (zeroed && clockSettled && session?.state === 'question') revealQuestion(pin);
+  }, [zeroed, clockSettled, session?.state, pin]);
+
+  // ── Actions ─────────────────────────────────────────────────────────────────────────
+  const copy = async (value, kind) => {
+    try { await navigator.clipboard.writeText(value); setCopied(kind); toast.success(kind === 'link' ? 'Join link copied' : 'Game code copied'); setTimeout(() => setCopied(null), 2000); }
+    catch { toast.error(`We could not copy. Share this instead: ${value}`); }
+  };
 
   const handleStart = async () => {
-    if (players.length === 0) { toast.error('Wait for at least one player to join.'); return; }
-    try { await startGame(pin); } catch { toast.error('Failed to start game.'); }
+    if (ranked.length === 0) { toast.error('Wait for at least one player to join.'); return; }
+    try { await startGame(pin); } catch { toast.error('We could not start the game.'); }
   };
-
-  const handleReveal = async () => { try { await revealQuestion(pin); } catch { toast.error('Failed to reveal.'); } };
-  const handleLeaderboard = async () => { try { await showLeaderboard(pin); } catch { toast.error('Failed.'); } };
-
   const handleNext = async () => {
-    const next = session.currentQuestionIndex + 1;
-    if (next >= playableQuestions.length) {
-      playComplete();
-      try { await endGame(pin); } catch { toast.error('Failed to end game.'); }
-    } else {
-      try { await nextQuestion(pin, next); } catch { toast.error('Failed to advance.'); }
+    const next = idx + 1;
+    if (next >= sequence.length) { playComplete(); try { await endGame(pin); } catch { toast.error('We could not end the game.'); } return; }
+    try { await nextQuestion(pin, next); } catch { toast.error('We could not move on.'); }
+  };
+  const handleSettings = (patch) => { updateSettings(pin, quiz, patch).catch(() => toast.error('We could not change that setting.')); };
+  const handleEnd = async () => { try { await deleteSession(pin); } catch { /* the session may already be gone */ } navigate('/teacher/your-quizzes'); };
+
+  const exportResults = () => {
+    downloadCsv(`${safeFileName(session?.quizTitle)}-live-results.csv`, [
+      ['Rank', 'Name', 'Score', 'Correct answers', 'Best streak'],
+      ...ranked.map((p) => [p.rank, p.name, p.score, p.correctCount || 0, p.bestStreak || 0]),
+    ]);
+  };
+
+  // How the room answered, for the reveal.
+  const bars = useMemo(() => {
+    if (!question) return null;
+    const list = Object.values(answers);
+    if (question.type === 'MCQ') {
+      const right = new Set(question.mcqData.correctOptions.map(String));
+      return question.mcqData.options.map((o) => ({
+        id: o.id, label: o.text || 'Picture answer', correct: right.has(String(o.id)),
+        count: list.filter((a) => (Array.isArray(a.answer) ? a.answer : [a.answer]).map(String).includes(String(o.id))).length,
+      }));
     }
-  };
+    if (question.type === 'TRUE_FALSE') {
+      return [true, false].map((v) => ({ id: String(v), label: v ? 'True' : 'False', correct: question.trueFalseData.correctAnswer === v, count: list.filter((a) => a.answer === v).length }));
+    }
+    return [
+      { id: 'all', label: 'Got it all right', correct: true, count: list.filter((a) => a.correct).length },
+      { id: 'part', label: 'Part right', correct: false, count: list.filter((a) => !a.correct && a.points > 0).length },
+      { id: 'miss', label: 'Missed it', correct: false, count: list.filter((a) => !a.correct && !(a.points > 0)).length },
+    ];
+  }, [question, answers]);
 
-  const handleEndSession = async () => {
-    try { await deleteSession(pin); } catch { /* ignore */ }
-    navigate('/teacher/your-quizzes');
-  };
+  if (loading) return <div className="grid min-h-dvh place-items-center bg-[hsl(var(--background))]"><PiSpinnerGapBold className="h-8 w-8 animate-spin text-[hsl(var(--muted-foreground))]" /></div>;
+  if (!session) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-[hsl(var(--background))] px-6 text-center text-[hsl(var(--foreground))]">
+        <div>
+          <p className="eyebrow">Live game</p>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight">This game has ended or could not be found</h1>
+          <Button className="mt-7" onClick={() => navigate('/teacher/your-quizzes')}>Back to your quizzes</Button>
+        </div>
+      </div>
+    );
+  }
 
-  if (loading) return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex items-center justify-center">
-      <Loader2 className="w-10 h-10 text-[hsl(var(--muted-foreground))] animate-spin" />
-    </div>
-  );
-  if (!session) return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex flex-col items-center justify-center gap-4 text-[hsl(var(--foreground))] p-8">
-      <p className="text-xl font-bold">Session not found or has ended.</p>
-      <Button onClick={() => navigate('/teacher/your-quizzes')} variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]">
-        Back to Your Quizzes
-      </Button>
-    </div>
-  );
-
-  const optionVoteCount = (optId) => Object.values(currentAnswers).filter(a => {
-    const ans = Array.isArray(a.answer) ? a.answer.map(String) : [String(a.answer)];
-    return ans.includes(String(optId));
-  }).length;
-
-  // A comprehension answer is { s0: [optionId, …] }, one entry per
-  // sub-question the player answered.
-  const subOptionVoteCount = (subIndex, optId) => Object.values(currentAnswers).filter(a => {
-    const picked = getSubAnswers(a.answer)[subAnswerKey(subIndex)];
-    return (Array.isArray(picked) ? picked : []).map(String).includes(String(optId));
-  }).length;
+  const state = session.state;
 
   return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] relative overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse at 50% 0%, hsl(var(--primary) / 0.15) 0%, hsl(var(--background)) 60%)' }}>
+    <div className="relative flex min-h-dvh flex-col bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(50%_100%_at_50%_0%,hsl(var(--brand)/0.08),transparent)]" />
 
-      {/* Top bar */}
-      <header className="relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
-        <div>
-          <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-widest font-semibold">Live Session</p>
-          <p className="font-bold text-[hsl(var(--foreground))] truncate max-w-xs">{session.quizTitle}</p>
+      <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-5">
+        <div className="flex min-w-0 items-center gap-4">
+          <Logo />
+          <span className="hidden h-5 w-px bg-[hsl(var(--border))] sm:block" />
+          <p className="hidden min-w-0 truncate text-sm text-[hsl(var(--muted-foreground))] sm:block">{session.quizTitle}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))] gap-1.5">
-            <Users className="w-3.5 h-3.5" /> {players.length}
-          </Badge>
-          <button onClick={handleEndSession} title="End session"
-            className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--destructive))] transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+          <span className="tabular inline-flex items-center gap-1.5 rounded-full bg-[hsl(var(--tint-neutral))] px-3 py-1.5 text-sm font-medium text-[hsl(var(--tint-neutral-fg))]"><PiUsersBold className="h-4 w-4" />{ranked.length}</span>
+          {confirmEnd ? (
+            <span className="flex items-center gap-2 text-sm">
+              End for everyone?
+              <Button size="sm" variant="destructive" onClick={handleEnd}>End game</Button>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmEnd(false)}>Keep playing</Button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setConfirmEnd(true)} aria-label="End game" title="End game" className="grid h-9 w-9 place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"><PiXBold className="h-5 w-5" /></button>
+          )}
         </div>
       </header>
 
-      <div className="relative z-10 max-w-4xl mx-auto px-6 pb-16">
-        <AnimatePresence mode="wait">
-
+      <main className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 pb-14">
+        <AnimatePresence mode="wait" initial={false}>
           {/* ── Lobby ── */}
-          {session.state === 'lobby' && (
-            <motion.div key="lobby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
-              <p className="text-[hsl(var(--muted-foreground))] mb-2 mt-8">Players join with this code</p>
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <Hash className="w-10 h-10 text-[hsl(var(--primary))]" />
-                <span className="text-6xl md:text-7xl font-black tracking-widest text-[hsl(var(--foreground))]">{pin}</span>
-              </div>
+          {state === 'lobby' && (
+            <motion.div key="lobby" variants={stagger(0.06)} initial="hidden" animate="show" exit={{ opacity: 0 }} className="grid gap-x-16 gap-y-12 pb-28 pt-4 lg:grid-cols-[1fr_1fr]">
+              <div>
+                <motion.p variants={rise} className="eyebrow">Join at {joinHost}</motion.p>
+                <motion.p variants={rise} className="tabular mt-3 font-mono text-[clamp(4rem,11vw,8rem)] font-medium leading-none tracking-[0.12em]">{pin}</motion.p>
 
-              {/* Share: a direct join link, plus the code on its own */}
-              <div className="flex flex-col items-center gap-3 mb-10">
-                <div className="flex items-center gap-2 max-w-full bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl px-3 py-2">
-                  <Link2 className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0" />
-                  <span className="text-sm text-[hsl(var(--muted-foreground))] truncate font-mono">{joinUrl}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => handleCopy(joinUrl, 'link')}
-                    variant="outline"
-                    className="gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))]"
-                  >
-                    {copied === 'link' ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    {copied === 'link' ? 'Link copied' : 'Copy join link'}
-                  </Button>
-                  <Button
-                    onClick={() => handleCopy(pin, 'code')}
-                    variant="outline"
-                    className="gap-2 border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))]"
-                  >
-                    {copied === 'code' ? <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    {copied === 'code' ? 'Code copied' : 'Copy code'}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-10 min-h-[60px]">
-                {players.length === 0 ? (
-                  <p className="col-span-full text-[hsl(var(--muted-foreground))] text-sm py-6">Waiting for players to join…</p>
-                ) : players.map(p => (
-                  <motion.div key={p.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center gap-1.5 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-xl p-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white flex items-center justify-center font-bold text-sm">
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-xs font-medium truncate w-full text-center">{p.name}</span>
-                  </motion.div>
-                ))}
-              </div>
-
-              <Button onClick={handleStart} size="lg" disabled={players.length === 0}
-                className="gap-2 px-10 py-6 text-lg bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                <Play className="w-5 h-5" /> Start Game
-              </Button>
-            </motion.div>
-          )}
-
-          {/* ── Question ── */}
-          {session.state === 'question' && currentQuestion && (
-            <motion.div key="question" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <div className="flex items-center justify-between mb-6">
-                <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))]">
-                  Question {session.currentQuestionIndex + 1} / {playableQuestions.length}
-                </Badge>
-                <div className={`flex items-center gap-1.5 font-black text-xl px-4 py-1.5 rounded-full border ${timeLeft <= 10 ? 'bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))] border-[hsl(var(--destructive))]/30' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border-[hsl(var(--border))]'}`}>
-                  <Clock className="w-4 h-4" /> {timeLeft ?? '–'}s
-                </div>
-              </div>
-
-              <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-3xl p-8 md:p-10 text-center mb-6">
-                {/* The projector shows the media too, but every player also
-                    gets their own copy with controls on their own device. */}
-                {mainMedia && (
-                  <div ref={mediaBoxRef} className="mb-6 flex justify-center [&_audio]:w-full">
-                    <MediaRenderer media={mainMedia} transform="question_main"
-                      className="max-w-full max-h-[320px] rounded-2xl" />
+                <motion.div variants={rise} className="mt-8 flex flex-wrap items-center gap-6">
+                  <div className="rounded-2xl border border-[hsl(var(--border))] bg-white p-3">
+                    <QRCodeSVG value={joinUrl} size={150} level="M" bgColor="#FFFFFF" fgColor="#181816" title="Scan to join the game" />
                   </div>
-                )}
-                <p className="text-2xl md:text-3xl font-bold leading-relaxed">{currentQuestion.questionText}</p>
+                  <div className="min-w-0 flex-1 basis-56">
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">Scan the code with a phone camera, or share the link.</p>
+                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2"><PiLinkBold className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))]" /><span className="truncate font-mono text-xs text-[hsl(var(--muted-foreground))]">{joinUrl}</span></div>
+                    <div className="mt-3 flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => copy(joinUrl, 'link')}>{copied === 'link' ? <PiCheckBold /> : <PiCopyBold />}{copied === 'link' ? 'Copied' : 'Copy link'}</Button>
+                      <Button variant="outline" size="sm" onClick={() => copy(pin, 'code')}>{copied === 'code' ? <PiCheckBold /> : <PiCopyBold />}{copied === 'code' ? 'Copied' : 'Copy code'}</Button>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div variants={rise} className="mt-10">
+                  <p className="eyebrow mb-1">Rules</p>
+                  <LobbySettings settings={session.settings} onChange={handleSettings} disabled={!quiz} />
+                </motion.div>
               </div>
 
-              {/* The sub-questions, so the room can follow along. The options
-                  stay on the players' own devices, as they do for a plain MCQ. */}
-              {isComprehensionQuestion && (
-                <div className="flex flex-col gap-2 mb-6">
-                  <p className="text-xs uppercase tracking-wide font-semibold text-[hsl(var(--muted-foreground))]">
-                    Answer all {subQuestions.filter(isGradableSubQuestion).length} on your device
-                  </p>
-                  {subQuestions.map((sub, subIndex) => isGradableSubQuestion(sub) && (
-                    <div key={sub.id ?? subIndex} className="flex items-start gap-3 px-4 py-3 rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] font-medium">
-                      <span className="font-black text-[hsl(var(--primary))] shrink-0">{subIndex + 1}</span>
-                      <span className="min-w-0 break-words">{sub.questionText}</span>
-                    </div>
+              <div className="flex flex-col">
+                <motion.div variants={rise} className="flex items-baseline justify-between">
+                  <h2 className="text-xl font-semibold tracking-tight">Players</h2>
+                  <p className="eyebrow tabular">{ranked.length} joined</p>
+                </motion.div>
+                <motion.ul variants={stagger(0.03)} className="mt-4 flex min-h-32 flex-wrap content-start gap-2.5" aria-label="Players in the game">
+                  {ranked.length === 0 && <li className="text-[hsl(var(--muted-foreground))]">Waiting for the first player. Names appear here as people join.</li>}
+                  {ranked.map((p) => (
+                    <motion.li key={p.id} variants={pop} className="group inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] py-1.5 pl-4 pr-2 text-lg">
+                      {p.name}
+                      <button type="button" onClick={() => kickPlayer(pin, p.id)} aria-label={`Remove ${p.name}`} title="Remove player" className="grid h-6 w-6 place-items-center rounded-full text-[hsl(var(--muted-foreground))] opacity-60 hover:bg-[hsl(var(--muted))] hover:opacity-100"><PiXBold className="h-3.5 w-3.5" /></button>
+                    </motion.li>
                   ))}
-                </div>
-              )}
+                </motion.ul>
+              </div>
 
-              {currentQuestion.type === 'MATCH_THE_FOLLOWING' && (
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs uppercase tracking-wide font-semibold text-[hsl(var(--muted-foreground))]">Prompts</p>
-                    {(currentQuestion.matchData?.pairs || []).map(pair => (
-                      <div key={pair.id} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] font-medium">
-                        <MediaRenderer media={pair.promptMedia} transform="thumbnail" className="w-10 h-10 rounded object-cover shrink-0" />
-                        <span>{pair.prompt}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs uppercase tracking-wide font-semibold text-[hsl(var(--muted-foreground))]">Answers</p>
-                    <div className="flex flex-wrap gap-2">
-                      {shuffledPieces.map(card => (
-                        <span key={card.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--primary))]/15 border border-[hsl(var(--primary))]/30 text-sm font-medium">
-                          <MediaRenderer media={card.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
-                          {card.text}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {currentQuestion.type === 'REORDER' && (
-                <div className="mb-6">
-                  <p className="text-xs uppercase tracking-wide font-semibold text-[hsl(var(--muted-foreground))] mb-2 text-center">
-                    Put these {shuffledPieces.length} in order on your device
+              {/* Pinned to the bottom of the screen: starting the game is the main action, so it
+                  must never be below the fold on a laptop. */}
+              <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))]/90 backdrop-blur-md">
+                <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                    <span className="tabular font-medium text-[hsl(var(--foreground))]">{sequence.length}</span> questions{session.skippedCount ? `, ${session.skippedCount} skipped because they need marking by hand` : ''}
                   </p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {shuffledPieces.map(item => (
-                      <span key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-sm font-medium">
-                        <MediaRenderer media={item.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
-                        {item.text}
-                      </span>
-                    ))}
-                  </div>
+                  <Button variant="brand" size="xl" className="min-w-56" onClick={handleStart} disabled={ranked.length === 0}><PiPlayFill /> Start game</Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── A question: the 3, 2, 1 first, then the clock ── */}
+          {state === 'question' && question && (
+            <motion.div key={`q-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-1 flex-col">
+              {/* Always mounted, hidden until the countdown ends: it loads, and can be measured, in the meantime. */}
+              {media && (
+                <div ref={mediaBoxRef} className={opened ? 'mb-7 overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50 flex justify-center' : 'hidden'}>
+                  <MediaRenderer media={media} transform="question_main" className={mediaKind(media) === 'audio' ? 'w-full max-w-xl p-3' : 'max-h-[34vh] w-auto max-w-full object-contain'} />
                 </div>
               )}
 
-              {currentQuestion.type === 'CATEGORIZE' && (
-                <div className="mb-6 flex flex-col gap-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {(currentQuestion.categorizeData?.categories || []).map(cat => (
-                      <div key={cat.id} className="px-4 py-3 rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-center font-bold text-[hsl(var(--primary))] truncate">
-                        {cat.name}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {shuffledPieces.map(item => (
-                      <span key={item.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--primary))]/15 border border-[hsl(var(--primary))]/30 text-sm font-medium">
-                        <MediaRenderer media={item.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
-                        {item.text}
-                      </span>
-                    ))}
-                  </div>
+              {!opened ? (
+                <div className="grid flex-1 place-items-center">
+                  <Countdown size="xl" startsAt={session.questionStartedAt} label={`Question ${idx + 1} of ${sequence.length}`} hint={`${TYPE_LABEL[question.type] || 'Question'}, ${Math.round(limitMs / 1000)} seconds`} />
                 </div>
+              ) : (
+                <>
+                  <div className="mb-6 flex items-end justify-between gap-8">
+                    <p className="eyebrow">Question {idx + 1} of {sequence.length}</p>
+                    <div className="w-56 shrink-0 sm:w-72"><LiveClock big endsAt={endsAt} limitMs={limitMs} running={clockSettled} onZero={() => setZeroed(true)} /></div>
+                  </div>
+                  <h1 className="text-balance text-4xl font-semibold leading-tight tracking-tight md:text-5xl">{question.questionText}</h1>
+                  <div className="mt-9"><ProjectorBody question={question} pieces={pieces} /></div>
+                  <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-[hsl(var(--border))] pt-6">
+                    <p className="tabular text-lg"><span className="text-3xl font-semibold">{answeredCount}</span> <span className="text-[hsl(var(--muted-foreground))]">of {ranked.length} answered</span></p>
+                    <Button variant="outline" size="lg" onClick={() => revealQuestion(pin)}><PiEyeBold /> Reveal now</Button>
+                  </div>
+                </>
               )}
+            </motion.div>
+          )}
 
-              <div className="flex items-center justify-center gap-3 mb-8">
-                <Users className="w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-                <span className="text-[hsl(var(--muted-foreground))] font-medium">{answeredCount} / {players.length} answered</span>
-              </div>
+          {/* ── The reveal ── */}
+          {state === 'reveal' && question && (
+            <motion.div key={`reveal-${idx}`} variants={stagger(0.07)} initial="hidden" animate="show" exit={{ opacity: 0 }} className="flex flex-1 flex-col">
+              <motion.p variants={rise} className="eyebrow">Question {idx + 1} of {sequence.length}</motion.p>
+              <motion.h1 variants={rise} className="mt-3 text-balance text-3xl font-semibold leading-tight tracking-tight md:text-4xl">{question.questionText}</motion.h1>
+              <motion.div variants={rise} className="mt-9 max-w-3xl">{bars && <AnswerBars rows={bars} total={ranked.length} />}</motion.div>
+              {!['MCQ', 'TRUE_FALSE'].includes(question.type) && (
+                <motion.div variants={rise} className="mt-9 max-w-3xl rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5">
+                  <p className="eyebrow mb-3">The answer</p>
+                  <div className="text-lg"><CorrectAnswer q={question} tone="plain" /></div>
+                </motion.div>
+              )}
+              <motion.div variants={rise} className="mt-auto pt-10">
+                <Button size="xl" onClick={() => showLeaderboard(pin)}><PiTrophyBold /> Show leaderboard</Button>
+              </motion.div>
+            </motion.div>
+          )}
 
-              <div className="flex justify-center">
-                <Button onClick={handleReveal} size="lg" className="gap-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/70">
-                  <Eye className="w-4 h-4" /> Reveal Now
-                </Button>
+          {/* ── The standings ── */}
+          {state === 'leaderboard' && (
+            <motion.div key={`board-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
+              <p className="eyebrow text-center">After question {idx + 1} of {sequence.length}</p>
+              <h1 className="text-hero mb-8 mt-3 text-center text-6xl">Leaderboard</h1>
+              <Leaderboard big players={session.players} answers={session.answers?.[idx]} limit={5} />
+              <div className="mt-auto flex justify-center pt-12">
+                <Button size="xl" variant="brand" onClick={handleNext}>{idx + 1 >= sequence.length ? 'Finish game' : 'Next question'} <PiArrowRightBold /></Button>
               </div>
             </motion.div>
           )}
 
-          {/* ── Reveal ── */}
-          {session.state === 'reveal' && currentQuestion && (
-            <motion.div key="reveal" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <p className="text-center text-[hsl(var(--muted-foreground))] mb-4 font-semibold uppercase tracking-wide text-xs">Correct Answer</p>
-              <div className="bg-[hsl(var(--card))] border border-emerald-500/30 rounded-3xl p-8 text-center mb-8">
-                {/* Comprehension answers make no sense without the thing they
-                    are about, so the media stays up through the reveal. */}
-                {isComprehensionQuestion && mainMedia && (
-                  <div className="mb-6 flex justify-center [&_audio]:w-full">
-                    <MediaRenderer media={mainMedia} transform="question_main"
-                      className="max-w-full max-h-[260px] rounded-2xl" />
-                  </div>
-                )}
-                <p className="text-xl md:text-2xl font-bold mb-4">{currentQuestion.questionText}</p>
-                {currentQuestion.type === 'MCQ' && (
-                  <div className="flex flex-col gap-2 max-w-md mx-auto">
-                    {currentQuestion.mcqData.options.map(opt => {
-                      const isCorrect = currentQuestion.mcqData.correctOptions.includes(opt.id);
-                      const votes = optionVoteCount(opt.id);
-                      return (
-                        <div key={opt.id} className={`flex items-center justify-between px-4 py-2.5 rounded-xl border ${isCorrect ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))]'}`}>
-                          <span className="font-medium">{opt.text}</span>
-                          <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{votes}</Badge>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {currentQuestion.type === 'TRUE_FALSE' && (
-                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{currentQuestion.trueFalseData.correctAnswer ? 'TRUE' : 'FALSE'}</p>
-                )}
-                {currentQuestion.type === 'FILL_IN_THE_BLANK' && (
-                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{currentQuestion.fillBlankData.answers.map(a => a.text).join(' / ')}</p>
-                )}
-                {currentQuestion.type === 'MATCH_THE_FOLLOWING' && (
-                  <div className="flex flex-col gap-2 max-w-xl mx-auto">
-                    {(currentQuestion.matchData?.pairs || []).map(pair => (
-                      <div key={pair.id} className="grid grid-cols-2 gap-2 items-stretch">
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] font-medium text-left">
-                          <MediaRenderer media={pair.promptMedia} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
-                          <span>{pair.prompt}</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-semibold text-left">
-                          <MediaRenderer media={pair.answerMedia} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
-                          <span>{pair.answer}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {currentQuestion.type === 'REORDER' && (
-                  <div className="flex flex-col gap-2 max-w-md mx-auto">
-                    {(currentQuestion.reorderData?.items || []).map((item, i) => (
-                      <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400 text-left">
-                        <span className="font-black w-5 shrink-0">{i + 1}</span>
-                        <MediaRenderer media={item.media} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
-                        <span className="font-semibold">{item.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {currentQuestion.type === 'CATEGORIZE' && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {(currentQuestion.categorizeData?.categories || []).map(cat => (
-                      <div key={cat.id} className="rounded-xl bg-[hsl(var(--card))] border border-emerald-500/30 p-3">
-                        <p className="font-bold text-[hsl(var(--primary))] mb-2 truncate">{cat.name}</p>
-                        <div className="flex flex-col gap-1.5">
-                          {(currentQuestion.categorizeData?.items || [])
-                            .filter(item => String(item.categoryId) === String(cat.id))
-                            .map(item => (
-                              <span key={item.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
-                                <MediaRenderer media={item.media} transform="thumbnail" className="w-7 h-7 rounded object-cover shrink-0" />
-                                {item.text}
-                              </span>
-                            ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {isComprehensionQuestion && (
-                  <div className="flex flex-col gap-4 max-w-2xl mx-auto text-left">
-                    {subQuestions.map((sub, subIndex) => isGradableSubQuestion(sub) && (
-                      <div key={sub.id ?? subIndex} className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4">
-                        <p className="font-bold mb-3">{subIndex + 1}. {sub.questionText}</p>
-                        <div className="flex flex-col gap-2">
-                          {sub.mcqData.options.map(opt => {
-                            const isCorrect = sub.mcqData.correctOptions.map(String).includes(String(opt.id));
-                            return (
-                              <div key={opt.id} className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border ${isCorrect ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--muted-foreground))]'}`}>
-                                <span className="flex items-center gap-2 min-w-0">
-                                  <MediaRenderer media={opt.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
-                                  <span className="font-medium break-words">{opt.text}</span>
-                                </span>
-                                <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] shrink-0">
-                                  {subOptionVoteCount(subIndex, opt.id)}
-                                </Badge>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {/* ── The end ── */}
+          {state === 'ended' && (
+            <motion.div key="ended" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center">
+              <p className="eyebrow">Game over</p>
+              <h1 className="text-hero mb-10 mt-3 text-center text-6xl">{ranked[0] ? `${ranked[0].name} wins` : 'That is a wrap'}</h1>
+              <Podium big ranked={ranked} />
+              {ranked.length > 3 && (
+                <ol className="mt-10 w-full divide-y divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+                  {ranked.slice(3).map((p) => (
+                    <li key={p.id} className="flex items-center gap-4 py-3 text-lg"><span className="tabular w-8 text-center font-mono text-sm text-[hsl(var(--muted-foreground))]">{p.rank}</span><span className="flex-1 truncate">{p.name}</span><span className="tabular font-semibold">{p.score}</span></li>
+                  ))}
+                </ol>
+              )}
+              <div className="mt-12 flex flex-wrap justify-center gap-3">
+                <Button variant="outline" size="lg" onClick={exportResults}><PiDownloadSimpleBold /> Export results</Button>
+                <Button size="lg" onClick={handleEnd}>Close game</Button>
               </div>
-              <div className="flex justify-center">
-                <Button onClick={handleLeaderboard} size="lg" className="gap-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                  <Trophy className="w-4 h-4" /> Show Leaderboard
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── Leaderboard ── */}
-          {session.state === 'leaderboard' && (
-            <motion.div key="leaderboard" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <h2 className="text-2xl font-black text-center mb-6">Leaderboard</h2>
-              <div className="flex flex-col gap-2 max-w-lg mx-auto mb-8">
-                {sortedPlayers.slice(0, 8).map((p, i) => (
-                  <motion.div key={p.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl ${i === 0 ? 'bg-amber-500/15 border border-amber-500/30' : 'bg-[hsl(var(--card))] border border-[hsl(var(--border))]'}`}>
-                    <span className="font-black text-lg w-6 text-[hsl(var(--muted-foreground))]">{i + 1}</span>
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="flex-1 font-semibold truncate">{p.name}</span>
-                    {p.streak >= 2 && <Badge className="bg-orange-500/20 text-orange-600 dark:text-orange-300 border-orange-500/30 text-xs">🔥{p.streak}</Badge>}
-                    <span className="font-black text-lg">{p.score}</span>
-                  </motion.div>
-                ))}
-              </div>
-              <div className="flex justify-center">
-                <Button onClick={handleNext} size="lg" className="gap-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                  {session.currentQuestionIndex + 1 >= playableQuestions.length ? 'Finish Game' : 'Next Question'}
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── Ended / Podium ── */}
-          {session.state === 'ended' && (
-            <motion.div key="ended" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-              <Confetti />
-              <Trophy className="w-16 h-16 text-amber-400 mx-auto mb-4 mt-8" />
-              <h2 className="text-3xl font-black mb-8">Game Over!</h2>
-
-              <div className="flex items-end justify-center gap-4 mb-10">
-                {[sortedPlayers[1], sortedPlayers[0], sortedPlayers[2]].map((p, i) => {
-                  if (!p) return <div key={i} className="w-24" />;
-                  const heights = ['h-24', 'h-32', 'h-20'];
-                  const icons = [<Medal key="m" className="w-5 h-5 text-slate-400" />, <Crown key="c" className="w-6 h-6 text-amber-400" />, <Medal key="m2" className="w-5 h-5 text-amber-700" />];
-                  return (
-                    <motion.div key={p.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.15 }}
-                      className="flex flex-col items-center gap-2 w-24">
-                      {icons[i]}
-                      <span className="font-bold text-sm truncate w-full text-center">{p.name}</span>
-                      <span className="font-black text-lg">{p.score}</span>
-                      <div className={`w-full ${heights[i]} rounded-t-xl bg-gradient-to-t from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white flex items-start justify-center pt-2 font-black text-xl`}>
-                        {i === 1 ? 1 : i === 0 ? 2 : 3}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-
-              <Button onClick={handleEndSession} size="lg" className="gap-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/70">
-                Back to Your Quizzes
-              </Button>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </main>
     </div>
   );
-};
-
-export default HostSession;
+}

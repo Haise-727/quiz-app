@@ -1,3 +1,4 @@
+import { downloadCsv, safeFileName } from '../../utils/csv';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { db } from '../../firebase';
@@ -157,12 +158,9 @@ const Analytics = () => {
         s.completedAt?.toDate?.().toLocaleDateString() || '—',
       ]),
     ];
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `${(quiz?.title || 'quiz').replace(/[^a-z0-9]/gi, '_')}-results.csv`;
-    a.click(); URL.revokeObjectURL(url);
+    // Guests type their own names, so this goes through the CSV helper that neutralises
+    // spreadsheet formulas (utils/csv.js).
+    downloadCsv(`${safeFileName(quiz?.title)}-results.csv`, rows);
   };
 
   const fmtDate = ts => ts?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) ?? '—';

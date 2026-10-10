@@ -13,9 +13,10 @@ import { rise, stagger } from '@/lib/motion';
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /**
- * Draws ONE question and lets the student answer it. It does not know about timers,
- * grading or saving: it gets the question and the current answer, and reports changes.
- * Both the signed in quiz and the guest quiz use it, so they look and behave the same.
+ * Draws ONE question and lets the student answer it: the picture or clip, the question, and
+ * the answer area. It does not know about timers, grading or saving: it gets the question and
+ * the current answer, and reports changes. The signed in quiz and the guest quiz both use it,
+ * so they look and behave the same.
  *
  * @param question   the question document
  * @param answer     the current answer, in the shapes described in utils/quizAttempt.js
@@ -29,33 +30,46 @@ export default function QuestionView({ question, answer, onChange, onDragEnd, on
   const multi = question.type === 'MCQ' && isMultiSelect(question);
 
   return (
+    <div>
+      {media && (
+        <div className="mb-7">
+          {kind === 'audio' ? (
+            <MediaRenderer media={media} transform="question_main" className="w-full" />
+          ) : (
+            // The frame hugs the picture or clip instead of stretching across the page, and its
+            // height is capped by the screen, so the options stay visible on a short window.
+            <div className={`${kind === 'video' ? 'block w-full bg-black' : 'inline-block max-w-full bg-[hsl(var(--muted))]/50'} overflow-hidden rounded-xl border border-[hsl(var(--border))] align-top leading-[0]`}>
+              <MediaRenderer
+                media={media}
+                transform="question_main"
+                className={kind === 'video' ? 'mx-auto max-h-[min(18rem,30vh)] w-auto max-w-full' : 'max-h-[min(18rem,30vh)] w-auto max-w-full object-contain'}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      <h2 className="text-2xl font-semibold leading-snug tracking-tight text-[hsl(var(--foreground))] sm:text-[1.75rem]">
+        {question.questionText}
+      </h2>
+      {multi && <p className="eyebrow mt-3">Select all that apply</p>}
+
+      <div className="mt-8">
+        <QuestionBody question={question} answer={answer} onChange={onChange} onDragEnd={onDragEnd} onEnter={onEnter} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Just the answer area for a question, with no heading or media of its own, so a page that
+ * draws those itself (the live game) can reuse the same answer boards.
+ */
+export function QuestionBody({ question, answer, onChange, onDragEnd, onEnter }) {
+  return (
     <DragDropContext onDragEnd={onDragEnd}>
       <div>
-        {media && (
-          <div className="mb-7">
-            {kind === 'audio' ? (
-              <MediaRenderer media={media} transform="question_main" className="w-full" />
-            ) : (
-              // The frame hugs the picture or clip instead of stretching across the page, and its
-              // height is capped by the screen, so the options stay visible on a short window.
-              <div className={`${kind === 'video' ? 'block w-full bg-black' : 'inline-block max-w-full bg-[hsl(var(--muted))]/50'} overflow-hidden rounded-xl border border-[hsl(var(--border))] align-top leading-[0]`}>
-                <MediaRenderer
-                  media={media}
-                  transform="question_main"
-                  className={kind === 'video' ? 'mx-auto max-h-[min(18rem,30vh)] w-auto max-w-full' : 'max-h-[min(18rem,30vh)] w-auto max-w-full object-contain'}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        <h2 className="text-2xl font-semibold leading-snug tracking-tight text-[hsl(var(--foreground))] sm:text-[1.75rem]">
-          {question.questionText}
-        </h2>
-        {multi && <p className="eyebrow mt-3">Select all that apply</p>}
-
-        <div className="mt-8">
-          {question.type === 'MCQ' && (
+        {question.type === 'MCQ' && (
             <OptionList mcq={question} picked={answer || []} onPick={(id) => onChange(id)} />
           )}
 
@@ -117,7 +131,7 @@ export default function QuestionView({ question, answer, onChange, onDragEnd, on
               ))}
             </div>
           )}
-        </div>
+
       </div>
     </DragDropContext>
   );

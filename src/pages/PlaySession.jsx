@@ -1,59 +1,50 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import { useAuth } from '../contexts/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { PiArrowRightBold, PiLockSimpleFill, PiSpinnerGapBold } from 'react-icons/pi';
+import { db } from '@/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import Confetti from '../components/Confetti';
-import MediaRenderer from '../components/MediaRenderer';
+import Logo from '@/components/Logo';
+import MediaRenderer from '@/components/MediaRenderer';
+import { QuestionBody } from '@/components/quiz/QuestionView';
+import Countdown from '@/components/live/Countdown';
+import LiveClock from '@/components/live/LiveClock';
+import LiveOption from '@/components/live/LiveOption';
+import Leaderboard from '@/components/live/Leaderboard';
+import PlayerHud from '@/components/live/PlayerHud';
+import Podium from '@/components/live/Podium';
+import PowerUpBar from '@/components/live/PowerUpBar';
+import ResultCard from '@/components/live/ResultCard';
+import { changeAnswer, dragAnswer, initialAnswer, isMultiSelect } from '@/utils/quizAttempt';
+import { mediaKind } from '@/utils/media';
 import {
-  listenToSession, joinSession, leaveSession, submitAnswer, generateGuestId,
-  getPlayableQuestions, getMainMedia, getSubQuestions, isGradableSubQuestion,
-  isComprehension, subAnswerKey, questionDeadline,
-} from '../utils/liveSession';
-import { playCorrect, playWrong, playComplete, playTick } from '../utils/sounds';
-import { mediaKind } from '../utils/media';
-import { Home, Hash, Users, Clock, CheckCircle2, XCircle, Trophy, Crown, Medal, Loader2, GripVertical } from 'lucide-react';
+  fiftyFiftyHide, generateGuestId, getMainMedia, getPlaySequence, hasLiveAnswer, joinSession, leaveSession,
+  listenToSession, ordinal, previousRanks, questionDeadline, rankPlayers, serverNow, streakBonusPct, submitAnswer,
+  toLiveAnswer, spendPowerUp,
+} from '@/utils/liveSession';
+import { playBadge, playClick, playComplete, playCorrect, playSelect, playWrong } from '@/utils/sounds';
+import { pop, rise, stagger } from '@/lib/motion';
 
-const DRAG_TYPES = ['MATCH_THE_FOLLOWING', 'REORDER', 'CATEGORIZE'];
-
-const shuffleArray = (arr) => (Array.isArray(arr) ? [...arr].sort(() => Math.random() - 0.5) : []);
-
-/**
- * Working state for the three drag-and-drop types, rebuilt whenever the
- * question changes. Only ids ever leave this object — see the answer shapes
- * documented in utils/liveSession.js.
- */
-const buildDragState = (question) => {
-  if (!question) return null;
-  switch (question.type) {
-    case 'MATCH_THE_FOLLOWING':
-      return {
-        type: question.type,
-        slots: {}, // { [promptPairId]: answer card }
-        bank: shuffleArray(question.matchData?.pairs).map(pair => ({ id: pair.id, text: pair.answer, media: pair.answerMedia })),
-      };
-    case 'REORDER':
-      return { type: question.type, order: shuffleArray(question.reorderData?.items) };
-    case 'CATEGORIZE':
-      return {
-        type: question.type,
-        columns: {
-          ...Object.fromEntries((question.categorizeData?.categories || []).map(cat => [String(cat.id), []])),
-          bank: shuffleArray(question.categorizeData?.items),
-        },
-      };
-    default:
-      return null;
-  }
+const TYPE_LABEL = {
+  MCQ: 'Multiple choice', TRUE_FALSE: 'True or false', FILL_IN_THE_BLANK: 'Type the answer',
+  MATCH_THE_FOLLOWING: 'Match them up', REORDER: 'Put in order', CATEGORIZE: 'Sort into groups',
+  VISUAL_COMPREHENSION: 'Look, then answer', LISTENING_COMPREHENSION: 'Listen, then answer',
 };
 
-const PlaySession = () => {
+const RULES = [
+  ['streakBonus', 'Streak bonus'], ['powerUps', 'Power-ups'], ['shuffle', 'Shuffled'], ['lockOnStart', 'Locks when started'],
+];
+
+/**
+ * The player's phone: join with a code, wait in the lobby, then play. It listens to one
+ * shared session and shows whichever screen the host has moved everyone to. What each
+ * screen is made of lives in components/live; this file decides which to show and sends
+ * the answers.
+ */
+export default function PlaySession() {
   const { pin: pinFromUrl } = useParams();
   const navigate = useNavigate();
   const { currentUser, displayName } = useAuth();
@@ -66,25 +57,22 @@ const PlaySession = () => {
 
   const [quiz, setQuiz] = useState(null);
   const [session, setSession] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [fillInput, setFillInput] = useState('');
-  const [mcqSelection, setMcqSelection] = useState([]);
-  const [subAnswers, setSubAnswers] = useState({}); // comprehension: { s0: [optionId, …] }
+  const [answer, setAnswer] = useState(null);            // the answer being built, in the quiz page's shape
+  const [touched, setTouched] = useState(false);         // has a board been moved at all
   const [answered, setAnswered] = useState(false);
-  const [lastResult, setLastResult] = useState(null); // { correct, points }
-  const [dragState, setDragState] = useState(null);
-  const [dragTouched, setDragTouched] = useState(false);
+  const [opened, setOpened] = useState(false);           // has the 3, 2, 1 finished for this question
+  const [result, setResult] = useState(null);            // { correct, points, parts }
 
   const playerIdRef = useRef(currentUser?.uid || null);
   const pinRef = useRef(null);
-  const questionStartRef = useRef(null);
+  const startRef = useRef(0);                            // server time this player's question clock started
+  const wasInRef = useRef(false);
 
-  // ── Join flow ────────────────────────────────────────────────────────────────
+  // ── Join ────────────────────────────────────────────────────────────────────────────
   const handleJoin = async () => {
     const pin = pinInput.trim();
     const name = (nameInput || currentUser?.email?.split('@')[0] || 'Player').trim();
-    if (!/^\d{6}$/.test(pin)) { setError('Enter the 6-digit game code.'); return; }
+    if (!/^\d{6}$/.test(pin)) { setError('A game code is six digits.'); return; }
     if (!name) { setError('Please enter your name.'); return; }
     setError(''); setJoining(true);
     try {
@@ -94,712 +82,320 @@ const PlaySession = () => {
       await joinSession(pin, playerId, name);
       setJoined(true);
     } catch (err) {
-      setError(err.message || 'Failed to join game.');
+      setError(err.message || 'We could not join that game.');
     } finally {
       setJoining(false);
     }
   };
 
-  // ── Subscribe once joined ───────────────────────────────────────────────────
+  // ── Listen to the session once joined ───────────────────────────────────────────────
   useEffect(() => {
-    if (!joined || !pinRef.current) return;
+    if (!joined || !pinRef.current) return undefined;
     const unsub = listenToSession(pinRef.current, (s) => {
-      if (!s) { toast.error('The host ended this session.'); navigate('/'); return; }
+      if (!s) { toast.error('The host ended this game.'); navigate('/'); return; }
       setSession(s);
-      if (!quiz) {
-        getDoc(doc(db, 'quizzes', s.quizId)).then(snap => { if (snap.exists()) setQuiz(snap.data()); });
-      }
+      setQuiz((current) => {
+        if (!current) getDoc(doc(db, 'quizzes', s.quizId)).then((snap) => { if (snap.exists()) setQuiz(snap.data()); });
+        return current;
+      });
     });
     return () => {
       unsub();
       if (pinRef.current && playerIdRef.current) leaveSession(pinRef.current, playerIdRef.current).catch(() => {});
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [joined]);
+  }, [joined, navigate]);
 
-  const playableQuestions = useMemo(() => getPlayableQuestions(quiz), [quiz]);
-  const currentQuestion = session ? playableQuestions[session.currentQuestionIndex] : null;
-  const mainMedia = getMainMedia(currentQuestion);
-  const isComprehensionQuestion = isComprehension(currentQuestion?.type);
-  const subQuestions = getSubQuestions(currentQuestion);
+  // ── What is being asked ─────────────────────────────────────────────────────────────
+  const sequence = useMemo(() => getPlaySequence(quiz, session?.order), [quiz, session?.order]);
+  const idx = session?.currentQuestionIndex ?? 0;
+  const question = sequence[idx] || null;
+  const settings = session?.settings || {};
+  const players = session?.players;
+  const ranked = useMemo(() => rankPlayers(players), [players]);
+  const me = players?.[playerIdRef.current];
+  const myRank = ranked.find((p) => p.id === playerIdRef.current)?.rank;
+  if (me) wasInRef.current = true;
+  const removed = joined && !!session && wasInRef.current && !me;
 
-  // Reset per-question state when the question changes
+  const media = getMainMedia(question);
+  const multi = question?.type === 'MCQ' && isMultiSelect(question);
+  const limitMs = (parseInt(question?.timeLimit, 10) || 30) * 1000;
+  const endsAt = questionDeadline(session, question);
+
+  // A fresh answer board for every question.
   useEffect(() => {
-    setSelected(null); setFillInput(''); setMcqSelection([]); setSubAnswers({});
-    setAnswered(false); setLastResult(null);
-    questionStartRef.current = Date.now();
-  }, [session?.currentQuestionIndex]);
+    setAnswer(question ? initialAnswer(question) : null);
+    setTouched(false); setAnswered(false); setResult(null);
+    startRef.current = session?.questionStartedAt || serverNow();
+  }, [question]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The host restarts the clock once it knows how long this question's media
-  // needs (see questionDeadline). Time the player from the same moment, or a
-  // slow-loading clip would eat their speed bonus.
+  // The 3, 2, 1: the question opens at a server time every phone was given.
   useEffect(() => {
-    if (!answered) questionStartRef.current = Date.now();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.questionEndsAt]);
+    if (session?.state !== 'question') { setOpened(false); return undefined; }
+    const wait = (session.questionStartedAt || 0) - serverNow();
+    if (wait <= 0) { setOpened(true); return undefined; }
+    setOpened(false);
+    const id = setTimeout(() => setOpened(true), wait);
+    return () => clearTimeout(id);
+  }, [session?.state, session?.currentQuestionIndex, session?.questionStartedAt]);
 
-  // The drag-and-drop board is built from the question itself, which arrives
-  // with the quiz a moment after the session does — so key it on the question.
+  // If the host pushes the deadline out (a clip is still loading), time from that moment so a
+  // slow clip does not eat the speed bonus.
   useEffect(() => {
-    setDragState(buildDragState(currentQuestion));
-    setDragTouched(false);
-  }, [currentQuestion]);
+    if (!answered && session?.questionEndsAt) startRef.current = serverNow();
+  }, [session?.questionEndsAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Countdown. The deadline is shared state the host can push out, so a
-  // question whose media is still loading does not run out of time.
+  // Sounds at the reveal and the end.
   useEffect(() => {
-    const deadline = session?.state === 'question' ? questionDeadline(session, currentQuestion) : null;
-    if (!deadline) { setTimeLeft(null); return; }
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setTimeLeft(remaining);
-      if (remaining <= 10 && remaining > 0) playTick();
-    }, 250);
-    return () => clearInterval(interval);
-  }, [session?.state, session?.questionStartedAt, session?.questionEndsAt, currentQuestion]);
-
-  // Read own result once reveal happens
-  useEffect(() => {
-    if (session?.state === 'reveal' && answered && !lastResult) {
-      const mine = session.answers?.[session.currentQuestionIndex]?.[playerIdRef.current];
-      if (mine) {
-        setLastResult({ correct: mine.correct, points: mine.points });
-        // The drag-and-drop types can score part marks, which still feels like a win.
-        (mine.correct || mine.points > 0) ? playCorrect() : playWrong();
-      }
+    if (session?.state === 'reveal' && answered) {
+      const mine = session.answers?.[idx]?.[playerIdRef.current];
+      if (mine) { setResult({ correct: mine.correct, points: mine.points, parts: mine.parts }); (mine.correct || mine.points > 0) ? playCorrect() : playWrong(); }
     }
+    if (session?.state === 'reveal' && !answered) playWrong();
     if (session?.state === 'ended') playComplete();
   }, [session?.state]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isMultiSelect = currentQuestion?.type === 'MCQ' && (currentQuestion.mcqData?.correctOptions?.length || 0) > 1;
-
-  const handleAnswer = async (answer) => {
-    if (answered || !currentQuestion) return;
+  // ── Answering ───────────────────────────────────────────────────────────────────────
+  const submit = async (value = answer) => {
+    if (answered || !question) return;
     setAnswered(true);
-    setSelected(answer);
-    const timeTaken = Date.now() - questionStartRef.current;
+    const taken = Math.max(0, serverNow() - startRef.current);
     try {
-      await submitAnswer(pinRef.current, session.currentQuestionIndex, playerIdRef.current, answer, currentQuestion, timeTaken);
-    } catch { toast.error('Failed to submit answer.'); setAnswered(false); }
-  };
-
-  const toggleMcqOption = (optId) => {
-    if (answered) return;
-    setMcqSelection(prev => prev.includes(optId) ? prev.filter(id => id !== optId) : [...prev, optId]);
-  };
-
-  const handleMcqClick = (optId) => {
-    if (isMultiSelect) { toggleMcqOption(optId); return; }
-    handleAnswer([optId]);
-  };
-
-  // ── Comprehension (media + sub-questions on one screen) ──────────────────────
-  // The whole block is one live question: the player answers as many
-  // sub-questions as they can and submits once, for partial credit.
-  const pickSubOption = (subIndex, sub, optId) => {
-    if (answered) return;
-    const key = subAnswerKey(subIndex);
-    const multi = (sub.mcqData?.correctOptions?.length || 0) > 1;
-    setSubAnswers(prev => {
-      const picked = prev[key] || [];
-      if (!multi) return { ...prev, [key]: picked.includes(optId) ? [] : [optId] };
-      return { ...prev, [key]: picked.includes(optId) ? picked.filter(id => id !== optId) : [...picked, optId] };
-    });
-  };
-
-  // Keys are 's0', 's1' … and never 0, 1 …: Realtime Database turns an
-  // integer-keyed object back into an array, and a player who skips a
-  // sub-question would read back as a sparse array padded with nulls.
-  const buildComprehensionAnswer = () => {
-    const answer = {};
-    Object.entries(subAnswers).forEach(([key, picked]) => {
-      if (Array.isArray(picked) && picked.length) answer[key] = picked.map(String);
-    });
-    return answer;
-  };
-
-  const hasSubAnswer = Object.values(subAnswers).some(picked => Array.isArray(picked) && picked.length > 0);
-  const submitComprehensionAnswer = () => handleAnswer(buildComprehensionAnswer());
-
-  // ── Drag and drop (Match / Reorder / Categorize) ─────────────────────────────
-  const isDragQuestion = DRAG_TYPES.includes(currentQuestion?.type);
-
-  // dragState is rebuilt by an effect, which lands a render *after* the host
-  // moves everyone to the next question. Ignore a board that still belongs to
-  // the question before this one, or that render reads the wrong shape.
-  const board = dragState?.type === currentQuestion?.type ? dragState : null;
-
-  const handleDragEnd = ({ source, destination }) => {
-    if (!destination || answered || !currentQuestion) return;
-    setDragState(prev => {
-      if (!prev || prev.type !== currentQuestion.type) return prev;
-
-      if (currentQuestion.type === 'REORDER') {
-        const order = [...prev.order];
-        const [moved] = order.splice(source.index, 1);
-        if (!moved) return prev;
-        order.splice(destination.index, 0, moved);
-        return { ...prev, order };
-      }
-
-      if (currentQuestion.type === 'CATEGORIZE') {
-        const columns = { ...prev.columns };
-        const from = [...(columns[source.droppableId] || [])];
-        const [moved] = from.splice(source.index, 1);
-        if (!moved) return prev;
-        if (source.droppableId === destination.droppableId) {
-          from.splice(destination.index, 0, moved);
-          columns[source.droppableId] = from;
-        } else {
-          const to = [...(columns[destination.droppableId] || [])];
-          to.splice(destination.index, 0, moved);
-          columns[source.droppableId] = from;
-          columns[destination.droppableId] = to;
-        }
-        return { ...prev, columns };
-      }
-
-      // MATCH_THE_FOLLOWING — one card per prompt slot, everything else waits
-      // in the bank. Dropping onto a taken slot sends the old card back.
-      const bank = [...prev.bank];
-      const slots = { ...prev.slots };
-      let moved;
-      if (source.droppableId === 'bank') {
-        [moved] = bank.splice(source.index, 1);
-      } else {
-        moved = slots[source.droppableId];
-        delete slots[source.droppableId];
-      }
-      if (!moved) return prev;
-      if (destination.droppableId === 'bank') {
-        bank.splice(destination.index, 0, moved);
-      } else {
-        const displaced = slots[destination.droppableId];
-        if (displaced) bank.push(displaced);
-        slots[destination.droppableId] = moved;
-      }
-      return { ...prev, bank, slots };
-    });
-    setDragTouched(true);
-  };
-
-  /** Flattens the board into the serialisable shape scoreAnswer expects. */
-  const buildDragAnswer = () => {
-    if (!currentQuestion || !board) return null;
-    switch (currentQuestion.type) {
-      case 'MATCH_THE_FOLLOWING':
-        return Object.fromEntries(
-          Object.entries(board.slots).map(([pairId, card]) => [String(pairId), String(card.id)])
-        );
-      case 'REORDER':
-        return board.order.map(item => String(item.id));
-      case 'CATEGORIZE': {
-        const placed = {};
-        Object.entries(board.columns).forEach(([columnId, items]) => {
-          if (columnId === 'bank') return;
-          items.forEach(item => { placed[String(item.id)] = String(columnId); });
-        });
-        return placed;
-      }
-      default:
-        return null;
+      const res = await submitAnswer(pinRef.current, idx, playerIdRef.current, toLiveAnswer(question, value), question, taken, settings);
+      setResult(res);
+    } catch (err) {
+      toast.error(err.message || 'We could not send your answer.');
+      setAnswered(false);
     }
   };
 
-  const hasDragPlacement = (() => {
-    if (!board || !currentQuestion) return false;
-    if (currentQuestion.type === 'REORDER') return true; // any order is a valid guess
-    if (currentQuestion.type === 'MATCH_THE_FOLLOWING') return Object.keys(board.slots).length > 0;
-    if (currentQuestion.type === 'CATEGORIZE') {
-      return Object.entries(board.columns).some(([columnId, items]) => columnId !== 'bank' && items.length > 0);
-    }
-    return false;
-  })();
-
-  const submitDragAnswer = () => {
-    const answer = buildDragAnswer();
-    if (answer) handleAnswer(answer);
+  const change = (value, sub = null) => {
+    if (answered) return;
+    playSelect();
+    const next = changeAnswer(question, answer, value, sub);
+    setAnswer(next);
+    // One right answer, one tap: lock it in at once. Several right answers wait for the button.
+    if ((question.type === 'MCQ' && !multi) || question.type === 'TRUE_FALSE') submit(next);
   };
 
-  // The host reveals the instant the clock hits zero, so lock in whatever the
-  // player has arranged or ticked rather than throwing their work away.
-  // Nothing is sent if they never touched it — that still scores 0, as before.
-  useEffect(() => {
-    if (timeLeft !== 0 || session?.state !== 'question' || answered) return;
-    if (isDragQuestion && dragTouched) submitDragAnswer();
-    else if (isComprehensionQuestion && hasSubAnswer) submitComprehensionAnswer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft]);
+  const onDragEnd = (drag) => {
+    if (!drag.destination || answered) return;
+    playClick();
+    setTouched(true);
+    setAnswer((current) => dragAnswer(question, current, drag.source, drag.destination));
+  };
 
-  const players = session?.players ? Object.entries(session.players).map(([id, p]) => ({ id, ...p })) : [];
-  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
-  const myRank = sortedPlayers.findIndex(p => p.id === playerIdRef.current) + 1;
-  const me = players.find(p => p.id === playerIdRef.current);
+  // The clock hit zero: send what the player has rather than throwing their work away.
+  // Nothing is sent for a board they never touched, which still scores 0.
+  const onZero = () => {
+    if (answered || session?.state !== 'question' || !question) return;
+    if (touched || hasLiveAnswer(question, answer)) submit(answer);
+  };
 
-  // Shared class strings for the drag-and-drop boards
-  const dragCard = 'flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-[hsl(var(--primary))]/50 bg-[hsl(var(--primary))]/20 text-sm font-semibold select-none';
-  const dropZone = 'rounded-xl border-2 border-dashed transition-colors';
+  // Power-ups
+  const hiddenIds = me?.fiftyFor === idx ? fiftyFiftyHide(question, `${playerIdRef.current}:${idx}`) : [];
+  const canFifty = question?.type === 'MCQ' && me?.fiftyFor !== idx && fiftyFiftyHide(question, 'x').length > 0;
+  const doubleArmed = me?.doubleFor === idx;
+  const onPowerUp = async (kind) => {
+    if (answered || !question) return;
+    if (kind === 'fifty' && !canFifty) { toast('There is nothing to remove on this question.'); return; }
+    try {
+      const used = await spendPowerUp(pinRef.current, playerIdRef.current, kind, idx);
+      if (used) playBadge(); else toast.error('You have already used that one.');
+    } catch { toast.error('We could not use that power-up.'); }
+  };
 
-  // ── Join screen ──────────────────────────────────────────────────────────────
+  // ── Screens ─────────────────────────────────────────────────────────────────────────
+  const Frame = ({ children, hud = true }) => (
+    <div className="relative min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(55%_100%_at_50%_0%,hsl(var(--brand)/0.08),transparent)]" />
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 pb-10 pt-4">
+        <div className="mb-4 flex items-center justify-between">
+          <Link to="/" aria-label="Quizlike home"><Logo size={24} /></Link>
+          {session?.quizTitle && <p className="max-w-[55%] truncate text-xs text-[hsl(var(--muted-foreground))]">{session.quizTitle}</p>}
+        </div>
+        {hud && me && <div className="mb-5"><PlayerHud rank={myRank} score={me.score || 0} streak={me.streak || 0} bonusPct={settings.streakBonus === false ? null : streakBonusPct(me.streak || 0)} /></div>}
+        {children}
+      </div>
+    </div>
+  );
+
   if (!joined) {
     return (
-      <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex items-center justify-center p-4"
-        style={{ background: 'radial-gradient(ellipse at 50% 30%, hsl(var(--primary) / 0.12) 0%, hsl(var(--background)) 70%)' }}>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
-          <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white flex items-center justify-center font-black text-sm">Q</div>
-            <span className="font-bold text-lg">Quizlike Live</span>
-          </Link>
+      <div className="relative grid min-h-dvh place-items-center bg-[hsl(var(--background))] px-5 text-[hsl(var(--foreground))]">
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(55%_100%_at_50%_0%,hsl(var(--brand)/0.09),transparent)]" />
+        <motion.div variants={stagger(0.07)} initial="hidden" animate="show" className="relative w-full max-w-sm">
+          <motion.div variants={rise}><Link to="/" aria-label="Quizlike home"><Logo /></Link></motion.div>
+          <motion.p variants={rise} className="eyebrow mt-10">Live game</motion.p>
+          <motion.h1 variants={rise} className="text-hero mt-3 text-5xl">Join the game</motion.h1>
 
-          <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-3xl p-8">
-            <Hash className="w-8 h-8 text-[hsl(var(--primary))] mx-auto mb-3" />
-            <h1 className="text-xl font-bold text-center mb-6">Join Live Game</h1>
-
-            <div className="flex flex-col gap-4">
-              <Input
-                placeholder="6-digit game code"
-                value={pinInput}
-                onChange={e => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                maxLength={6}
-                className="bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] text-center text-2xl font-mono tracking-widest placeholder:text-[hsl(var(--muted-foreground))]"
-              />
-              <Input
-                placeholder="Your name"
-                value={nameInput}
-                onChange={e => setNameInput(e.target.value)}
-                maxLength={24}
-                onKeyDown={e => e.key === 'Enter' && handleJoin()}
-                className="bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))]"
-              />
-              {error && <p className="text-[hsl(var(--destructive))] text-sm text-center">{error}</p>}
-              <Button onClick={handleJoin} disabled={joining} size="lg"
-                className="gap-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-                Join Game
-              </Button>
-            </div>
-          </div>
+          <motion.div variants={rise} className="mt-9">
+            <label htmlFor="pin" className="eyebrow">Game code</label>
+            <input
+              id="pin" value={pinInput} inputMode="numeric" autoComplete="off" maxLength={6} placeholder="000000"
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="mt-2 w-full border-0 border-b-2 border-[hsl(var(--input))] bg-transparent pb-2 font-mono text-4xl tracking-[0.25em] outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground))]/35 focus:border-[hsl(var(--ink))]"
+            />
+          </motion.div>
+          <motion.div variants={rise} className="mt-7">
+            <label htmlFor="name" className="eyebrow">Your name</label>
+            <input
+              id="name" value={nameInput} maxLength={24} autoComplete="off" placeholder="What should we call you"
+              onChange={(e) => setNameInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+              className="mt-2 w-full border-0 border-b-2 border-[hsl(var(--input))] bg-transparent pb-2 text-2xl outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground))]/40 focus:border-[hsl(var(--ink))]"
+            />
+          </motion.div>
+          {error && <p role="alert" className="mt-4 text-sm text-[hsl(var(--destructive))]">{error}</p>}
+          <motion.div variants={rise} className="mt-9">
+            <Button variant="brand" size="xl" className="w-full" onClick={handleJoin} disabled={joining}>
+              {joining ? <PiSpinnerGapBold className="animate-spin" /> : null} Join game <PiArrowRightBold />
+            </Button>
+          </motion.div>
         </motion.div>
       </div>
     );
   }
 
-  if (!session) return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] flex items-center justify-center">
-      <Loader2 className="w-8 h-8 text-[hsl(var(--muted-foreground))] animate-spin" />
-    </div>
-  );
+  if (!session) {
+    return <div className="grid min-h-dvh place-items-center bg-[hsl(var(--background))]"><PiSpinnerGapBold className="h-7 w-7 animate-spin text-[hsl(var(--muted-foreground))]" /></div>;
+  }
 
-  // ── Joined: render by state ──────────────────────────────────────────────────
+  if (removed) {
+    return (
+      <Frame hud={false}>
+        <div className="my-auto text-center">
+          <PiLockSimpleFill className="mx-auto h-8 w-8 text-[hsl(var(--muted-foreground))]" />
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight">You are no longer in this game</h1>
+          <p className="mt-2 text-[hsl(var(--muted-foreground))]">The host may have removed you, or your connection dropped.</p>
+          <Button className="mt-7" onClick={() => navigate('/')}>Back to home</Button>
+        </div>
+      </Frame>
+    );
+  }
+
   return (
-    <div className="min-h-screen w-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))] flex flex-col items-center py-8 px-4 relative overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse at 50% 0%, hsl(var(--primary) / 0.12) 0%, hsl(var(--background)) 60%)' }}>
-
-      <Link to="/" className="absolute top-5 left-5 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors">
-        <Home className="w-5 h-5" />
-      </Link>
-
-      <AnimatePresence mode="wait">
-
+    <Frame hud={session.state !== 'lobby'}>
+      <AnimatePresence mode="wait" initial={false}>
+        {/* ── Lobby ── */}
         {session.state === 'lobby' && (
-          <motion.div key="lobby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center mt-16">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white flex items-center justify-center font-black text-xl mx-auto mb-4">
-              {(nameInput || 'P').charAt(0).toUpperCase()}
-            </div>
-            <h1 className="text-2xl font-bold mb-1">You're in!</h1>
-            <p className="text-[hsl(var(--muted-foreground))] mb-8">Waiting for the host to start…</p>
-            <div className="flex items-center justify-center gap-2 text-[hsl(var(--muted-foreground))]">
-              <Users className="w-4 h-4" /> {players.length} player{players.length !== 1 ? 's' : ''} joined
-            </div>
+          <motion.div key="lobby" variants={stagger(0.06)} initial="hidden" animate="show" exit={{ opacity: 0 }} className="my-auto">
+            <motion.p variants={rise} className="eyebrow">You are in</motion.p>
+            <motion.h1 variants={rise} className="text-hero mt-3 text-5xl">Waiting for the host</motion.h1>
+            <motion.p variants={rise} className="mt-4 text-[hsl(var(--muted-foreground))]">The game starts when the host presses start. Keep this screen open.</motion.p>
+
+            <motion.ul variants={stagger(0.04)} className="mt-8 flex flex-wrap gap-2" aria-label="Players in the game">
+              {ranked.map((p) => (
+                <motion.li key={p.id} variants={pop} className={`rounded-full border px-3.5 py-1.5 text-sm ${p.id === playerIdRef.current ? 'border-[hsl(var(--primary))] bg-[hsl(var(--tint-green))] font-medium' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>{p.name}</motion.li>
+              ))}
+            </motion.ul>
+
+            <motion.div variants={rise} className="mt-9 border-t border-[hsl(var(--border))] pt-5">
+              <p className="eyebrow mb-3">The rules today</p>
+              <ul className="flex flex-wrap gap-2 text-xs font-medium">
+                {RULES.filter(([key]) => settings[key]).map(([key, label]) => <li key={key} className="rounded-full bg-[hsl(var(--tint-neutral))] px-2.5 py-1 text-[hsl(var(--tint-neutral-fg))]">{label}</li>)}
+                {!RULES.some(([key]) => settings[key]) && <li className="text-[hsl(var(--muted-foreground))]">Just you, the clock and the questions.</li>}
+              </ul>
+            </motion.div>
           </motion.div>
         )}
 
-        {session.state === 'question' && currentQuestion && (
-          <motion.div key="question" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-lg">
-            <div className="flex items-center justify-between mb-5">
-              <Badge variant="outline" className="border-[hsl(var(--border))] text-[hsl(var(--foreground))] bg-[hsl(var(--muted))] text-xs">
-                Q{session.currentQuestionIndex + 1}/{playableQuestions.length}
-              </Badge>
-              <div className={`flex items-center gap-1.5 font-bold px-3 py-1 rounded-full border text-sm ${timeLeft <= 10 ? 'bg-[hsl(var(--destructive))]/20 text-[hsl(var(--destructive))] border-[hsl(var(--destructive))]/30' : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border-[hsl(var(--border))]'}`}>
-                <Clock className="w-3.5 h-3.5" /> {timeLeft ?? '–'}s
+        {/* ── A question ── */}
+        {session.state === 'question' && question && !opened && (
+          <motion.div key={`count-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="my-auto">
+            <Countdown startsAt={session.questionStartedAt} label={`Question ${idx + 1} of ${sequence.length}`} hint={`${TYPE_LABEL[question.type] || 'Question'}, ${Math.round(limitMs / 1000)} seconds`} />
+          </motion.div>
+        )}
+
+        {session.state === 'question' && question && opened && (
+          <motion.div key={`q-${idx}`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+            <p className="eyebrow mb-3">Question {idx + 1} of {sequence.length}</p>
+            <LiveClock endsAt={endsAt} limitMs={limitMs} running={!answered} onZero={onZero} tick={!answered} />
+
+            {media && (
+              <div className="mt-5 flex justify-center overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50">
+                <MediaRenderer media={media} transform="question_main" className={mediaKind(media) === 'audio' ? 'w-full p-2' : 'max-h-56 w-auto max-w-full object-contain'} />
               </div>
-            </div>
+            )}
+            <h1 className="mt-5 text-2xl font-semibold leading-snug tracking-tight">{question.questionText}</h1>
+            {multi && <p className="eyebrow mt-2">Choose every right answer</p>}
 
-            <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-6 mb-5">
-              {/* Image, video or audio plays on the player's own device, with
-                  controls, so a remote player can replay a clip. */}
-              {mainMedia && (
-                <div className="mb-4 flex justify-center [&_audio]:w-full">
-                  <MediaRenderer media={mainMedia} transform="question_main"
-                    className="max-w-full max-h-[240px] rounded-xl" />
-                </div>
-              )}
-              <p className="text-lg font-bold leading-relaxed">{currentQuestion.questionText}</p>
-            </div>
+            {settings.powerUps !== false && me?.powerups && (
+              <div className="mt-5"><PowerUpBar powerups={me.powerups} canFifty={canFifty} doubleArmed={doubleArmed} answered={answered} onUse={onPowerUp} /></div>
+            )}
 
-            <>
-              {currentQuestion.type === 'MCQ' && (
+            <div className="mt-5">
+              {question.type === 'MCQ' && (
                 <div className="flex flex-col gap-3">
-                  {isMultiSelect && !answered && (
-                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold -mb-1">Select all that apply</p>
-                  )}
-                  {currentQuestion.mcqData.options.map(opt => {
-                    // `selected` still holds the previous question's answer for the
-                    // one render before the reset effect runs, and that answer is
-                    // only an array for MCQ.
-                    const liveSelection = answered ? selected : mcqSelection;
-                    const isPicked = Array.isArray(liveSelection) && liveSelection.includes(opt.id);
-                    return (
-                      // A div, not a button: an option can hold an audio or video player, and
-                      // interactive controls inside a <button> do not work in every browser.
-                      <div key={opt.id} role="button" tabIndex={answered ? -1 : 0} aria-disabled={answered}
-                        onClick={() => { if (!answered) handleMcqClick(opt.id); }}
-                        onKeyDown={(e) => { if (!answered && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleMcqClick(opt.id); } }}
-                        className={`px-5 py-4 rounded-xl border-2 text-left font-semibold transition-colors ${
-                          answered
-                            ? isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-default' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] opacity-40 cursor-default'
-                            : isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-pointer' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10 cursor-pointer'
-                        }`}>
-                        <span className="flex items-center gap-3">
-                          {opt.text && <span className="min-w-0 break-words">{opt.text}</span>}
-                          {/* pointer-events-none: a tap anywhere on the option
-                              picks it, instead of opening the image zoom. */}
-                          {opt.media && (mediaKind(opt.media) === 'image' ? (
-                            <span className="pointer-events-none shrink-0">
-                              <MediaRenderer media={opt.media} transform="thumbnail" className="w-14 h-14 rounded-lg object-cover" />
-                            </span>
-                          ) : (
-                            // audio or video: the player has to be usable, and pressing play must not pick the option
-                            <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <MediaRenderer media={opt.media} transform="thumbnail"
-                                className={mediaKind(opt.media) === 'video' ? 'w-32 rounded-lg' : 'w-44 h-10'} />
-                            </span>
-                          ))}
-                        </span>
-                      </div>
-                    );
+                  {question.mcqData.options.map((opt, i) => {
+                    const chosen = (answer || []).includes(opt.id);
+                    const state = answered ? (chosen ? 'locked' : 'unpicked') : chosen ? 'picked' : 'idle';
+                    return <LiveOption key={opt.id} index={i} multi={multi} media={opt.media} hidden={hiddenIds.includes(opt.id)} state={state} onSelect={() => change(opt.id)}>{opt.text}</LiveOption>;
                   })}
-                  {isMultiSelect && !answered && (
-                    <Button onClick={() => handleAnswer(mcqSelection)} disabled={!mcqSelection.length}
-                      className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                      Submit Answer
-                    </Button>
-                  )}
                 </div>
               )}
-              {currentQuestion.type === 'TRUE_FALSE' && (
+              {question.type === 'TRUE_FALSE' && (
                 <div className="grid grid-cols-2 gap-3">
-                  <button disabled={answered} onClick={() => handleAnswer(true)}
-                    className={`py-8 rounded-xl border-2 font-black text-xl text-emerald-600 dark:text-emerald-300 transition-colors ${answered ? (selected === true ? 'border-emerald-400 bg-emerald-500/25' : 'border-emerald-500/20 bg-emerald-500/5 opacity-40') + ' cursor-default' : 'border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 cursor-pointer'}`}>
-                    TRUE
-                  </button>
-                  <button disabled={answered} onClick={() => handleAnswer(false)}
-                    className={`py-8 rounded-xl border-2 font-black text-xl text-[hsl(var(--destructive))] transition-colors ${answered ? (selected === false ? 'border-[hsl(var(--destructive))] bg-[hsl(var(--destructive))]/25' : 'border-[hsl(var(--destructive))]/20 bg-[hsl(var(--destructive))]/5 opacity-40') + ' cursor-default' : 'border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 hover:bg-[hsl(var(--destructive))]/20 cursor-pointer'}`}>
-                    FALSE
-                  </button>
-                </div>
-              )}
-              {currentQuestion.type === 'FILL_IN_THE_BLANK' && (
-                <div className="flex gap-2">
-                  <Input value={fillInput} onChange={e => setFillInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAnswer(fillInput)}
-                    disabled={answered}
-                    placeholder="Type your answer…"
-                    className="bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] disabled:opacity-60" />
-                  <Button onClick={() => handleAnswer(fillInput)} disabled={!fillInput.trim() || answered}
-                    className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 shrink-0">
-                    Submit
-                  </Button>
-                </div>
-              )}
-              {currentQuestion.type === 'MATCH_THE_FOLLOWING' && board && (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                  <div className="flex flex-col gap-3">
-                    {!answered && (
-                      <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">Drag an answer onto each prompt</p>
-                    )}
-                    {currentQuestion.matchData.pairs.map(pair => {
-                      const card = board.slots[String(pair.id)];
-                      return (
-                        <div key={pair.id} className="grid grid-cols-2 gap-2 items-stretch">
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-sm font-semibold">
-                            <MediaRenderer media={pair.promptMedia} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
-                            <span className="min-w-0 break-words">{pair.prompt}</span>
-                          </div>
-                          <Droppable droppableId={String(pair.id)}>
-                            {(provided, snapshot) => (
-                              <div ref={provided.innerRef} {...provided.droppableProps}
-                                className={`${dropZone} min-h-[52px] flex items-center justify-center p-1 ${snapshot.isDraggingOver ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : card ? 'border-[hsl(var(--primary))]/40 bg-[hsl(var(--card))]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
-                                {card ? (
-                                  <Draggable draggableId={String(card.id)} index={0} isDragDisabled={answered}>
-                                    {(p) => (
-                                      <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
-                                        className={`${dragCard} ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>
-                                        <MediaRenderer media={card.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
-                                        <span className="min-w-0 break-words">{card.text}</span>
-                                      </div>
-                                    )}
-                                  </Draggable>
-                                ) : (
-                                  <span className="text-xs text-[hsl(var(--muted-foreground))]">Drop here</span>
-                                )}
-                                {provided.placeholder}
-                              </div>
-                            )}
-                          </Droppable>
-                        </div>
-                      );
-                    })}
-
-                    <Droppable droppableId="bank" direction="horizontal">
-                      {(provided, snapshot) => (
-                        <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`${dropZone} flex flex-wrap gap-2 p-2 min-h-[56px] ${snapshot.isDraggingOver ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
-                          {board.bank.map((card, i) => (
-                            <Draggable key={card.id} draggableId={String(card.id)} index={i} isDragDisabled={answered}>
-                              {(p) => (
-                                <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
-                                  className={`${dragCard} ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>
-                                  <MediaRenderer media={card.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
-                                  <span className="min-w-0 break-words">{card.text}</span>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                          {!board.bank.length && <span className="text-xs text-[hsl(var(--muted-foreground))] self-center px-2">Every answer is placed</span>}
-                        </div>
-                      )}
-                    </Droppable>
-
-                    {!answered && (
-                      <Button onClick={submitDragAnswer} disabled={!hasDragPlacement}
-                        className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                        Submit Answer
-                      </Button>
-                    )}
-                  </div>
-                </DragDropContext>
-              )}
-              {currentQuestion.type === 'REORDER' && board && (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                  <div className="flex flex-col gap-3">
-                    {!answered && (
-                      <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">Drag into the right order</p>
-                    )}
-                    <Droppable droppableId="reorder-list">
-                      {(provided) => (
-                        <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-2">
-                          {board.order.map((item, i) => (
-                            <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
-                              {(p, snapshot) => (
-                                <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
-                                  className={`flex items-center gap-3 px-3 py-3 rounded-xl border-2 select-none ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${snapshot.isDragging ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/25' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
-                                  <span className="w-5 text-center font-black text-[hsl(var(--muted-foreground))] text-sm shrink-0">{i + 1}</span>
-                                  <MediaRenderer media={item.media} transform="thumbnail" className="w-9 h-9 rounded object-cover shrink-0" />
-                                  <span className="flex-1 min-w-0 text-sm font-semibold break-words">{item.text}</span>
-                                  <GripVertical className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0" />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                    {!answered && (
-                      <Button onClick={submitDragAnswer}
-                        className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                        Submit Answer
-                      </Button>
-                    )}
-                  </div>
-                </DragDropContext>
-              )}
-              {currentQuestion.type === 'CATEGORIZE' && board && (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                  <div className="flex flex-col gap-3">
-                    {!answered && (
-                      <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">Drag every item into a group</p>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      {currentQuestion.categorizeData.categories.map(cat => (
-                        <Droppable key={cat.id} droppableId={String(cat.id)}>
-                          {(provided, snapshot) => (
-                            <div ref={provided.innerRef} {...provided.droppableProps}
-                              className={`${dropZone} p-2 flex flex-col gap-2 min-h-[110px] ${snapshot.isDraggingOver ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
-                              <p className="text-xs font-bold text-center text-[hsl(var(--primary))] truncate">{cat.name}</p>
-                              {(board.columns[String(cat.id)] || []).map((item, i) => (
-                                <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
-                                  {(p) => (
-                                    <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
-                                      className={`${dragCard} ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>
-                                      <MediaRenderer media={item.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
-                                      <span className="min-w-0 break-words">{item.text}</span>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-                              {provided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
-                      ))}
-                    </div>
-
-                    <Droppable droppableId="bank" direction="horizontal">
-                      {(provided, snapshot) => (
-                        <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`${dropZone} flex flex-wrap gap-2 p-2 min-h-[56px] ${snapshot.isDraggingOver ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
-                          {(board.columns.bank || []).map((item, i) => (
-                            <Draggable key={item.id} draggableId={String(item.id)} index={i} isDragDisabled={answered}>
-                              {(p) => (
-                                <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps}
-                                  className={`${dragCard} ${answered ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}>
-                                  <MediaRenderer media={item.media} transform="thumbnail" className="w-8 h-8 rounded object-cover shrink-0" />
-                                  <span className="min-w-0 break-words">{item.text}</span>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                          {!(board.columns.bank || []).length && <span className="text-xs text-[hsl(var(--muted-foreground))] self-center px-2">Every item is sorted</span>}
-                        </div>
-                      )}
-                    </Droppable>
-
-                    {!answered && (
-                      <Button onClick={submitDragAnswer} disabled={!hasDragPlacement}
-                        className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                        Submit Answer
-                      </Button>
-                    )}
-                  </div>
-                </DragDropContext>
-              )}
-              {isComprehensionQuestion && (
-                <div className="flex flex-col gap-3">
-                  {!answered && (
-                    <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold">
-                      Answer as many as you can, then submit
-                    </p>
-                  )}
-                  {subQuestions.map((sub, subIndex) => {
-                    // Only MCQ sub-questions can be graded between one question
-                    // and the next, so only those are put in front of a player.
-                    if (!isGradableSubQuestion(sub)) return null;
-                    const key = subAnswerKey(subIndex);
-                    const picked = subAnswers[key] || [];
-                    const multi = sub.mcqData.correctOptions.length > 1;
-                    return (
-                      <div key={sub.id ?? key} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-2xl p-4">
-                        <p className="font-bold text-sm leading-relaxed">{subIndex + 1}. {sub.questionText}</p>
-                        {multi && !answered && (
-                          <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide font-semibold mt-1">Select all that apply</p>
-                        )}
-                        <div className="flex flex-col gap-2 mt-3">
-                          {sub.mcqData.options.map((opt, optIndex) => {
-                            const isPicked = picked.includes(opt.id);
-                            return (
-                              <button key={opt.id} disabled={answered} onClick={() => pickSubOption(subIndex, sub, opt.id)}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left text-sm font-semibold transition-colors ${
-                                  answered
-                                    ? isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-default' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] opacity-40 cursor-default'
-                                    : isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/15 cursor-pointer' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10 cursor-pointer'
-                                }`}>
-                                <span className={`w-6 h-6 shrink-0 rounded-full border flex items-center justify-center text-xs font-bold ${isPicked ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white' : 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]'}`}>
-                                  {String.fromCharCode(65 + optIndex)}
-                                </span>
-                                {opt.text && <span className="min-w-0 break-words">{opt.text}</span>}
-                                {opt.media && (
-                                  <span className="pointer-events-none shrink-0">
-                                    <MediaRenderer media={opt.media} transform="thumbnail" className="w-12 h-12 rounded-lg object-cover" />
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
+                  {[true, false].map((v, i) => {
+                    const state = answered ? (answer === v ? 'locked' : 'unpicked') : 'idle';
+                    return <LiveOption key={String(v)} index={i} size="xl" state={state} onSelect={() => change(v)}>{v ? 'True' : 'False'}</LiveOption>;
                   })}
-                  {!answered && (
-                    <Button onClick={submitComprehensionAnswer} disabled={!hasSubAnswer}
-                      className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--ring))] text-white border-0 hover:opacity-90">
-                      Submit Answers
-                    </Button>
-                  )}
                 </div>
               )}
-              {answered && (
-                <p className="text-center text-[hsl(var(--muted-foreground))] text-sm mt-5">Answer locked in — waiting for others…</p>
+              {question.type !== 'MCQ' && question.type !== 'TRUE_FALSE' && (
+                <div className={answered ? 'pointer-events-none opacity-60' : ''}>
+                  <QuestionBody question={question} answer={answer} onChange={change} onDragEnd={onDragEnd} onEnter={() => submit()} />
+                </div>
               )}
-            </>
-          </motion.div>
-        )}
+            </div>
 
-        {session.state === 'reveal' && (
-          <motion.div key="reveal" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="text-center mt-16">
-            {lastResult ? (
-              <>
-                {lastResult.correct
-                  ? <CheckCircle2 className="w-16 h-16 text-emerald-600 dark:text-emerald-400 mx-auto mb-4" />
-                  : lastResult.points > 0
-                    ? <CheckCircle2 className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-                    : <XCircle className="w-16 h-16 text-[hsl(var(--destructive))] mx-auto mb-4" />}
-                <h1 className="text-2xl font-black mb-1">
-                  {lastResult.correct ? 'Correct!' : lastResult.points > 0 ? 'Partly right' : 'Not quite'}
-                </h1>
-                <p className="text-[hsl(var(--muted-foreground))] mb-2">{lastResult.points > 0 ? `+${lastResult.points} points` : 'Better luck next time'}</p>
-              </>
-            ) : (
-              <>
-                <XCircle className="w-16 h-16 text-[hsl(var(--muted-foreground))] mx-auto mb-4" />
-                <h1 className="text-2xl font-black mb-1">Time's up!</h1>
-                <p className="text-[hsl(var(--muted-foreground))]">You didn't answer in time.</p>
-              </>
+            {answered ? (
+              <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-6 flex items-center justify-center gap-2 text-sm text-[hsl(var(--muted-foreground))]">
+                <PiLockSimpleFill className="h-4 w-4" /> Locked in. {Object.keys(session.answers?.[idx] || {}).length} of {ranked.length} have answered.
+              </motion.p>
+            ) : (multi || !['MCQ', 'TRUE_FALSE'].includes(question.type)) && (
+              <Button variant="brand" size="xl" className="mt-6 w-full" disabled={!touched && !hasLiveAnswer(question, answer)} onClick={() => submit()}>
+                Lock in answer
+              </Button>
             )}
           </motion.div>
         )}
 
-        {session.state === 'leaderboard' && (
-          <motion.div key="leaderboard" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full max-w-md">
-            <h2 className="text-xl font-black text-center mb-2">Leaderboard</h2>
-            <p className="text-center text-[hsl(var(--muted-foreground))] text-sm mb-6">You're #{myRank} with {me?.score ?? 0} points</p>
-            <div className="flex flex-col gap-2">
-              {sortedPlayers.slice(0, 5).map((p, i) => (
-                <div key={p.id} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl ${p.id === playerIdRef.current ? 'bg-[hsl(var(--primary))]/15 border border-[hsl(var(--primary))]/40' : 'bg-[hsl(var(--card))] border border-[hsl(var(--border))]'}`}>
-                  <span className="font-black w-5 text-[hsl(var(--muted-foreground))]">{i + 1}</span>
-                  <span className="flex-1 font-semibold truncate">{p.name}</span>
-                  <span className="font-black">{p.score}</span>
-                </div>
-              ))}
-            </div>
+        {/* ── The reveal ── */}
+        {session.state === 'reveal' && (
+          <motion.div key={`reveal-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="my-auto py-6">
+            <ResultCard
+              question={question}
+              result={answered ? result : null}
+              rank={{ now: myRank, before: previousRanks(players, session.answers?.[idx])[playerIdRef.current] }}
+            />
           </motion.div>
         )}
 
+        {/* ── The standings ── */}
+        {session.state === 'leaderboard' && (
+          <motion.div key={`board-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="my-auto w-full py-6">
+            <p className="eyebrow mb-1 text-center">After question {idx + 1} of {sequence.length}</p>
+            <h1 className="text-hero mb-6 text-center text-5xl">Leaderboard</h1>
+            <Leaderboard players={players} answers={session.answers?.[idx]} meId={playerIdRef.current} limit={5} />
+          </motion.div>
+        )}
+
+        {/* ── The end ── */}
         {session.state === 'ended' && (
-          <motion.div key="ended" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center mt-12">
-            {myRank <= 3 && <Confetti />}
-            <Trophy className="w-14 h-14 text-amber-400 mx-auto mb-4" />
-            <h1 className="text-2xl font-black mb-1">Game Over!</h1>
-            <div className="flex items-center justify-center gap-2 mb-1">
-              {myRank === 1 && <Crown className="w-5 h-5 text-amber-400" />}
-              {myRank === 2 && <Medal className="w-5 h-5 text-slate-400" />}
-              {myRank === 3 && <Medal className="w-5 h-5 text-amber-700" />}
-              <p className="text-[hsl(var(--foreground))] font-semibold">You finished #{myRank} of {players.length}</p>
+          <motion.div key="ended" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-auto w-full py-6 text-center">
+            <p className="eyebrow">Game over</p>
+            <h1 className="text-hero mt-3 text-5xl">{myRank ? `You finished ${ordinal(myRank)}` : 'Thanks for playing'}</h1>
+            <p className="tabular mt-3 text-[hsl(var(--muted-foreground))]">
+              {me ? `${me.score || 0} points · ${me.correctCount || 0} right · best streak ${me.bestStreak || 0}` : ''}
+            </p>
+            <div className="mt-10"><Podium ranked={ranked} /></div>
+            <div className="mt-10 flex justify-center gap-3">
+              <Button onClick={() => navigate('/')}>Back to home</Button>
+              <Button variant="outline" onClick={() => { window.location.href = '/play'; }}>Join another game</Button>
             </div>
-            <p className="text-3xl font-black mb-8">{me?.score ?? 0} pts</p>
-            <Link to="/">
-              <Button size="lg" className="gap-2 bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]/70">
-                <Home className="w-4 h-4" /> Back Home
-              </Button>
-            </Link>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </Frame>
   );
-};
-
-export default PlaySession;
+}
