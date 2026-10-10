@@ -30,7 +30,6 @@
     "framer-motion": "^12.23.0",
     "imagekit": "^6.0.0",
     "imagekit-javascript": "^4.0.1",
-    "lucide-react": "^0.511.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -1,4 +1,5 @@
 import React from 'react';
+import { PiCheckBold } from 'react-icons/pi';
 import MediaRenderer from './MediaRenderer';
 import { mediaKind, getSubQuestions } from '../utils/media';
 
@@ -42,16 +43,16 @@ export const CorrectAnswer = ({ q, centered = false, tone = 'primary' }) => {
             return (
               <div key={id} className={row}>
                 <MiniMedia media={opt?.media} />
-                <p className={`font-semibold ${tint}`}>✓ {opt?.text}</p>
+                <p className={`font-semibold ${tint}`}><PiCheckBold className="mr-1.5 inline h-3.5 w-3.5 align-[-1px]" aria-hidden />{opt?.text}</p>
               </div>
             );
           })}
         </div>
       );
     case 'TRUE_FALSE':
-      return <p className={`font-semibold ${tint}`}>✓ {q.trueFalseData.correctAnswer ? 'True' : 'False'}</p>;
+      return <p className={`font-semibold ${tint}`}><PiCheckBold className="mr-1.5 inline h-3.5 w-3.5 align-[-1px]" aria-hidden />{q.trueFalseData.correctAnswer ? 'True' : 'False'}</p>;
     case 'FILL_IN_THE_BLANK':
-      return <p className={`font-semibold ${tint}`}>✓ {q.fillBlankData.answers.map(a => a.text).join(' / ')}</p>;
+      return <p className={`font-semibold ${tint}`}><PiCheckBold className="mr-1.5 inline h-3.5 w-3.5 align-[-1px]" aria-hidden />{q.fillBlankData.answers.map(a => a.text).join(' / ')}</p>;
     case 'MATCH_THE_FOLLOWING':
       return (
         <div className={col}>
@@ -108,7 +109,7 @@ export const CorrectAnswer = ({ q, centered = false, tone = 'primary' }) => {
                 return (
                   <div key={id} className={row}>
                     <MiniMedia media={opt?.media} />
-                    <p className={`font-semibold text-sm ${tint}`}>✓ {opt?.text}</p>
+                    <p className={`font-semibold text-sm ${tint}`}><PiCheckBold className="mr-1.5 inline h-3.5 w-3.5 align-[-1px]" aria-hidden />{opt?.text}</p>
                   </div>
                 );
               })}
