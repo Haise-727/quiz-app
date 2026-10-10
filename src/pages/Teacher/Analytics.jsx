@@ -5,47 +5,31 @@ import { db } from '../../firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
-} from 'recharts';
+import { PiCaretDownBold, PiCaretUpBold, PiDownloadSimpleBold, PiWarningCircleBold } from 'react-icons/pi';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import {
-  Users, Trophy, TrendingUp, Clock,
-  Download, ChevronUp, ChevronDown, ChevronsUpDown,
-  AlertCircle,
-} from 'lucide-react';
+import PageHeader from '@/components/layout/PageHeader';
+import AnimatedNumber from '@/components/game/AnimatedNumber';
+import { ease, rise, stagger } from '@/lib/motion';
 
-const DistTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-xl px-3 py-2 shadow-lg text-sm">
-      <p className="font-bold">{label}</p>
-      <p className="text-[hsl(var(--muted-foreground))]">{payload[0].value} student{payload[0].value !== 1 ? 's' : ''}</p>
-    </div>
-  );
-};
+const Skeleton = ({ className = '' }) => <div className={`animate-pulse rounded-lg bg-[hsl(var(--muted))] ${className}`} />;
 
-const QuestionTooltip = ({ active, payload }) => {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload;
-  return (
-    <div className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-xl px-3 py-2 shadow-lg text-sm max-w-[220px]">
-      <p className="font-bold">{d.name}</p>
-      <p className="text-[hsl(var(--muted-foreground))] text-xs leading-snug mb-1.5">{d.label}</p>
-      <p className={`font-semibold ${d.passRate >= 70 ? 'text-green-600' : d.passRate >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
-        {d.passRate}% pass rate
-      </p>
-    </div>
-  );
-};
+/** One thin horizontal bar: a hairline track with a single green fill that grows from the left. */
+const Bar = ({ pct, label }) => (
+  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[hsl(var(--muted))]" role="img" aria-label={label}>
+    <motion.div
+      className="h-full origin-left rounded-full bg-[hsl(var(--brand))]"
+      style={{ width: '100%' }}
+      initial={{ scaleX: 0 }}
+      animate={{ scaleX: Math.max(0, Math.min(100, pct)) / 100 }}
+      transition={{ duration: 0.6, ease }}
+    />
+  </div>
+);
 
 // ── Sort icon helper ──────────────────────────────────────────────────────────
 const SortIcon = ({ col, sortBy, sortDir }) => {
-  if (sortBy !== col) return <ChevronsUpDown className="w-3 h-3 text-[hsl(var(--muted-foreground))]" />;
-  return sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
+  if (sortBy !== col) return <PiCaretDownBold className="h-3 w-3 opacity-0 group-hover:opacity-40" aria-hidden="true" />;
+  return sortDir === 'asc' ? <PiCaretUpBold className="h-3 w-3" aria-hidden="true" /> : <PiCaretDownBold className="h-3 w-3" aria-hidden="true" />;
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -114,11 +98,11 @@ const Analytics = () => {
     ? Math.round(completed.filter(s => s.pct >= 60).length / completed.length * 100) : 0;
 
   const scoreDistData = [
-    { name: '0–20%',   min: 0,  max: 20,  color: 'hsl(var(--destructive))' },
-    { name: '21–40%',  min: 21, max: 40,  color: '#f97316' },
-    { name: '41–60%',  min: 41, max: 60,  color: '#f59e0b' },
-    { name: '61–80%',  min: 61, max: 80,  color: '#3b82f6' },
-    { name: '81–100%', min: 81, max: 101, color: 'hsl(var(--primary))' },
+    { name: '0 to 20%',   min: 0,  max: 20 },
+    { name: '21 to 40%',  min: 21, max: 40 },
+    { name: '41 to 60%',  min: 41, max: 60 },
+    { name: '61 to 80%',  min: 61, max: 80 },
+    { name: '81 to 100%', min: 81, max: 101 },
   ].map(b => ({ ...b, count: completed.filter(s => s.pct >= b.min && s.pct < b.max).length }));
 
   const perQuestionData = quiz?.questions?.map((q, i) => {
@@ -128,7 +112,7 @@ const Analytics = () => {
     return {
       name: `Q${i + 1}`,
       passRate,
-      label: q.questionText.length > 45 ? q.questionText.slice(0, 45) + '…' : q.questionText,
+      label: q.questionText,
       type: q.type,
     };
   }) ?? [];
@@ -163,209 +147,156 @@ const Analytics = () => {
     downloadCsv(`${safeFileName(quiz?.title)}-results.csv`, rows);
   };
 
-  const fmtDate = ts => ts?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) ?? '—';
+  const fmtDate = ts => ts?.toDate?.().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) ?? '-';
+
+  const statusChip = (done) => (done
+    ? 'bg-[hsl(var(--tint-green))] text-[hsl(var(--tint-green-fg))]'
+    : 'bg-[hsl(var(--tint-yellow))] text-[hsl(var(--tint-yellow-fg))]');
 
   if (loading) return (
-    <div className="w-full min-h-[60vh] flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
+    <div className="mx-auto w-full max-w-5xl pb-16" role="status" aria-label="Loading analytics">
+      <Skeleton className="h-3 w-24" />
+      <Skeleton className="mt-4 h-10 w-80 max-w-full" />
+      <Skeleton className="mt-12 h-24 w-full" />
+      <Skeleton className="mt-12 h-48 w-full" />
     </div>
   );
 
+  const columns = [
+    { key: 'name',   label: 'Student' },
+    { key: 'score',  label: 'Score' },
+    { key: 'pct',    label: 'Percent' },
+    { key: 'status', label: 'Status' },
+    { key: 'date',   label: 'Date' },
+  ];
+  const ariaSort = (key) => (sortBy === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+
   return (
-    <div className="w-full relative">
-      {/* Hero / Page Title */}
-      <div className="pb-6">
-        <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-black text-[hsl(var(--foreground))]">Analytics</h1>
-          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-sm font-semibold">{quiz?.title}</p>
-        </motion.div>
-      </div>
+    <div className="mx-auto w-full max-w-5xl pb-16">
+      <PageHeader
+        eyebrow="Analytics"
+        title={quiz?.title || 'Quiz'}
+        actions={subs.length > 0 && (
+          <Button variant="outline" onClick={exportCSV}><PiDownloadSimpleBold /> Export CSV</Button>
+        )}
+      />
 
-      {/* Main card */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="relative z-10 mb-10 rounded-[12px] bg-[hsl(var(--card))] border border-[hsl(var(--border))] overflow-hidden"
-      >
-        <div className="p-6 md:p-8 flex flex-col gap-8">
+      {error && (
+        <p role="alert" className="mt-8 flex items-center gap-2 rounded-lg bg-[hsl(var(--tint-red))] px-4 py-3 text-sm text-[hsl(var(--tint-red-fg))]">
+          <PiWarningCircleBold className="h-4 w-4 shrink-0" />{error}
+        </p>
+      )}
 
-          {error && (
-            <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm">
-              <AlertCircle className="w-4 h-4 shrink-0" />{error}
-            </div>
-          )}
+      {/* The numbers. */}
+      <dl className="mt-10 grid grid-cols-2 gap-y-2 border-y border-[hsl(var(--border))] sm:grid-cols-4 sm:divide-x sm:divide-[hsl(var(--border))]">
+        {[
+          ['Submissions', subs.length, (n) => Math.round(n).toString()],
+          ['Average score', avgScore, (n) => `${Math.round(n)}%`],
+          ['Pass rate, 60% or more', passRate, (n) => `${Math.round(n)}%`],
+          ['Waiting for review', pending.length, (n) => Math.round(n).toString()],
+        ].map(([label, value, format], i) => (
+          <div key={label} className={`py-5 ${i === 0 ? 'sm:pr-6' : i === 3 ? 'sm:pl-6' : 'sm:px-6'}`}>
+            <dt className="eyebrow">{label}</dt>
+            <dd className="mt-2 text-3xl font-medium text-[hsl(var(--foreground))]"><AnimatedNumber value={value} format={format} duration={0.8} /></dd>
+          </div>
+        ))}
+      </dl>
 
-          {/* Stat row */}
-          <section>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { icon: Users,      label: 'Total Submissions', value: subs.length,      borderColor: 'border-t-emerald-500', iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500' },
-                { icon: TrendingUp, label: 'Average Score',     value: `${avgScore}%`,   borderColor: 'border-t-blue-500', iconBg: 'bg-blue-500/10', iconColor: 'text-blue-500' },
-                { icon: Trophy,     label: 'Pass Rate (≥60%)',  value: `${passRate}%`,   borderColor: 'border-t-purple-500', iconBg: 'bg-purple-500/10', iconColor: 'text-purple-500' },
-                { icon: Clock,      label: 'Pending Review',    value: pending.length,   borderColor: pending.length > 0 ? 'border-t-amber-500' : 'border-t-[hsl(var(--border))]', iconBg: pending.length > 0 ? 'bg-amber-500/10' : 'bg-[hsl(var(--muted))]', iconColor: pending.length > 0 ? 'text-amber-500' : 'text-[hsl(var(--muted-foreground))]' },
-              ].map(({ icon: Icon, label, value, borderColor, iconBg, iconColor }, i) => (
-                <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}>
-                  <Card className={`border border-[hsl(var(--border))] border-t-4 ${borderColor} shadow-sm overflow-hidden bg-[hsl(var(--card))] rounded-2xl`}>
-                    <CardContent className="pt-4 pb-5 flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
-                        <Icon className={`w-4 h-4 ${iconColor}`} />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-black text-[hsl(var(--foreground))]">{value}</p>
-                        <p className="text-xs text-[hsl(var(--muted-foreground))] font-medium mt-0.5">{label}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </section>
-
-          {/* Charts */}
-          {subs.length > 0 && (
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-              {/* Score distribution */}
-              <Card className="border border-[hsl(var(--border))] shadow-sm bg-[hsl(var(--card))] rounded-2xl">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[hsl(var(--foreground))]">Score Distribution</CardTitle>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">Completed submissions only</p>
-                </CardHeader>
-                <CardContent>
-                  {completed.length === 0 ? (
-                    <div className="flex items-center justify-center h-[200px] text-[hsl(var(--muted-foreground))] text-sm">
-                      No completed submissions yet
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={scoreDistData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
-                        <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} allowDecimals={false} />
-                        <Tooltip content={<DistTooltip />} />
-                        <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                          {scoreDistData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Per-question pass rate */}
-              <Card className="border border-[hsl(var(--border))] shadow-sm bg-[hsl(var(--card))] rounded-2xl">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-[hsl(var(--foreground))]">Pass Rate per Question</CardTitle>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">% of students who answered correctly</p>
-                </CardHeader>
-                <CardContent>
-                  {completed.length === 0 ? (
-                    <div className="flex items-center justify-center h-[200px] text-[hsl(var(--muted-foreground))] text-sm">
-                      No completed submissions yet
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={perQuestionData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
-                        <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={v => `${v}%`} />
-                        <Tooltip content={<QuestionTooltip />} />
-                        <Bar dataKey="passRate" radius={[6, 6, 0, 0]}>
-                          {perQuestionData.map((e, i) => (
-                            <Cell key={i} fill={e.passRate >= 70 ? 'hsl(var(--primary))' : e.passRate >= 40 ? '#f59e0b' : 'hsl(var(--destructive))'} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-            </section>
-          )}
-
-          {/* Student table */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-[hsl(var(--foreground))]">Student Results</h2>
-              {subs.length > 0 && (
-                <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
-                  <Download className="w-3.5 h-3.5" /> Export CSV
-                </Button>
-              )}
-            </div>
-
-            {subs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--muted))] flex items-center justify-center mb-4">
-                  <Users className="w-8 h-8 text-[hsl(var(--muted-foreground))]" />
-                </div>
-                <p className="font-semibold text-[hsl(var(--foreground))]">No submissions yet</p>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Students haven't taken this quiz yet.</p>
-              </div>
+      {/* Charts, drawn as thin bars in one colour. */}
+      {subs.length > 0 && (
+        <section aria-label="Charts" className="mt-14 grid gap-x-16 gap-y-12 lg:grid-cols-2">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">Score spread</h2>
+            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Finished submissions only.</p>
+            {completed.length === 0 ? (
+              <p className="mt-6 border-t border-[hsl(var(--border))] pt-5 text-sm text-[hsl(var(--muted-foreground))]">Nothing has been marked as finished yet.</p>
             ) : (
-              <Card className="border border-[hsl(var(--border))] shadow-sm bg-[hsl(var(--card))] rounded-2xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[hsl(var(--muted))]/50 border-b border-[hsl(var(--border))]">
-                        {[
-                          { key: 'name',   label: 'Student' },
-                          { key: 'score',  label: 'Score' },
-                          { key: 'pct',    label: '%' },
-                          { key: 'status', label: 'Status' },
-                          { key: 'date',   label: 'Date' },
-                        ].map(col => (
-                          <th key={col.key}
-                            onClick={() => handleSort(col.key)}
-                            className="px-4 py-3 text-left text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wide cursor-pointer hover:text-[hsl(var(--foreground))] transition-colors select-none">
-                            <span className="flex items-center gap-1">
-                              {col.label}
-                              <SortIcon col={col.key} sortBy={sortBy} sortDir={sortDir} />
-                            </span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sorted.map((s, i) => (
-                        <tr key={s.id} className={`border-b border-[hsl(var(--border))] transition-colors hover:bg-[hsl(var(--muted))]/30 ${i === sorted.length - 1 ? 'border-0' : ''}`}>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${s.status === 'completed' ? 'bg-[hsl(var(--primary))]' : 'bg-amber-400'}`}>
-                                {s.userName.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-[hsl(var(--foreground))]">{s.userName}</p>
-                                {s.isGuest && <span className="text-xs text-[hsl(var(--muted-foreground))]">Guest</span>}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 font-semibold text-[hsl(var(--foreground))]">
-                            {s.displayScore}<span className="text-[hsl(var(--muted-foreground))] font-normal">/{s.maxScore}</span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`font-bold ${s.pct >= 80 ? 'text-emerald-500' : s.pct >= 60 ? 'text-blue-500' : s.pct >= 40 ? 'text-amber-500' : 'text-red-500'}`}>
-                              {s.pct}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge variant={s.status === 'completed' ? 'success' : 'warning'}>
-                              {s.status === 'completed' ? 'Done' : 'Pending'}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-[hsl(var(--muted-foreground))]">{fmtDate(s.completedAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
+              <motion.ul variants={stagger(0.04)} initial="hidden" animate="show" className="mt-5 divide-y divide-[hsl(var(--border))] border-t border-[hsl(var(--border))]">
+                {scoreDistData.map((b) => {
+                  const share = completed.length ? (b.count / completed.length) * 100 : 0;
+                  return (
+                    <motion.li key={b.name} variants={rise} className="flex items-center gap-4 py-3">
+                      <span className="tabular w-20 shrink-0 text-sm text-[hsl(var(--muted-foreground))]">{b.name}</span>
+                      <div className="flex-1"><Bar pct={share} label={`${b.count} of ${completed.length} students scored ${b.name}`} /></div>
+                      <span className="tabular w-16 shrink-0 text-right text-sm font-medium">{b.count} {b.count === 1 ? 'student' : 'students'}</span>
+                    </motion.li>
+                  );
+                })}
+              </motion.ul>
             )}
-          </section>
+          </div>
 
-        </div>
-      </motion.div>
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">Accuracy by question</h2>
+            <p className="mt-1 text-sm text-[hsl(var(--muted-foreground))]">Share of students who answered correctly.</p>
+            {completed.length === 0 ? (
+              <p className="mt-6 border-t border-[hsl(var(--border))] pt-5 text-sm text-[hsl(var(--muted-foreground))]">Nothing has been marked as finished yet.</p>
+            ) : (
+              <motion.ul variants={stagger(0.04)} initial="hidden" animate="show" className="mt-5 divide-y divide-[hsl(var(--border))] border-t border-[hsl(var(--border))]">
+                {perQuestionData.map((d) => (
+                  <motion.li key={d.name} variants={rise} className="py-3">
+                    <div className="flex items-baseline gap-3">
+                      <span className="tabular w-8 shrink-0 text-xs font-medium text-[hsl(var(--muted-foreground))]">{d.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm" title={d.label}>{d.label}</span>
+                      <span className="tabular shrink-0 text-sm font-medium">{d.passRate}%</span>
+                    </div>
+                    <div className="mt-2 pl-11"><Bar pct={d.passRate} label={`${d.name}: ${d.passRate}% correct`} /></div>
+                  </motion.li>
+                ))}
+              </motion.ul>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Students. */}
+      <section aria-label="Student results" className="mt-14">
+        <h2 className="mb-2 text-xl font-semibold tracking-tight">Students</h2>
+
+        {subs.length === 0 ? (
+          <motion.div variants={rise} initial="hidden" animate="show" className="mt-4 border-t border-[hsl(var(--border))] pt-8">
+            <p className="text-lg font-medium">No submissions yet.</p>
+            <p className="mt-1 text-[hsl(var(--muted-foreground))]">Results show up here once someone takes this quiz.</p>
+          </motion.div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="border-y border-[hsl(var(--border))]">
+                  {columns.map(col => (
+                    <th key={col.key} scope="col" aria-sort={ariaSort(col.key)} className="py-3 pr-4 text-left font-normal">
+                      <button type="button" onClick={() => handleSort(col.key)} className="eyebrow group inline-flex cursor-pointer items-center gap-1 hover:text-[hsl(var(--foreground))]">
+                        {col.label}
+                        <SortIcon col={col.key} sortBy={sortBy} sortDir={sortDir} />
+                      </button>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <motion.tbody variants={stagger(0.03)} initial="hidden" animate="show" className="divide-y divide-[hsl(var(--border))]">
+                {sorted.map((s) => (
+                  <motion.tr key={s.id} variants={rise}>
+                    <td className="py-3.5 pr-4">
+                      <span className="font-medium text-[hsl(var(--foreground))]">{s.userName}</span>
+                      {s.isGuest && <span className="ml-2 rounded-full bg-[hsl(var(--tint-neutral))] px-2 py-0.5 text-[11px] font-medium text-[hsl(var(--tint-neutral-fg))]">Guest</span>}
+                    </td>
+                    <td className="tabular py-3.5 pr-4 font-medium">
+                      {s.displayScore}<span className="font-normal text-[hsl(var(--muted-foreground))]"> of {s.maxScore}</span>
+                    </td>
+                    <td className="tabular py-3.5 pr-4 font-medium">{s.pct}%</td>
+                    <td className="py-3.5 pr-4">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${statusChip(s.status === 'completed')}`}>
+                        {s.status === 'completed' ? 'Done' : 'Pending'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 text-[hsl(var(--muted-foreground))]">{fmtDate(s.completedAt)}</td>
+                  </motion.tr>
+                ))}
+              </motion.tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 };

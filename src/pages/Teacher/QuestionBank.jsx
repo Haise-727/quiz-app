@@ -3,28 +3,39 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getBankQuestions, deleteBankQuestion } from '../../utils/questionBankHelpers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { PiArrowRightBold, PiCheckBold, PiClockBold, PiMagnifyingGlassBold, PiStarBold, PiTrashBold } from 'react-icons/pi';
+import PageHeader from '@/components/layout/PageHeader';
 import MediaRenderer from '../../components/MediaRenderer';
 import { MiniMedia } from '../../components/AnswerReveal';
 import { mediaKind, getMainMedia } from '../../utils/media';
-import {
-  ArrowLeft, Search, Trash2, BookOpen, Clock, Award, CheckCircle, HelpCircle, Layers, Grid3X3, ArrowUpDown, GitCompare, AlignLeft, BookMarked
-} from 'lucide-react';
+import { rise, spring, stagger } from '@/lib/motion';
 
 const QUESTION_TYPES = [
-  { value: 'ALL', label: 'All Types' },
-  { value: 'MCQ', label: 'Multiple Choice' },
-  { value: 'TRUE_FALSE', label: 'True / False' },
-  { value: 'FILL_IN_THE_BLANK', label: 'Fill in the Blank' },
+  { value: 'ALL', label: 'All types' },
+  { value: 'MCQ', label: 'Multiple choice' },
+  { value: 'TRUE_FALSE', label: 'True or false' },
+  { value: 'FILL_IN_THE_BLANK', label: 'Fill in the blank' },
   { value: 'PARAGRAPH', label: 'Paragraph' },
-  { value: 'MATCH_THE_FOLLOWING', label: 'Match the Following' },
-  { value: 'CATEGORIZE', label: 'Categorize Items' },
+  { value: 'MATCH_THE_FOLLOWING', label: 'Match the following' },
+  { value: 'CATEGORIZE', label: 'Categorize items' },
   { value: 'REORDER', label: 'Reorder' },
-  { value: 'VISUAL_COMPREHENSION', label: 'Visual Comprehension' },
-  { value: 'LISTENING_COMPREHENSION', label: 'Listening Comprehension' },
+  { value: 'VISUAL_COMPREHENSION', label: 'Visual comprehension' },
+  { value: 'LISTENING_COMPREHENSION', label: 'Listening comprehension' },
 ];
+
+/** A tiny mono label above each block of a preview. */
+const PreviewLabel = ({ children }) => <p className="eyebrow mb-1.5">{children}</p>;
+
+/** Pastel pill used for answers and keywords. `tone` picks a theme tint. */
+const chipTone = {
+  green: 'bg-[hsl(var(--tint-green))] text-[hsl(var(--tint-green-fg))]',
+  yellow: 'bg-[hsl(var(--tint-yellow))] text-[hsl(var(--tint-yellow-fg))]',
+  blue: 'bg-[hsl(var(--tint-blue))] text-[hsl(var(--tint-blue-fg))]',
+  neutral: 'bg-[hsl(var(--tint-neutral))] text-[hsl(var(--tint-neutral-fg))]',
+};
+const Chip = ({ tone = 'neutral', children }) => (
+  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${chipTone[tone]}`}>{children}</span>
+);
 
 const QuestionPreviewBody = ({ question }) => {
   const { type } = question;
@@ -32,42 +43,40 @@ const QuestionPreviewBody = ({ question }) => {
   switch (type) {
     case 'MCQ':
       return (
-        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700 flex flex-col gap-1.5">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1">Options</p>
-          {(question.mcqData?.options || []).map((opt) => {
-            const isCorrect = question.mcqData?.correctOptions?.includes(opt.id);
-            return (
-              <div key={opt.id} className="flex items-center gap-2 text-sm text-[hsl(var(--foreground))]">
-                <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${isCorrect ? 'border-green-500 bg-green-500/10 text-green-600' : 'border-slate-300 dark:border-slate-600'}`}>
-                  {isCorrect && <CheckCircle className="w-3.5 h-3.5" />}
-                </div>
-                <MiniMedia media={opt.media} />
-                <span>{opt.text || <span className="italic text-slate-400">Empty option</span>}</span>
-              </div>
-            );
-          })}
+        <div className="mt-4">
+          <PreviewLabel>Options</PreviewLabel>
+          <ul className="flex flex-col gap-1.5">
+            {(question.mcqData?.options || []).map((opt) => {
+              const isCorrect = question.mcqData?.correctOptions?.includes(opt.id);
+              return (
+                <li key={opt.id} className="flex items-center gap-2 text-sm text-[hsl(var(--foreground))]">
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${isCorrect ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'border-[hsl(var(--input))]'}`}>
+                    {isCorrect && <PiCheckBold className="h-2.5 w-2.5" aria-label="Correct answer" />}
+                  </span>
+                  <MiniMedia media={opt.media} />
+                  <span>{opt.text || <span className="italic text-[hsl(var(--muted-foreground))]">Empty option</span>}</span>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       );
 
     case 'TRUE_FALSE':
       return (
-        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1.5">Correct Answer</p>
-          <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">
-            {question.trueFalseData?.correctAnswer ? 'True' : 'False'}
-          </Badge>
+        <div className="mt-4">
+          <PreviewLabel>Correct answer</PreviewLabel>
+          <Chip tone="green">{question.trueFalseData?.correctAnswer ? 'True' : 'False'}</Chip>
         </div>
       );
 
     case 'FILL_IN_THE_BLANK':
       return (
-        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1.5">Accepted Answers</p>
+        <div className="mt-4">
+          <PreviewLabel>Accepted answers</PreviewLabel>
           <div className="flex flex-wrap gap-1.5">
             {(question.fillBlankData?.answers || []).map((ans, idx) => (
-              <Badge key={idx} variant="secondary" className="bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 text-xs">
-                {ans.text}
-              </Badge>
+              <Chip key={idx} tone="green">{ans.text}</Chip>
             ))}
           </div>
         </div>
@@ -75,75 +84,77 @@ const QuestionPreviewBody = ({ question }) => {
 
     case 'PARAGRAPH':
       return (
-        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1.5">Grading Keywords</p>
+        <div className="mt-4">
+          <PreviewLabel>Grading keywords</PreviewLabel>
           {question.paragraphData?.keywords?.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               {question.paragraphData.keywords.map((kw, idx) => (
-                <Badge key={idx} variant="outline" className="border-orange-200 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:border-orange-850 dark:text-orange-350 text-xs">
-                  {kw.text}
-                </Badge>
+                <Chip key={idx} tone="yellow">{kw.text}</Chip>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-[hsl(var(--muted-foreground))] italic">No grading keywords provided.</p>
+            <p className="text-xs italic text-[hsl(var(--muted-foreground))]">No grading keywords provided.</p>
           )}
         </div>
       );
 
     case 'MATCH_THE_FOLLOWING':
       return (
-        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700 flex flex-col gap-1.5">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1">Matching Pairs</p>
-          {(question.matchData?.pairs || []).map((pair) => (
-            <div key={pair.id} className="flex items-center gap-2 text-sm text-[hsl(var(--foreground))]">
-              <MiniMedia media={pair.promptMedia} />
-              <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-200 dark:border-slate-700">{pair.prompt}</span>
-              <span className="text-[hsl(var(--muted-foreground))]">➔</span>
-              <MiniMedia media={pair.answerMedia} />
-              <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs border border-slate-200 dark:border-slate-700">{pair.answer}</span>
-            </div>
-          ))}
+        <div className="mt-4">
+          <PreviewLabel>Matching pairs</PreviewLabel>
+          <ul className="flex flex-col gap-1.5">
+            {(question.matchData?.pairs || []).map((pair) => (
+              <li key={pair.id} className="flex flex-wrap items-center gap-2 text-sm text-[hsl(var(--foreground))]">
+                <MiniMedia media={pair.promptMedia} />
+                <Chip>{pair.prompt}</Chip>
+                <PiArrowRightBold className="h-3 w-3 text-[hsl(var(--muted-foreground))]" aria-label="matches" />
+                <MiniMedia media={pair.answerMedia} />
+                <Chip>{pair.answer}</Chip>
+              </li>
+            ))}
+          </ul>
         </div>
       );
 
     case 'CATEGORIZE':
       return (
-        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700 flex flex-col gap-2">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1">Categories & Items</p>
-          {(question.categorizeData?.categories || []).map((cat) => {
-            const items = (question.categorizeData?.items || []).filter(item => item.categoryId === cat.id);
-            return (
-              <div key={cat.id} className="text-sm">
-                <span className="font-semibold text-xs text-[hsl(var(--primary))]">{cat.name}:</span>
-                <div className="flex flex-wrap gap-1 mt-1 pl-2">
-                  {items.map(item => (
-                    <Badge key={item.id} variant="secondary" className="text-xs font-normal gap-1.5">
-                      <MiniMedia media={item.media} />
-                      {item.text}
-                    </Badge>
-                  ))}
-                  {items.length === 0 && <span className="text-xs text-[hsl(var(--muted-foreground))] italic">No items assigned</span>}
+        <div className="mt-4">
+          <PreviewLabel>Categories and items</PreviewLabel>
+          <div className="flex flex-col gap-2.5">
+            {(question.categorizeData?.categories || []).map((cat) => {
+              const items = (question.categorizeData?.items || []).filter(item => item.categoryId === cat.id);
+              return (
+                <div key={cat.id} className="text-sm">
+                  <span className="text-xs font-semibold text-[hsl(var(--foreground))]">{cat.name}</span>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {items.map(item => (
+                      <Chip key={item.id}>
+                        <MiniMedia media={item.media} />
+                        {item.text}
+                      </Chip>
+                    ))}
+                    {items.length === 0 && <span className="text-xs italic text-[hsl(var(--muted-foreground))]">No items assigned</span>}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       );
 
     case 'REORDER':
       return (
-        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider mb-1.5">Correct Order</p>
-          <div className="flex flex-col gap-1">
+        <div className="mt-4">
+          <PreviewLabel>Correct order</PreviewLabel>
+          <ol className="flex flex-col gap-1">
             {(question.reorderData?.items || []).map((item, idx) => (
-              <div key={item.id || idx} className="flex items-center gap-2 text-sm text-[hsl(var(--foreground))]">
-                <span className="text-xs text-[hsl(var(--muted-foreground))] font-bold w-4">{idx + 1}.</span>
+              <li key={item.id || idx} className="flex items-center gap-2 text-sm text-[hsl(var(--foreground))]">
+                <span className="tabular w-4 text-xs font-medium text-[hsl(var(--muted-foreground))]">{idx + 1}</span>
                 <MiniMedia media={item.media} />
                 <span>{item.text}</span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       );
 
@@ -151,16 +162,16 @@ const QuestionPreviewBody = ({ question }) => {
     case 'LISTENING_COMPREHENSION': {
       const sqs = question.visualData?.subQuestions || question.listeningData?.subQuestions || [];
       return (
-        <div className="mt-3 pl-4 border-l-2 border-slate-200 dark:border-slate-700 flex flex-col gap-2">
-          <p className="text-xs font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">Sub-questions ({sqs.length})</p>
-          <div className="flex flex-col gap-2">
+        <div className="mt-4">
+          <PreviewLabel>Sub-questions ({sqs.length})</PreviewLabel>
+          <ul className="divide-y divide-[hsl(var(--border))] border-l-2 border-[hsl(var(--border))] pl-4">
             {sqs.map((subQ, idx) => (
-              <div key={subQ.id || idx} className="text-sm bg-slate-50 dark:bg-slate-800/30 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/50">
-                <p className="font-medium text-xs text-[hsl(var(--foreground))]">Q{idx + 1}: {subQ.questionText}</p>
+              <li key={subQ.id || idx} className="py-3 first:pt-0 last:pb-0">
+                <p className="text-sm font-medium text-[hsl(var(--foreground))]">{idx + 1}. {subQ.questionText}</p>
                 <QuestionPreview question={subQ} />
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       );
     }
@@ -234,133 +245,115 @@ const QuestionBank = () => {
     return matchText && matchType;
   });
 
+  const typeLabel = (type) => (QUESTION_TYPES.find(t => t.value === type)?.label || type.replace(/_/g, ' ').toLowerCase());
+
   return (
-    <div className="w-full relative">
-      {/* Hero / Page Title */}
-      <div className="pb-6">
-        <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          <h1 className="text-3xl font-black text-[hsl(var(--foreground))]">Question Bank</h1>
-          <p className="text-[hsl(var(--muted-foreground))] mt-1 text-sm">Store, organize, and reuse questions across multiple quizzes.</p>
-        </motion.div>
+    <div className="mx-auto w-full max-w-5xl pb-16">
+      <PageHeader eyebrow="Library" title="Question bank" description="Keep good questions here and reuse them in any quiz." />
+
+      {/* Filters: an underlined search and a plain select. */}
+      <div className="mt-10 flex flex-col gap-5 sm:flex-row sm:items-end">
+        <div className="relative min-w-0 flex-1">
+          <label htmlFor="bank-search" className="eyebrow">Search</label>
+          <PiMagnifyingGlassBold className="pointer-events-none absolute bottom-2.5 left-0 h-4 w-4 text-[hsl(var(--muted-foreground))]" aria-hidden="true" />
+          <input
+            id="bank-search"
+            type="text"
+            placeholder="Find a question by its text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoComplete="off"
+            className="mt-1 w-full border-0 border-b-2 border-[hsl(var(--input))] bg-transparent pb-2 pl-6 text-base text-[hsl(var(--foreground))] outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground))]/60 focus:border-[hsl(var(--ink))]"
+          />
+        </div>
+        <div className="sm:w-56">
+          <label htmlFor="bank-type" className="eyebrow">Type</label>
+          <select
+            id="bank-type"
+            value={filterType}
+            onChange={e => setFilterType(e.target.value)}
+            className="mt-1 w-full cursor-pointer border-0 border-b-2 border-[hsl(var(--input))] bg-transparent pb-2 text-base text-[hsl(var(--foreground))] outline-none transition-colors focus:border-[hsl(var(--ink))]"
+          >
+            {QUESTION_TYPES.map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Main card */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="relative z-10 mb-10 rounded-[12px] bg-[hsl(var(--card))] border border-[hsl(var(--border))] overflow-hidden"
-      >
-        <div className="p-6 md:p-8">
+      <div className="mb-2 mt-10 flex items-baseline justify-between">
+        <h2 className="text-xl font-semibold tracking-tight">Questions</h2>
+        {!loading && (
+          <p className="eyebrow tabular" aria-live="polite">
+            {filteredQuestions.length} of {questions.length}
+          </p>
+        )}
+      </div>
 
-          {/* Filters and Toolbar */}
-          <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between mb-6">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[hsl(var(--muted-foreground))] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search questions by text..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-[10px] border border-[hsl(var(--border))] bg-[hsl(var(--surface))] text-[hsl(var(--foreground))] text-sm placeholder:text-[hsl(var(--muted-foreground))] transition focus-visible:outline-none focus-visible:border-[hsl(var(--primary))] focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20"
-              />
+      {loading ? (
+        <div className="divide-y divide-[hsl(var(--border))] border-t border-[hsl(var(--border))]" role="status" aria-label="Loading questions">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="py-5">
+              <div className="h-3 w-24 animate-pulse rounded-lg bg-[hsl(var(--muted))]" />
+              <div className="mt-3 h-4 w-3/4 animate-pulse rounded-lg bg-[hsl(var(--muted))]" />
             </div>
-            
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wider whitespace-nowrap">Filter by Type:</span>
-              <select
-                value={filterType}
-                onChange={e => setFilterType(e.target.value)}
-                className="px-3 py-2 rounded-[10px] border border-[hsl(var(--border))] bg-[hsl(var(--surface))] text-[hsl(var(--foreground))] text-sm focus-visible:outline-none focus-visible:border-[hsl(var(--primary))] focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 transition"
-              >
-                {QUESTION_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Toolbar Stats */}
-          <div className="flex items-center justify-between mb-4 border-b border-[hsl(var(--border))] pb-3">
-            <h2 className="text-sm font-bold text-[hsl(var(--muted-foreground))] uppercase tracking-wider">
-              {filteredQuestions.length} Question{filteredQuestions.length !== 1 ? 's' : ''} Found
-            </h2>
-          </div>
-
-          {/* Questions List */}
-          {loading ? (
-            <div className="flex items-center justify-center py-24">
-              <div className="w-10 h-10 border-4 border-[hsl(var(--border))] border-t-[hsl(var(--primary))] rounded-full animate-spin" />
-            </div>
-          ) : filteredQuestions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-[hsl(var(--muted))] flex items-center justify-center mb-4">
-                <BookOpen className="w-8 h-8 text-[hsl(var(--muted-foreground))]" />
-              </div>
-              <p className="font-semibold text-[hsl(var(--foreground))]">No questions found</p>
-              <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-                {questions.length === 0
-                  ? 'Save questions when creating a quiz to build your question bank.'
-                  : 'Try adjusting your search query or type filter.'}
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              <AnimatePresence>
-                {filteredQuestions.map((q, i) => (
-                  <motion.div
-                    key={q.id}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.97 }}
-                    transition={{ delay: Math.min(i * 0.03, 0.3) }}
-                  >
-                    <Card className="border border-[hsl(var(--border))] shadow-sm hover:shadow-md bg-[hsl(var(--card))] transition-all overflow-hidden relative">
-                      <div className="h-1 bg-[hsl(var(--primary))]" />
-                      <CardContent className="p-5">
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="flex-1 min-w-0">
-                            {/* Question Header Meta */}
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <Badge className="bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/15 border border-[hsl(var(--primary))]/20 text-xs font-semibold capitalize">
-                                {q.type.replace(/_/g, ' ').toLowerCase()}
-                              </Badge>
-                              <div className="text-xs text-[hsl(var(--muted-foreground))] flex items-center gap-3">
-                                <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" /> {q.points || 10} pts</span>
-                                <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {q.timeLimit || 60}s</span>
-                              </div>
-                            </div>
-
-                            {/* Question Text */}
-                            <p className="font-semibold text-base text-[hsl(var(--foreground))] leading-snug">
-                              {q.questionText || <span className="italic text-slate-400">Untitled Question</span>}
-                            </p>
-
-                            {/* Type Specific Previews */}
-                            <QuestionPreview question={q} />
-                          </div>
-
-                          {/* Delete Action Button */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteQuestion(q.id, q.questionText)}
-                            className="text-[hsl(var(--muted-foreground))] hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 shrink-0 self-start p-2 rounded-xl"
-                            title="Delete question from bank"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          )}
-
+          ))}
         </div>
-      </motion.div>
+      ) : filteredQuestions.length === 0 ? (
+        <motion.div variants={rise} initial="hidden" animate="show" className="border-t border-[hsl(var(--border))] pt-8">
+          <p className="text-lg font-medium">No questions found.</p>
+          <p className="mt-1 text-[hsl(var(--muted-foreground))]">
+            {questions.length === 0
+              ? 'Save questions while you build a quiz and they will appear here.'
+              : 'Try a different search or type.'}
+          </p>
+        </motion.div>
+      ) : (
+        <motion.ul variants={stagger(0.04)} initial="hidden" animate="show" className="divide-y divide-[hsl(var(--border))] border-t border-[hsl(var(--border))]">
+          <AnimatePresence initial={false}>
+            {filteredQuestions.map((q) => (
+              <motion.li
+                key={q.id}
+                variants={rise}
+                layout="position"
+                exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                transition={spring}
+                className="py-5"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="inline-flex rounded-full bg-[hsl(var(--tint-blue))] px-2.5 py-0.5 text-[11px] font-medium text-[hsl(var(--tint-blue-fg))]">
+                        {typeLabel(q.type)}
+                      </span>
+                      <span className="tabular inline-flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))]"><PiStarBold className="h-3 w-3" aria-hidden="true" />{q.points || 10} points</span>
+                      <span className="tabular inline-flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))]"><PiClockBold className="h-3 w-3" aria-hidden="true" />{q.timeLimit || 60}s</span>
+                    </div>
+
+                    <p className="text-base font-medium leading-snug text-[hsl(var(--foreground))]">
+                      {q.questionText || <span className="italic text-[hsl(var(--muted-foreground))]">Untitled question</span>}
+                    </p>
+
+                    <QuestionPreview question={q} />
+                  </div>
+
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.9 }}
+                    transition={spring}
+                    onClick={() => handleDeleteQuestion(q.id, q.questionText)}
+                    aria-label="Delete this question from the bank"
+                    title="Delete this question from the bank"
+                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--tint-red))] hover:text-[hsl(var(--destructive))] focus-visible:outline-2 focus-visible:outline-[hsl(var(--ring))]"
+                  >
+                    <PiTrashBold className="h-4 w-4" />
+                  </motion.button>
+                </div>
+              </motion.li>
+            ))}
+          </AnimatePresence>
+        </motion.ul>
+      )}
     </div>
   );
 };

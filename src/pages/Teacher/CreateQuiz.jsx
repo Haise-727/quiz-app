@@ -4,14 +4,21 @@ import { db } from '../../firebase';
 import { collection, addDoc, updateDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import PageHeader from '@/components/layout/PageHeader';
+import { Button } from '@/components/ui/button';
+import { rise, spring, stagger } from '@/lib/motion';
 import '../../styles/Teacher/CreateQuiz.css';
-import { FaTrashAlt, FaPlus, FaClipboard, FaTimes, FaArrowLeft, FaPhotoVideo, FaGripLines, FaSave, FaLaptop, FaPaste, FaEdit, FaDatabase } from 'react-icons/fa';
+import {
+    PiArrowLeftBold, PiCaretUpBold, PiClipboardBold, PiClipboardTextBold, PiDatabaseBold, PiDotsSixVerticalBold,
+    PiFloppyDiskBold, PiHeadphonesBold, PiImageBold, PiImagesBold, PiLaptopBold, PiListChecksBold, PiListNumbersBold,
+    PiPlusBold, PiSpinnerGapBold, PiSquaresFourBold, PiArrowsLeftRightBold, PiTextAlignLeftBold, PiTextTBold,
+    PiToggleLeftBold, PiTrashBold, PiWarningCircleBold, PiXBold,
+} from 'react-icons/pi';
 import { toast } from 'sonner';
 import { saveToBank, getBankQuestions, cleanQuestionForFirestore } from '../../utils/questionBankHelpers';
 import MediaPreview from '../../components/MediaPreview';
 import ImageEditorModal from '../../components/ImageEditorModal';
 import { uploadQuestionMedia } from '../../utils/mediaUpload';
-// just some testings
 
 const DRAFT_KEY = 'quizlike_create_quiz_draft';
 
@@ -31,7 +38,33 @@ const generateNewQuestion = (type) => {
         }
     };
 
-const UploadChoiceModal = ({ onChoice, onClose }) => ( <div className="upload-choice-modal-overlay" onClick={onClose}><div className="upload-choice-modal-content" onClick={(e) => e.stopPropagation()}><h3>Add Media</h3><p>Choose how you want to add your media file.</p><div className="upload-choices"><button onClick={() => onChoice('upload')} className="upload-choice-btn"><FaLaptop /><span>Upload from Computer</span></button><button onClick={() => onChoice('paste')} className="upload-choice-btn"><FaPaste /><span>Paste from Clipboard</span></button></div><button className="close-modal-btn-simple" onClick={onClose}><FaTimes /></button></div></div> );
+/** Every question type: its label and a Phosphor icon, used by the type menus and the add row. */
+const QUESTION_TYPES = [
+    { value: 'MCQ', label: 'Multiple choice', Icon: PiListChecksBold },
+    { value: 'TRUE_FALSE', label: 'True or false', Icon: PiToggleLeftBold },
+    { value: 'FILL_IN_THE_BLANK', label: 'Fill in the blank', Icon: PiTextTBold },
+    { value: 'PARAGRAPH', label: 'Paragraph', Icon: PiTextAlignLeftBold },
+    { value: 'MATCH_THE_FOLLOWING', label: 'Match the following', Icon: PiArrowsLeftRightBold },
+    { value: 'CATEGORIZE', label: 'Categorize', Icon: PiSquaresFourBold },
+    { value: 'REORDER', label: 'Reorder', Icon: PiListNumbersBold },
+    { value: 'VISUAL_COMPREHENSION', label: 'Visual comprehension', Icon: PiImageBold },
+    { value: 'LISTENING_COMPREHENSION', label: 'Listening comprehension', Icon: PiHeadphonesBold },
+];
+const typeLabel = (type) => QUESTION_TYPES.find(t => t.value === type)?.label || type;
+
+const UploadChoiceModal = ({ onChoice, onClose }) => (
+    <div className="upload-choice-modal-overlay" onClick={onClose}>
+        <div className="upload-choice-modal-content" role="dialog" aria-modal="true" aria-label="Add media" onClick={(e) => e.stopPropagation()}>
+            <h3>Add media</h3>
+            <p>Choose how you want to add your file.</p>
+            <div className="upload-choices">
+                <button type="button" onClick={() => onChoice('upload')} className="upload-choice-btn"><PiLaptopBold /><span>Upload from computer</span></button>
+                <button type="button" onClick={() => onChoice('paste')} className="upload-choice-btn"><PiClipboardBold /><span>Paste from clipboard</span></button>
+            </div>
+            <button type="button" className="close-modal-btn-simple" onClick={onClose} aria-label="Close"><PiXBold /></button>
+        </div>
+    </div>
+);
 
 const CreateQuiz = () => {
     const navigate = useNavigate();
@@ -55,6 +88,8 @@ const CreateQuiz = () => {
     const [generatedCode, setGeneratedCode] = useState('');
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Which question is open for editing. undefined means the first one, 'none' means all are folded.
+    const [activeId, setActiveId] = useState();
 
     const [editorState, setEditorState] = useState({ isOpen: false, imageSrc: null, target: null });
 
@@ -180,7 +215,11 @@ const CreateQuiz = () => {
         setQuestions(currentQuestions => currentQuestions.map((q, i) => i === qIndex ? updateCallback(q) : q));
     };
 
-    const handleAddQuestion = () => setQuestions(current => [...current, generateNewQuestion(quizType === 'MIXED' ? 'MCQ' : quizType)]);
+    const handleAddQuestion = (type = quizType === 'MIXED' ? 'MCQ' : quizType) => {
+        const added = generateNewQuestion(type);
+        setQuestions(current => [...current, added]);
+        setActiveId(added.id);
+    };
     const handleRemoveQuestion = (qIndex) => questions.length > 1 && setQuestions(current => current.filter((_, i) => i !== qIndex));
     const handleQuestionChange = (qIndex, field, value) => { updateQuestionState(qIndex, q => ({ ...q, [field]: value })); };
     const handleQuestionTypeChange = (qIndex, newType) => {
@@ -201,7 +240,7 @@ const CreateQuiz = () => {
             // Upload first, then save the copy that points at the stored media.
             const [withMedia] = await uploadQuestionMedia([q]);
             await saveToBank(withMedia, currentUser.uid);
-            toast.success("Question saved to Question Bank!");
+            toast.success("Question saved to the question bank");
         } catch (err) {
             console.error(err);
             toast.error("Failed to save question to bank.");
@@ -235,7 +274,7 @@ const CreateQuiz = () => {
         delete insertedQuestion.savedAt;
         
         setQuestions(current => [...current, insertedQuestion]);
-        toast.success("Question inserted!");
+        toast.success("Question inserted");
     };
 
     const openUploadModal = (target) => { setMediaTarget(target); setIsUploadModalOpen(true); };
@@ -487,7 +526,7 @@ const CreateQuiz = () => {
                     totalPoints,
                     updatedAt: serverTimestamp(),
                 });
-                toast.success('Quiz updated!');
+                toast.success('Quiz updated');
                 navigate('/teacher/your-quizzes');
                 return;
             }
@@ -520,7 +559,10 @@ const CreateQuiz = () => {
         }
     };
 
-    if (loading || fetchingQuiz) return <div className="loading-screen">Loading...</div>;
+    if (loading || fetchingQuiz) return <div className="loading-screen" role="status">Loading</div>;
+
+    const openId = activeId === 'none' ? null : (questions.find(q => q.id === activeId)?.id ?? questions[0]?.id);
+    const addTypes = quizType === 'MIXED' ? QUESTION_TYPES : QUESTION_TYPES.filter(t => t.value === quizType);
 
     return (
         <div className="create-quiz-container">
@@ -536,115 +578,127 @@ const CreateQuiz = () => {
                 />
             )}
 
-            <motion.div 
-                initial={{ opacity: 0, y: 15 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ duration: 0.3 }}
-                className="create-quiz-content z-10"
-            >
+            <div className="create-quiz-content">
                 {!isPublished ? (
                     <>
-                        <div className="create-quiz-header">
-                            <button onClick={() => navigate(isEditMode ? '/teacher/your-quizzes' : '/teacher/home')} className="back-btn">
-                                <FaArrowLeft /> {isEditMode ? 'Your Quizzes' : 'Dashboard'}
-                            </button>
-                            <h2>
-                                {isEditMode ? 'Edit Quiz' : 'Create New Quiz'}
-                                {isEditMode && originalQuiz?.code && (
-                                    <span style={{ marginLeft: '0.75rem', fontSize: '0.85rem', fontWeight: 600, opacity: 0.6, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
-                                        {originalQuiz.code}
-                                    </span>
-                                )}
-                            </h2>
-                            <button onClick={handlePublishQuiz} className="publish-quiz-btn" disabled={isSubmitting}>
-                                <FaSave /> {isSubmitting ? (isEditMode ? 'Saving...' : 'Publishing...') : (isEditMode ? 'Save Changes' : 'Publish')}
-                            </button>
-                        </div>
-                        {error && <div className="error-message"><FaTimes/> {error}</div>}
-                        <div className="quiz-form-section">
-                            <h3>1. Quiz Details</h3>
+                        <PageHeader
+                            eyebrow={isEditMode && originalQuiz?.code ? `Editing, code ${originalQuiz.code}` : 'Quiz editor'}
+                            title={isEditMode ? 'Edit quiz' : 'New quiz'}
+                            actions={(
+                                <>
+                                    <Button type="button" variant="ghost" onClick={() => navigate(isEditMode ? '/teacher/your-quizzes' : '/teacher/home')}>
+                                        <PiArrowLeftBold /> {isEditMode ? 'Your quizzes' : 'Dashboard'}
+                                    </Button>
+                                    <Button type="button" variant="brand" onClick={handlePublishQuiz} disabled={isSubmitting}>
+                                        {isSubmitting ? <PiSpinnerGapBold className="animate-spin" /> : <PiFloppyDiskBold />}
+                                        {isSubmitting ? (isEditMode ? 'Saving' : 'Publishing') : (isEditMode ? 'Save changes' : 'Publish')}
+                                    </Button>
+                                </>
+                            )}
+                        />
+                        {error && <div className="error-message" role="alert"><PiWarningCircleBold /> {error}</div>}
+
+                        <motion.section variants={rise} initial="hidden" animate="show" className="quiz-form-section" aria-label="Quiz details">
+                            <h3>Details</h3>
                             <div className="form-group">
-                                <label>Quiz Title</label>
-                                <input type="text" value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="e.g., Chapter 5: Photosynthesis" className="form-control" />
+                                <label htmlFor="quiz-title">Quiz title</label>
+                                <input id="quiz-title" type="text" value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="Chapter 5: Photosynthesis" className="form-control form-control-title" />
                             </div>
                             <div className="form-group">
-                                <label>Description</label>
-                                <textarea value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} placeholder="A brief summary for your students" className="form-control" rows="3" />
+                                <label htmlFor="quiz-description">Description</label>
+                                <textarea id="quiz-description" value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} placeholder="A short summary for your students" className="form-control" rows="2" />
                             </div>
-                            <div className="form-group">
-                                <label>Subject</label>
-                                <input
-                                    type="text"
-                                    value={quizSubject}
-                                    onChange={(e) => setQuizSubject(e.target.value)}
-                                    placeholder="e.g., Mathematics, Science, History"
-                                    className="form-control"
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Tags</label>
-                                <div className="tags-input-wrapper">
-                                    {quizTags.map((tag, idx) => (
-                                        <span key={idx} className="tag-chip">
-                                            {tag}
-                                            <button
-                                                type="button"
-                                                className="tag-chip-remove"
-                                                onClick={() => setQuizTags(quizTags.filter((_, i) => i !== idx))}
-                                                aria-label={`Remove tag ${tag}`}
-                                            >
-                                                ×
-                                            </button>
-                                        </span>
-                                    ))}
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label htmlFor="quiz-subject">Subject</label>
                                     <input
+                                        id="quiz-subject"
                                         type="text"
-                                        className="tags-text-input"
-                                        value={tagInput}
-                                        onChange={(e) => setTagInput(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
-                                                e.preventDefault();
-                                                const newTag = tagInput.trim().replace(/,$/, '');
-                                                if (newTag && !quizTags.includes(newTag)) {
-                                                    setQuizTags([...quizTags, newTag]);
-                                                }
-                                                setTagInput('');
-                                            } else if (e.key === 'Backspace' && !tagInput && quizTags.length > 0) {
-                                                setQuizTags(quizTags.slice(0, -1));
-                                            }
-                                        }}
-                                        placeholder={quizTags.length === 0 ? 'Type a tag and press Enter or comma…' : 'Add more…'}
+                                        value={quizSubject}
+                                        onChange={(e) => setQuizSubject(e.target.value)}
+                                        placeholder="Mathematics, science or history"
+                                        className="form-control"
                                     />
                                 </div>
+                                <div className="form-group">
+                                    <label htmlFor="quiz-tags">Tags</label>
+                                    <div className="tags-input-wrapper">
+                                        {quizTags.map((tag, idx) => (
+                                            <span key={idx} className="tag-chip">
+                                                {tag}
+                                                <button
+                                                    type="button"
+                                                    className="tag-chip-remove"
+                                                    onClick={() => setQuizTags(quizTags.filter((_, i) => i !== idx))}
+                                                    aria-label={`Remove tag ${tag}`}
+                                                >
+                                                    <PiXBold />
+                                                </button>
+                                            </span>
+                                        ))}
+                                        <input
+                                            id="quiz-tags"
+                                            type="text"
+                                            className="tags-text-input"
+                                            value={tagInput}
+                                            onChange={(e) => setTagInput(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                                                    e.preventDefault();
+                                                    const newTag = tagInput.trim().replace(/,$/, '');
+                                                    if (newTag && !quizTags.includes(newTag)) {
+                                                        setQuizTags([...quizTags, newTag]);
+                                                    }
+                                                    setTagInput('');
+                                                } else if (e.key === 'Backspace' && !tagInput && quizTags.length > 0) {
+                                                    setQuizTags(quizTags.slice(0, -1));
+                                                }
+                                            }}
+                                            placeholder={quizTags.length === 0 ? 'Type a tag, then press Enter' : 'Add more'}
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="quiz-questions-section">
-                            <h3>2. Questions</h3>
-                            <AnimatePresence>
-                                {questions.map((q, qIndex) => (
-                                    <motion.div 
-                                        key={q.id}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -20 }}
-                                        transition={{ duration: 0.2 }}
-                                        className="question-card"
-                                    >
+                        </motion.section>
+
+                        <section className="quiz-questions-section" aria-label="Questions">
+                            <div className="section-title-row">
+                                <h3>Questions</h3>
+                                <p className="eyebrow tabular">{questions.length} {questions.length === 1 ? 'question' : 'questions'}</p>
+                            </div>
+                            <ul className="question-list">
+                                <AnimatePresence initial={false}>
+                                    {questions.map((q, qIndex) => {
+                                        const isOpen = q.id === openId;
+                                        return (
+                                        <motion.li
+                                            key={q.id}
+                                            layout="position"
+                                            initial={{ opacity: 0, y: 12 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                                            transition={spring}
+                                            className={isOpen ? 'question-card' : 'question-row'}
+                                        >
+                                        {!isOpen ? (
+                                            <button type="button" className="question-row-btn" aria-expanded="false" onClick={() => setActiveId(q.id)}>
+                                                <span className="question-row-number tabular">{qIndex + 1}</span>
+                                                <span className="question-row-type">{typeLabel(q.type)}</span>
+                                                <span className={`question-row-text${q.questionText ? '' : ' is-empty'}`}>{q.questionText || 'Untitled question'}</span>
+                                                <span className="question-row-points tabular">{q.points} pts</span>
+                                            </button>
+                                        ) : (
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
                                     <div className="question-header">
-                                        <h4>Question {qIndex + 1}</h4>
+                                        <button type="button" className="question-collapse-btn" aria-expanded="true" onClick={() => setActiveId('none')}>
+                                            <span className="question-row-number tabular">{qIndex + 1}</span>
+                                            <span className="question-header-title">Question {qIndex + 1}</span>
+                                            <PiCaretUpBold aria-hidden="true" />
+                                        </button>
                                         <div className="question-controls">
                                             {quizType === 'MIXED' && (
-                                                <select value={q.type} onChange={(e) => handleQuestionTypeChange(qIndex, e.target.value)} className="question-type-select">
-                                                    <option value="MCQ">Multiple Choice</option>
-                                                    <option value="TRUE_FALSE">True / False</option>
-                                                    <option value="FILL_IN_THE_BLANK">Fill in the Blank</option>
-                                                    <option value="PARAGRAPH">Paragraph</option>
-                                                    <option value="MATCH_THE_FOLLOWING">Match the Following</option>
-                                                    <option value="CATEGORIZE">Categorize</option>
-                                                    <option value="REORDER">Reorder</option>
-                                                    <option value="VISUAL_COMPREHENSION">Visual Comprehension</option>
-                                                    <option value="LISTENING_COMPREHENSION">Listening Comprehension</option>
+                                                <select value={q.type} onChange={(e) => handleQuestionTypeChange(qIndex, e.target.value)} className="question-type-select" aria-label="Question type">
+                                                    {QUESTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                                 </select>
                                             )}
                                             <button
@@ -652,16 +706,16 @@ const CreateQuiz = () => {
                                                 onClick={() => handleSaveToBank(q)}
                                                 className="save-bank-btn"
                                                 disabled={savingToBankId === q.id}
-                                                title="Save to Bank"
+                                                title="Save to the question bank"
                                             >
-                                                {savingToBankId === q.id ? 'Saving...' : 'Save to Bank'}
+                                                {savingToBankId === q.id ? 'Saving' : 'Save to bank'}
                                             </button>
-                                            <button onClick={() => handleRemoveQuestion(qIndex)} className="remove-item-btn" type="button" disabled={questions.length === 1}><FaTrashAlt /></button>
+                                            <button onClick={() => handleRemoveQuestion(qIndex)} className="remove-item-btn" type="button" aria-label={`Delete question ${qIndex + 1}`} title="Delete question" disabled={questions.length === 1}><PiTrashBold /></button>
                                         </div>
                                     </div>
                                     <div className="question-main-content">
                                         <div className="question-text-and-media">
-                                            <textarea value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, 'questionText', e.target.value)} placeholder="Type your question or instruction here..." className="form-control question-textarea"/>
+                                            <textarea value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, 'questionText', e.target.value)} placeholder="Type your question or instruction here" aria-label={`Question ${qIndex + 1} text`} className="form-control question-textarea"/>
                                             {q.type !== 'MATCH_THE_FOLLOWING' && q.type !== 'CATEGORIZE' && (
                                                 <div className="main-media-controls">
                                                     {(q.media || q.localMediaFile || q.visualData?.mainMedia || q.visualData?.localMainMediaFile || q.listeningData?.mainMedia || q.listeningData?.localMainMediaFile) ?
@@ -673,98 +727,117 @@ const CreateQuiz = () => {
                                                             handleEditMedia(target);
                                                         }}
                                                     />) :
-                                                    (<button type="button" className="add-media-btn" onClick={() => openUploadModal({ qIndex, field: q.type.includes('COMPREHENSION') ? (q.type === 'VISUAL_COMPREHENSION' ? 'visualMainMedia' : 'listeningMainMedia') : 'questionMedia' })}><FaPhotoVideo/> Add Media</button>)}
+                                                    (<button type="button" className="add-media-btn" onClick={() => openUploadModal({ qIndex, field: q.type.includes('COMPREHENSION') ? (q.type === 'VISUAL_COMPREHENSION' ? 'visualMainMedia' : 'listeningMainMedia') : 'questionMedia' })}><PiImagesBold/> Add media</button>)}
                                                 </div>
                                             )}
                                         </div>
                                         <div className="question-settings">
                                             <div className="form-group">
-                                                <label>Points</label>
-                                                <input type="number" value={q.points} onChange={(e) => handleQuestionChange(qIndex, 'points', parseInt(e.target.value, 10) || 0)} className="form-control points-input"/>
+                                                <label htmlFor={`points-${q.id}`}>Points</label>
+                                                <input id={`points-${q.id}`} type="number" value={q.points} onChange={(e) => handleQuestionChange(qIndex, 'points', parseInt(e.target.value, 10) || 0)} className="form-control points-input"/>
                                             </div>
                                             <div className="form-group">
-                                                <label>Time (sec)</label>
-                                                <input type="number" value={q.timeLimit} onChange={(e) => handleQuestionChange(qIndex, 'timeLimit', parseInt(e.target.value, 10) || 0)} className="form-control points-input"/>
+                                                <label htmlFor={`time-${q.id}`}>Seconds</label>
+                                                <input id={`time-${q.id}`} type="number" value={q.timeLimit} onChange={(e) => handleQuestionChange(qIndex, 'timeLimit', parseInt(e.target.value, 10) || 0)} className="form-control points-input"/>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="question-body">
-                                        {q.type === 'MCQ' && q.mcqData && <div className="options-container"><h4>Options (Check all correct answers)</h4>{q.mcqData.options.map((opt, oIndex) => (<div key={opt.id} className="option-item"><input type="checkbox" className="form-check-input" checked={q.mcqData.correctOptions.includes(opt.id)} onChange={() => handleMCQCorrectToggle(qIndex, oIndex)} /><input type="text" value={opt.text} onChange={(e) => handleMCQOptionChange(qIndex, oIndex, e.target.value)} placeholder={`Option ${oIndex + 1}`} className="form-control" />{(opt.media || opt.localMediaFile) ? (<MediaPreview
+                                        {q.type === 'MCQ' && q.mcqData && <div className="options-container"><h4>Options (tick every correct answer)</h4>{q.mcqData.options.map((opt, oIndex) => (<div key={opt.id} className="option-item"><input type="checkbox" className="form-check-input" checked={q.mcqData.correctOptions.includes(opt.id)} onChange={() => handleMCQCorrectToggle(qIndex, oIndex)} /><input type="text" value={opt.text} onChange={(e) => handleMCQOptionChange(qIndex, oIndex, e.target.value)} placeholder={`Option ${oIndex + 1}`} className="form-control" />{(opt.media || opt.localMediaFile) ? (<MediaPreview
                                             file={opt.localMediaFile || opt.media}
                                             cropData={opt.localCropData || opt.media?.cropData}
                                             onEdit={() => {
                                                 const target = { qIndex, field: 'mcqOptionMedia', oIndex };
                                                 handleEditMedia(target);
                                             }}
-                                        />) : (<button type="button" className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'mcqOptionMedia', oIndex })}><FaPhotoVideo/></button>)}<button className="remove-item-btn" onClick={() => handleRemoveMCQOption(qIndex, oIndex)} disabled={q.mcqData.options.length <= 2}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddMCQOption(qIndex)}><FaPlus/> Add Option</button></div>}
-                                        {q.type === 'TRUE_FALSE' && q.trueFalseData && <div className="options-container"><h4>Correct Answer</h4><div className="option-item" style={{ gap: '1.5rem' }}><label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}><input type="radio" name={`tf-${q.id}`} checked={q.trueFalseData.correctAnswer === true} onChange={() => handleQuestionChange(qIndex, 'trueFalseData', { correctAnswer: true })} /> True</label><label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}><input type="radio" name={`tf-${q.id}`} checked={q.trueFalseData.correctAnswer === false} onChange={() => handleQuestionChange(qIndex, 'trueFalseData', { correctAnswer: false })} /> False</label></div></div>}
-                                        {q.type === 'FILL_IN_THE_BLANK' && q.fillBlankData && <div className="options-container"><h4>Accepted Answers (Case Insensitive)</h4>{q.fillBlankData.answers.map((ans, ansIndex) => (<div key={ansIndex} className="option-item"><input type="text" value={ans.text} onChange={(e) => handleFillBlankAnswerChange(qIndex, ansIndex, e.target.value)} placeholder="Accepted answer" className="form-control" /><button className="remove-item-btn" onClick={() => handleRemoveFillBlankAnswer(qIndex, ansIndex)} disabled={q.fillBlankData.answers.length <= 1}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddFillBlankAnswer(qIndex)}><FaPlus/> Add Answer</button></div>}
-                                        {q.type === 'PARAGRAPH' && q.paragraphData && <div className="options-container"><h4>Grading Keywords (Optional)</h4><p className="input-instruction">Provide keywords to help with grading.</p>{q.paragraphData.keywords.map((key, keyIndex) => (<div key={keyIndex} className="option-item"><input type="text" value={key.text} onChange={(e) => handleParagraphKeywordChange(qIndex, keyIndex, e.target.value)} placeholder="Keyword for grading" className="form-control" /><button className="remove-item-btn" onClick={() => handleRemoveParagraphKeyword(qIndex, keyIndex)}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddParagraphKeyword(qIndex)}><FaPlus/> Add Keyword</button></div>}
-                                        {q.type === 'MATCH_THE_FOLLOWING' && q.matchData && <div className="match-following-container"><h4>Matching Pairs</h4>{q.matchData.pairs.map((pair, pIndex) => (<div key={pair.id} className="match-pair-item"><FaGripLines/><div className="match-column">{(pair.promptMedia || pair.promptLocalMediaFile) ? <MediaPreview
+                                        />) : (<button type="button" aria-label="Add media" className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'mcqOptionMedia', oIndex })}><PiImagesBold/></button>)}<button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveMCQOption(qIndex, oIndex)} disabled={q.mcqData.options.length <= 2}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddMCQOption(qIndex)}><PiPlusBold/> Add option</button></div>}
+                                        {q.type === 'TRUE_FALSE' && q.trueFalseData && <div className="options-container"><h4>Correct answer</h4><div className="option-item" style={{ gap: "1.5rem" }}><label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}><input type="radio" name={`tf-${q.id}`} checked={q.trueFalseData.correctAnswer === true} onChange={() => handleQuestionChange(qIndex, 'trueFalseData', { correctAnswer: true })} /> True</label><label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}><input type="radio" name={`tf-${q.id}`} checked={q.trueFalseData.correctAnswer === false} onChange={() => handleQuestionChange(qIndex, 'trueFalseData', { correctAnswer: false })} /> False</label></div></div>}
+                                        {q.type === 'FILL_IN_THE_BLANK' && q.fillBlankData && <div className="options-container"><h4>Accepted answers (not case sensitive)</h4>{q.fillBlankData.answers.map((ans, ansIndex) => (<div key={ansIndex} className="option-item"><input type="text" value={ans.text} onChange={(e) => handleFillBlankAnswerChange(qIndex, ansIndex, e.target.value)} placeholder="Accepted answer" className="form-control" /><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveFillBlankAnswer(qIndex, ansIndex)} disabled={q.fillBlankData.answers.length <= 1}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddFillBlankAnswer(qIndex)}><PiPlusBold/> Add answer</button></div>}
+                                        {q.type === 'PARAGRAPH' && q.paragraphData && <div className="options-container"><h4>Grading keywords (optional)</h4><p className="input-instruction">Keywords help you grade faster.</p>{q.paragraphData.keywords.map((key, keyIndex) => (<div key={keyIndex} className="option-item"><input type="text" value={key.text} onChange={(e) => handleParagraphKeywordChange(qIndex, keyIndex, e.target.value)} placeholder="Keyword for grading" className="form-control" /><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveParagraphKeyword(qIndex, keyIndex)}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddParagraphKeyword(qIndex)}><PiPlusBold/> Add keyword</button></div>}
+                                        {q.type === 'MATCH_THE_FOLLOWING' && q.matchData && <div className="match-following-container"><h4>Matching pairs</h4>{q.matchData.pairs.map((pair, pIndex) => (<div key={pair.id} className="match-pair-item"><PiDotsSixVerticalBold/><div className="match-column">{(pair.promptMedia || pair.promptLocalMediaFile) ? <MediaPreview
                                             file={pair.promptLocalMediaFile || pair.promptMedia}
                                             cropData={pair.promptLocalCropData || pair.promptMedia?.cropData}
                                             onEdit={() => {
                                                 const target = { qIndex, field: 'matchPromptMedia', pairIndex: pIndex };
                                                 handleEditMedia(target);
                                             }}
-                                        /> : <button className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'matchPromptMedia', pairIndex: pIndex})}><FaPhotoVideo/></button>}<input type="text" value={pair.prompt} onChange={e => handleMatchPairChange(qIndex, pIndex, 'prompt', e.target.value)} placeholder="Prompt" className="form-control"/></div><div className="match-column">{(pair.answerMedia || pair.answerLocalMediaFile) ? <MediaPreview
+                                        /> : <button type="button" aria-label="Add media" className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'matchPromptMedia', pairIndex: pIndex})}><PiImagesBold/></button>}<input type="text" value={pair.prompt} onChange={e => handleMatchPairChange(qIndex, pIndex, 'prompt', e.target.value)} placeholder="Prompt" className="form-control"/></div><div className="match-column">{(pair.answerMedia || pair.answerLocalMediaFile) ? <MediaPreview
                                             file={pair.answerLocalMediaFile || pair.answerMedia}
                                             cropData={pair.answerLocalCropData || pair.answerMedia?.cropData}
                                             onEdit={() => {
                                                 const target = { qIndex, field: 'matchAnswerMedia', pairIndex: pIndex };
                                                 handleEditMedia(target);
                                             }}
-                                        /> : <button className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'matchAnswerMedia', pairIndex: pIndex})}><FaPhotoVideo/></button>}<input type="text" value={pair.answer} onChange={e => handleMatchPairChange(qIndex, pIndex, 'answer', e.target.value)} placeholder="Answer" className="form-control"/></div><button type="button" className="remove-item-btn" onClick={() => handleRemoveMatchPair(qIndex, pIndex)} disabled={q.matchData.pairs.length <= 1}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddMatchPair(qIndex)}><FaPlus/> Add Pair</button></div>}
-                                        {q.type === 'CATEGORIZE' && q.categorizeData && <div className="categorize-container"><h4>Categories</h4>{q.categorizeData.categories.map((cat, cIndex) => (<div key={cat.id} className="option-item"><input type="text" value={cat.name} onChange={e => handleCategoryNameChange(qIndex, cIndex, e.target.value)} className="form-control"/><button type="button" className="remove-item-btn" onClick={() => handleRemoveCategory(qIndex, cIndex)} disabled={q.categorizeData.categories.length <= 1}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddCategory(qIndex)}><FaPlus/> Add Category</button><h4 style={{marginTop: '1.5rem'}}>Items to Categorize</h4>{q.categorizeData.items.map((item, iIndex) => (<div key={item.id} className="categorize-item-row"><div className="match-column">{(item.media || item.localMediaFile) ? <MediaPreview
+                                        /> : <button type="button" aria-label="Add media" className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'matchAnswerMedia', pairIndex: pIndex})}><PiImagesBold/></button>}<input type="text" value={pair.answer} onChange={e => handleMatchPairChange(qIndex, pIndex, 'answer', e.target.value)} placeholder="Answer" className="form-control"/></div><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveMatchPair(qIndex, pIndex)} disabled={q.matchData.pairs.length <= 1}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddMatchPair(qIndex)}><PiPlusBold/> Add pair</button></div>}
+                                        {q.type === 'CATEGORIZE' && q.categorizeData && <div className="categorize-container"><h4>Categories</h4>{q.categorizeData.categories.map((cat, cIndex) => (<div key={cat.id} className="option-item"><input type="text" value={cat.name} onChange={e => handleCategoryNameChange(qIndex, cIndex, e.target.value)} className="form-control"/><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveCategory(qIndex, cIndex)} disabled={q.categorizeData.categories.length <= 1}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddCategory(qIndex)}><PiPlusBold/> Add category</button><h4 style={{marginTop: '1.5rem'}}>Items to categorize</h4>{q.categorizeData.items.map((item, iIndex) => (<div key={item.id} className="categorize-item-row"><div className="match-column">{(item.media || item.localMediaFile) ? <MediaPreview
                                             file={item.localMediaFile || item.media}
                                             cropData={item.localCropData || item.media?.cropData}
                                             onEdit={() => {
                                                 const target = { qIndex, field: 'categorizeItemMedia', itemIndex: iIndex };
                                                 handleEditMedia(target);
                                             }}
-                                        /> : <button className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'categorizeItemMedia', itemIndex: iIndex})}><FaPhotoVideo/></button>}<input type="text" value={item.text} onChange={e => handleCategorizeItemChange(qIndex, iIndex, 'text', e.target.value)} placeholder="Item" className="form-control"/></div><select value={item.categoryId || ''} onChange={e => handleCategorizeItemChange(qIndex, iIndex, 'categoryId', Number(e.target.value))} className="form-control category-select"><option value="" disabled>Select Category</option>{q.categorizeData.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select><button type="button" className="remove-item-btn" onClick={() => handleRemoveCategorizeItem(qIndex, iIndex)} disabled={q.categorizeData.items.length <= 1}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddCategorizeItem(qIndex)}><FaPlus/> Add Item</button></div>}
-                                        {q.type === 'REORDER' && q.reorderData && <div className="reorder-container"><h4>Items to Reorder (in correct order)</h4>{q.reorderData.items.map((item, iIndex) => (<div key={item.id} className="reorder-item-row"><span className="reorder-number">{iIndex+1}.</span><div className="match-column">{(item.media || item.localMediaFile) ? <MediaPreview
+                                        /> : <button type="button" aria-label="Add media" className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'categorizeItemMedia', itemIndex: iIndex})}><PiImagesBold/></button>}<input type="text" value={item.text} onChange={e => handleCategorizeItemChange(qIndex, iIndex, 'text', e.target.value)} placeholder="Item" className="form-control"/></div><select value={item.categoryId || ''} onChange={e => handleCategorizeItemChange(qIndex, iIndex, 'categoryId', Number(e.target.value))} className="form-control category-select"><option value="" disabled>Select category</option>{q.categorizeData.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveCategorizeItem(qIndex, iIndex)} disabled={q.categorizeData.items.length <= 1}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddCategorizeItem(qIndex)}><PiPlusBold/> Add item</button></div>}
+                                        {q.type === 'REORDER' && q.reorderData && <div className="reorder-container"><h4>Items to reorder (write them in the correct order)</h4>{q.reorderData.items.map((item, iIndex) => (<div key={item.id} className="reorder-item-row"><span className="reorder-number">{iIndex+1}.</span><div className="match-column">{(item.media || item.localMediaFile) ? <MediaPreview
                                             file={item.localMediaFile || item.media}
                                             cropData={item.localCropData || item.media?.cropData}
                                             onEdit={() => {
                                                 const target = { qIndex, field: 'reorderItemMedia', itemIndex: iIndex };
                                                 handleEditMedia(target);
                                             }}
-                                        /> : <button className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'reorderItemMedia', itemIndex: iIndex})}><FaPhotoVideo/></button>}<input type="text" value={item.text} onChange={e => handleReorderItemChange(qIndex, iIndex, e.target.value)} placeholder="Item text" className="form-control"/></div><button type="button" className="remove-item-btn" onClick={() => handleRemoveReorderItem(qIndex, iIndex)} disabled={q.reorderData.items.length <= 1}><FaTimes/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddReorderItem(qIndex)}><FaPlus/> Add Item</button></div>}
-                                        {(q.type === 'VISUAL_COMPREHENSION' || q.type === 'LISTENING_COMPREHENSION') && <div className="comprehension-container"><h4 style={{marginTop: '1.5rem'}}>Follow-up Questions</h4>{(q.visualData?.subQuestions || q.listeningData?.subQuestions || []).map((subQ, subQIndex) => (<div key={subQ.id} className="sub-question-card"><div className="sub-question-header"><h5>Question {subQIndex + 1} ({subQ.type})</h5><button className="remove-item-btn" onClick={() => handleRemoveSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex)}><FaTimes/></button></div><input type="text" value={subQ.questionText} onChange={(e) => handleSubQuestionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, 'questionText', e.target.value)} className="form-control" placeholder="Sub-question text"/>{subQ.type === 'MCQ' && subQ.mcqData && <div className="options-container" style={{paddingTop: '1rem'}}>{subQ.mcqData.options.map((opt, oIndex) => (<div key={opt.id} className="option-item"><input type="checkbox" className="form-check-input" checked={subQ.mcqData.correctOptions.includes(opt.id)} onChange={() => handleSubMCQCorrectToggle(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex)} /><input type="text" value={opt.text} onChange={(e) => handleSubMCQOptionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex, e.target.value)} placeholder={`Option ${oIndex + 1}`} className="form-control" /></div>))}</div>}</div>))}<div className="sub-question-add-buttons"><button type="button" className="add-item-btn" onClick={() => handleAddSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', 'MCQ')}><FaPlus/> Add MCQ</button></div></div>}
+                                        /> : <button type="button" aria-label="Add media" className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'reorderItemMedia', itemIndex: iIndex})}><PiImagesBold/></button>}<input type="text" value={item.text} onChange={e => handleReorderItemChange(qIndex, iIndex, e.target.value)} placeholder="Item text" className="form-control"/></div><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveReorderItem(qIndex, iIndex)} disabled={q.reorderData.items.length <= 1}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddReorderItem(qIndex)}><PiPlusBold/> Add item</button></div>}
+                                        {(q.type === 'VISUAL_COMPREHENSION' || q.type === 'LISTENING_COMPREHENSION') && <div className="comprehension-container"><h4 style={{marginTop: '1.5rem'}}>Follow-up questions</h4>{(q.visualData?.subQuestions || q.listeningData?.subQuestions || []).map((subQ, subQIndex) => (<div key={subQ.id} className="sub-question-card"><div className="sub-question-header"><h5>Question {subQIndex + 1}</h5><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex)}><PiXBold/></button></div><input type="text" value={subQ.questionText} onChange={(e) => handleSubQuestionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, 'questionText', e.target.value)} className="form-control" placeholder="Follow-up question text"/>{subQ.type === 'MCQ' && subQ.mcqData && <div className="options-container" style={{paddingTop: '1rem'}}>{subQ.mcqData.options.map((opt, oIndex) => (<div key={opt.id} className="option-item"><input type="checkbox" className="form-check-input" checked={subQ.mcqData.correctOptions.includes(opt.id)} onChange={() => handleSubMCQCorrectToggle(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex)} /><input type="text" value={opt.text} onChange={(e) => handleSubMCQOptionChange(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', subQIndex, oIndex, e.target.value)} placeholder={`Option ${oIndex + 1}`} className="form-control" /></div>))}</div>}</div>))}<div className="sub-question-add-buttons"><button type="button" className="add-item-btn" onClick={() => handleAddSubQuestion(qIndex, q.type === 'VISUAL_COMPREHENSION' ? 'visualData' : 'listeningData', 'MCQ')}><PiPlusBold/> Add multiple choice</button></div></div>}
                                     </div>
-                                </motion.div>
-                            ))}
-                            </AnimatePresence>
-                            <div className="create-quiz-bottom-actions">
-                                <button onClick={handleAddQuestion} className="btn-primary-action" type="button"><FaPlus /> Add Question</button>
-                                <button onClick={openBankModal} className="btn-secondary-action" type="button"><FaDatabase /> Insert from Bank</button>
+                                        </motion.div>
+                                        )}
+                                </motion.li>
+                                        );
+                                    })}
+                                </AnimatePresence>
+                            </ul>
+
+                            {/* Adding a question: a quiet row of type buttons. */}
+                            <div className="add-question-row">
+                                <p className="eyebrow">{quizType === 'MIXED' ? 'Add a question' : 'Add another'}</p>
+                                <div className="add-type-buttons">
+                                    {addTypes.map(({ value, label, Icon }) => (
+                                        <motion.button key={value} type="button" className="add-type-btn" whileTap={{ scale: 0.96 }} transition={spring} onClick={() => handleAddQuestion(value)}>
+                                            <Icon aria-hidden="true" />{label}
+                                        </motion.button>
+                                    ))}
+                                    <motion.button type="button" className="add-type-btn is-bank" whileTap={{ scale: 0.96 }} transition={spring} onClick={openBankModal}>
+                                        <PiDatabaseBold aria-hidden="true" />Insert from bank
+                                    </motion.button>
+                                </div>
                             </div>
-                        </div>
+                        </section>
                     </>
                 ) : (
-                    <div className="quiz-published-section">
-                        <h2>Quiz Published!</h2>
-                        <p>Share this code with your students:</p>
-                        <div className="quiz-code">{generatedCode}</div>
-                        <button onClick={() => navigator.clipboard.writeText(generatedCode)}><FaClipboard/> Copy Code</button>
-                        <button onClick={() => navigate('/teacher/home')}>Back to Dashboard</button>
-                    </div>
+                    <motion.div variants={stagger(0.08)} initial="hidden" animate="show" className="quiz-published-section">
+                        <motion.p variants={rise} className="eyebrow">Published</motion.p>
+                        <motion.h2 variants={rise} className="text-hero">Your quiz is live.</motion.h2>
+                        <motion.p variants={rise} className="published-note">Share this code with your students.</motion.p>
+                        <motion.div variants={rise} className="quiz-code">{generatedCode}</motion.div>
+                        <motion.div variants={rise} className="published-actions">
+                            <Button type="button" variant="outline" onClick={() => { navigator.clipboard.writeText(generatedCode); toast.success('Code copied'); }}><PiClipboardTextBold /> Copy code</Button>
+                            <Button type="button" onClick={() => navigate('/teacher/home')}>Back to dashboard</Button>
+                        </motion.div>
+                    </motion.div>
                 )}
-            </motion.div>
+            </div>
 
             {isBankOpen && (
                 <div className="bank-modal-overlay" onClick={() => setIsBankOpen(false)}>
-                    <div className="bank-modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="bank-modal-content" role="dialog" aria-modal="true" aria-label="Question bank" onClick={(e) => e.stopPropagation()}>
                         <div className="bank-modal-header">
-                            <h3><FaDatabase /> Question Bank</h3>
-                            <button className="close-modal-btn-simple" onClick={() => setIsBankOpen(false)}><FaTimes /></button>
+                            <h3>Question bank</h3>
+                            <button type="button" className="close-modal-btn-simple" onClick={() => setIsBankOpen(false)} aria-label="Close"><PiXBold /></button>
                         </div>
                         <div className="bank-modal-filters">
                             <input
                                 type="text"
                                 className="form-control bank-search-input"
-                                placeholder="Search questions..."
+                                placeholder="Search questions"
+                                aria-label="Search questions"
                                 value={bankSearch}
                                 onChange={(e) => setBankSearch(e.target.value)}
                             />
@@ -772,22 +845,15 @@ const CreateQuiz = () => {
                                 value={bankFilterType}
                                 onChange={(e) => setBankFilterType(e.target.value)}
                                 className="bank-type-select"
+                                aria-label="Filter by type"
                             >
-                                <option value="ALL">All Types</option>
-                                <option value="MCQ">Multiple Choice</option>
-                                <option value="TRUE_FALSE">True / False</option>
-                                <option value="FILL_IN_THE_BLANK">Fill in the Blank</option>
-                                <option value="PARAGRAPH">Paragraph</option>
-                                <option value="MATCH_THE_FOLLOWING">Match the Following</option>
-                                <option value="CATEGORIZE">Categorize</option>
-                                <option value="REORDER">Reorder</option>
-                                <option value="VISUAL_COMPREHENSION">Visual Comprehension</option>
-                                <option value="LISTENING_COMPREHENSION">Listening Comprehension</option>
+                                <option value="ALL">All types</option>
+                                {QUESTION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                             </select>
                         </div>
                         <div className="bank-questions-list">
                             {loadingBank ? (
-                                <div className="bank-no-questions">Loading questions from bank...</div>
+                                <div className="bank-no-questions">Loading questions</div>
                             ) : bankQuestions.length === 0 ? (
                                 <div className="bank-no-questions">Your question bank is empty. Save questions to reuse them.</div>
                             ) : (() => {
@@ -802,10 +868,10 @@ const CreateQuiz = () => {
                                 return filtered.map(bq => (
                                     <div key={bq.id} className="bank-question-item">
                                         <div className="bank-q-details">
-                                            <p className="bank-q-text">{bq.questionText || <span className="italic text-gray-400">Untitled Question</span>}</p>
+                                            <p className="bank-q-text">{bq.questionText || <span className="italic text-gray-400">Untitled question</span>}</p>
                                             <div className="bank-q-meta">
-                                                <span className="bank-q-badge type-badge">{bq.type}</span>
-                                                <span className="bank-q-badge points-badge">{bq.points} pts</span>
+                                                <span className="bank-q-badge type-badge">{typeLabel(bq.type)}</span>
+                                                <span className="bank-q-badge">{bq.points} pts</span>
                                                 <span className="bank-q-badge">{bq.timeLimit}s</span>
                                             </div>
                                         </div>
