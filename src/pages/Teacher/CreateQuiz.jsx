@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../firebase';
 import { collection, addDoc, updateDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
@@ -17,7 +17,8 @@ import {
 import { toast } from 'sonner';
 import { saveToBank, getBankQuestions, cleanQuestionForFirestore } from '../../utils/questionBankHelpers';
 import MediaPreview from '../../components/MediaPreview';
-import ImageEditorModal from '../../components/ImageEditorModal';
+// The image editor is a large library, so it is only fetched when someone opens it.
+const ImageEditorModal = lazy(() => import('../../components/ImageEditorModal'));
 import { uploadQuestionMedia } from '../../utils/mediaUpload';
 
 const DRAFT_KEY = 'quizlike_create_quiz_draft';
@@ -570,12 +571,14 @@ const CreateQuiz = () => {
             {isUploadModalOpen && (<UploadChoiceModal onChoice={handleUploadChoice} onClose={() => setIsUploadModalOpen(false)} />)}
 
             {editorState.isOpen && (
-                <ImageEditorModal
-                    imageSrc={editorState.imageSrc}
-                    onEditComplete={handleImageEditComplete}
-                    onClose={() => setEditorState({ isOpen: false })}
-                    onDelete={handleRemoveMedia}
-                />
+                <Suspense fallback={null}>
+                    <ImageEditorModal
+                        imageSrc={editorState.imageSrc}
+                        onEditComplete={handleImageEditComplete}
+                        onClose={() => setEditorState({ isOpen: false })}
+                        onDelete={handleRemoveMedia}
+                    />
+                </Suspense>
             )}
 
             <div className="create-quiz-content">

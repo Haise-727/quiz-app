@@ -1,30 +1,32 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 
-// Pages
+// Pages. The landing and sign in pages are in the first download because most visits
+// start there. Every other page is fetched when it is first opened, so a student never
+// downloads the teacher tools, the chart library or the image editor.
 import Landing from './pages/Landing';
 import Login from './pages/Login';
-import GuestTakeQuiz from './pages/Guest/GuestTakeQuiz';
-
-import TeacherHome from './pages/Teacher/TeacherHome';
-import CreateQuiz from './pages/Teacher/CreateQuiz';
-import YourQuizzes from './pages/Teacher/YourQuizzes';
-import Grading from './pages/Teacher/Grading';
-import Analytics from './pages/Teacher/Analytics';
-import Classes from './pages/Teacher/Classes';
-import QuestionBank from './pages/Teacher/QuestionBank';
-import HostSession from './pages/Teacher/HostSession';
-
-import StudentDashboard from './pages/Student/StudentDashboard';
-import AttendQuiz from './pages/Student/AttendQuiz';
-import TakeQuiz from './pages/Student/TakeQuiz';
-import YourResults from './pages/Student/YourResults';
-
-import Profile from './pages/Profile';
-import Browse from './pages/Browse';
-import PlaySession from './pages/PlaySession';
 import NotFound from './pages/NotFound';
+
+const GuestTakeQuiz    = lazy(() => import('./pages/Guest/GuestTakeQuiz'));
+const Browse           = lazy(() => import('./pages/Browse'));
+const PlaySession      = lazy(() => import('./pages/PlaySession'));
+const Profile          = lazy(() => import('./pages/Profile'));
+
+const TeacherHome      = lazy(() => import('./pages/Teacher/TeacherHome'));
+const CreateQuiz       = lazy(() => import('./pages/Teacher/CreateQuiz'));
+const YourQuizzes      = lazy(() => import('./pages/Teacher/YourQuizzes'));
+const Grading          = lazy(() => import('./pages/Teacher/Grading'));
+const Analytics        = lazy(() => import('./pages/Teacher/Analytics'));
+const Classes          = lazy(() => import('./pages/Teacher/Classes'));
+const QuestionBank     = lazy(() => import('./pages/Teacher/QuestionBank'));
+const HostSession      = lazy(() => import('./pages/Teacher/HostSession'));
+
+const StudentDashboard = lazy(() => import('./pages/Student/StudentDashboard'));
+const AttendQuiz       = lazy(() => import('./pages/Student/AttendQuiz'));
+const TakeQuiz         = lazy(() => import('./pages/Student/TakeQuiz'));
+const YourResults      = lazy(() => import('./pages/Student/YourResults'));
 
 import DashboardLayout from './components/layout/DashboardLayout';
 import './App.css';
@@ -72,6 +74,7 @@ const LegacyGuestQuizRedirect = () => {
 function App() {
   return (
     <div>
+      <Suspense fallback={<Spinner />}>
       <Routes>
         {/* ── Public ── */}
         <Route path="/"                    element={<Landing />} />
@@ -112,6 +115,7 @@ function App() {
         {/* ── 404 ── */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </div>
   );
 }
