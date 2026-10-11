@@ -1,6 +1,6 @@
 /**
  * Helpers for quiz media, shared by the quiz editor and every page that shows
- * a quiz (graded quiz, practice, flashcards, live games, results, grading).
+ * a quiz (graded quiz, live games, results, grading).
  *
  * Why this file exists: media used to be understood differently in each page.
  * Some pages rendered the main question media, some skipped it, and the

@@ -24,7 +24,7 @@ import { rise, spring, stagger } from '@/lib/motion';
 import {
   PiPlusBold, PiEyeBold, PiTrashBold, PiShareNetworkBold, PiPencilSimpleBold, PiDotsThreeVerticalBold,
   PiToggleLeftBold, PiToggleRightBold, PiClipboardTextBold, PiChartBarBold, PiMagnifyingGlassBold,
-  PiLightningBold, PiCardsBold, PiBroadcastBold, PiSpinnerGapBold, PiCheckBold,
+  PiBroadcastBold, PiSpinnerGapBold, PiCheckBold,
 } from 'react-icons/pi';
 import { createLiveSession } from '../../utils/liveSession';
 
@@ -252,8 +252,6 @@ const YourQuizzes = () => {
                           {quiz.active ? 'Deactivate' : 'Activate'}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleShareLink(quiz)}><PiShareNetworkBold className="h-4 w-4" /> Copy share link</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/practice/${quiz.id}`)}><PiLightningBold className="h-4 w-4" /> Practice mode</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/flashcards/${quiz.id}`)}><PiCardsBold className="h-4 w-4" /> Flashcards</DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setDeleteQuiz(quiz)} className="text-[hsl(var(--destructive))] focus:bg-[hsl(var(--tint-red))] focus:text-[hsl(var(--destructive))]">
                           <PiTrashBold className="h-4 w-4" /> Delete

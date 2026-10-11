@@ -12,7 +12,6 @@ quiz-app/
 ├── src/
 │   ├── pages/
 │   │   ├── Landing.jsx  Browse.jsx  Login.jsx  NotFound.jsx     public
-│   │   ├── Practice.jsx  Flashcards.jsx                          public study modes
 │   │   ├── PlaySession.jsx                                       a player in a live game
 │   │   ├── Guest/GuestTakeQuiz.jsx                               a guest taking a quiz
 │   │   ├── Student/   StudentDashboard  AttendQuiz  TakeQuiz  YourResults
@@ -122,10 +121,6 @@ tap to place as the fallback. Reorder uses `@hello-pangea/dnd`. The pointer
 approach replaced the drag library for placement because its drop selection
 grows the hovered zone by the height of the dragged item, which picked the wrong
 slot when slots were stacked.
-
-Practice and Flashcards reuse the same boards and grading. Practice checks a
-question with `gradeQuestion` and shows right and wrong on the options. Neither
-study mode saves anything.
 
 ## Live games
 

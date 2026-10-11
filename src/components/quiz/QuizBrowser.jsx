@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PiCardsBold, PiLightningBold, PiMagnifyingGlassBold, PiPlayFill } from 'react-icons/pi';
+import { PiMagnifyingGlassBold, PiPlayFill } from 'react-icons/pi';
 import { Button } from '@/components/ui/button';
 import { ease, rise, spring, stagger } from '@/lib/motion';
 
 const Skeleton = ({ className = '' }) => <div className={`animate-pulse rounded-md bg-[hsl(var(--muted))] ${className}`} />;
 
 /**
- * Search, subject filters and a list of open quizzes, each with Play, Practice and Flashcards.
+ * Search, subject filters and a list of open quizzes, each with a Play button.
  * Browse (public) and Attend Quiz (signed in student) both show it, so the two always match.
  *
  * @param quizzes  the open quizzes
@@ -18,7 +17,6 @@ const Skeleton = ({ className = '' }) => <div className={`animate-pulse rounded-
  * @param emptyHint  what to say when there are no open quizzes at all
  */
 export default function QuizBrowser({ quizzes, loading = false, failed = false, onPlay, emptyHint = 'Check back later, or sign in to make one.' }) {
-  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('All');
 
@@ -102,8 +100,6 @@ export default function QuizBrowser({ quizzes, loading = false, failed = false, 
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <Button variant="ghost" size="sm" onClick={() => navigate(`/flashcards/${q.id}`)}><PiCardsBold /> Flashcards</Button>
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/practice/${q.id}`)}><PiLightningBold /> Practice</Button>
                   <Button variant="brand" size="sm" onClick={() => onPlay(q.id)}><PiPlayFill /> Play</Button>
                 </div>
               </motion.li>

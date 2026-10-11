@@ -34,8 +34,8 @@ a player, not a form filler.
 |---|---|
 | Join with a code, no account needed | Nine question types, with pictures, audio and video |
 | Earn XP, level up, keep a daily streak, collect badges | Host live games with power-ups, streaks and a podium |
-| Practise with instant feedback, or revise with flashcards | Classes, due dates and a queue for hand marking |
-| See every attempt, and review each answer | Analytics per quiz and per question, with CSV export |
+| See every attempt, and review each answer | Classes, due dates and a queue for hand marking |
+| Join live games from a phone | Analytics per quiz and per question, with CSV export |
 
 ---
 
@@ -124,27 +124,6 @@ Put the code and a QR code on the projector. Students join on their phones.
 <td width="33%"><img src="docs/screenshots/live-podium.png" alt="The podium with confetti"></td>
 </tr>
 </table>
-
----
-
-## Study on your own
-
-<table>
-<tr>
-<td width="50%"><img src="docs/screenshots/practice.png" alt="Practice mode showing a correct answer and a two in a row combo"></td>
-<td width="50%"><img src="docs/screenshots/flashcards.png" alt="A flashcard turned over to show its answer"></td>
-</tr>
-</table>
-
-**Practice** checks each answer straight away, marks the right and wrong
-options, counts your run of right answers, and ends with a round of just the
-questions you missed. Every question type works.
-
-**Flashcards** turn over with a tap or the space bar. Throw a card right for
-"got it" or left for "still learning", then review only the ones you keep
-missing.
-
-Neither mode needs an account, and a shared link just works.
 
 ---
 

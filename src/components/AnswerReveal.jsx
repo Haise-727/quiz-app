@@ -4,9 +4,9 @@ import MediaRenderer from './MediaRenderer';
 import { mediaKind, getSubQuestions } from '../utils/media';
 
 /**
- * The "here is the correct answer" view, used by Practice and by the back of a
- * flashcard. Keeping it in one place means both study modes show the same
- * thing, including the pictures, audio and video attached to answers.
+ * The "here is the correct answer" view, used by the host's reveal screen. Keeping it
+ * in one place means every screen shows the same thing, including the pictures,
+ * audio and video attached to answers.
  */
 
 /**
@@ -26,7 +26,7 @@ export const MiniMedia = ({ media }) => {
 
 /**
  * @param q        the question
- * @param centered centre everything (flashcard back) instead of left aligning (practice)
+ * @param centered centre everything instead of left aligning
  * @param tone     'primary' paints the answer in the brand colour, 'plain' in the text colour
  */
 export const CorrectAnswer = ({ q, centered = false, tone = 'primary' }) => {

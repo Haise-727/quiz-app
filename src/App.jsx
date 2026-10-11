@@ -23,8 +23,6 @@ import YourResults from './pages/Student/YourResults';
 
 import Profile from './pages/Profile';
 import Browse from './pages/Browse';
-import Practice from './pages/Practice';
-import Flashcards from './pages/Flashcards';
 import PlaySession from './pages/PlaySession';
 import NotFound from './pages/NotFound';
 
@@ -63,7 +61,7 @@ const ProtectedRoute = ({ children, role }) => {
   return children;
 };
 
-/** Preserves old /guest/quiz/:quizId URLs. */
+/** Preserves old /guest/quiz/:quizId URLs, and the practice and flashcard links that were shared. */
 const LegacyGuestQuizRedirect = () => {
   const { quizId } = useParams();
   return <Navigate to={`/quiz/${quizId}`} replace />;
@@ -80,8 +78,6 @@ function App() {
         <Route path="/browse"              element={<Browse />} />
         <Route path="/login"               element={<Login />} />
         <Route path="/quiz/:quizId"        element={<GuestTakeQuiz />} />
-        <Route path="/practice/:quizId"    element={<Practice />} />
-        <Route path="/flashcards/:quizId"  element={<Flashcards />} />
         <Route path="/play"                element={<PlaySession />} />
         <Route path="/play/:pin"           element={<PlaySession />} />
 
@@ -110,6 +106,8 @@ function App() {
         <Route path="/teacher/login"          element={<Navigate to="/login?role=teacher" replace />} />
         <Route path="/guest/attend-quiz"      element={<Navigate to="/" replace />} />
         <Route path="/guest/quiz/:quizId"     element={<LegacyGuestQuizRedirect />} />
+        <Route path="/practice/:quizId"       element={<LegacyGuestQuizRedirect />} />
+        <Route path="/flashcards/:quizId"     element={<LegacyGuestQuizRedirect />} />
 
         {/* ── 404 ── */}
         <Route path="*" element={<NotFound />} />

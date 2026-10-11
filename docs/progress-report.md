@@ -62,13 +62,6 @@ game. Guests can take part with no account.
 - Pictures, audio and video on each player's own device. A long clip extends the clock
 - The host can kick players and export the results as a spreadsheet
 
-### Study modes (public, no sign in)
-
-- **Practice:** every question type, instant feedback with right and wrong marked
-  on the options, a combo counter, a show answer button and a round of the ones you missed
-- **Flashcards:** turn over, throw right or left, a run counter, and a review of
-  the cards still being learned
-
 ### Classes and assignments
 
 - Create classes, invite students by code, assign quizzes with due dates, and
@@ -104,8 +97,6 @@ game. Guests can take part with no account.
 | Browse | `/browse` | Public |
 | Login | `/login` | Public |
 | Guest quiz | `/quiz/:quizId` | Public |
-| Practice | `/practice/:quizId` | Public |
-| Flashcards | `/flashcards/:quizId` | Public |
 | Live play | `/play`, `/play/:pin` | Public |
 | Profile | `/profile` | Any signed in user |
 | Teacher home | `/teacher/home` | Teacher |
@@ -123,7 +114,8 @@ game. Guests can take part with no account.
 | Results | `/student/results` | Student |
 | Not found | `*` | Public |
 
-Four old links redirect so that shared URLs keep working.
+Six old links redirect so that shared URLs keep working. That includes the old
+practice and flashcard links, which now open the quiz.
 
 ---
 

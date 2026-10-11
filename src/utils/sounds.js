@@ -106,9 +106,3 @@ export const playBadge = () => {
   tone(1318.5, 0.3, 'sine', 0.11, 0.1);
 };
 
-/** A quick upward step, played for each answer in a row during practice. */
-export const playStreak = (step = 1) => {
-  const base = 523.25 * Math.pow(2, Math.min(step, 7) / 12);
-  tone(base, 0.09, 'triangle', 0, 0.09);
-  tone(base * 1.5, 0.12, 'sine', 0.07, 0.07);
-};
