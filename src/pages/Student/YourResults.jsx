@@ -218,7 +218,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
             </div>
             {!isCorrect && !isPending && (
               <div className={`rounded-lg px-4 py-3 ${TINT.green}`}>
-                <p className="eyebrow mb-1.5 !text-current opacity-80">Correct answer</p>
+                <p className="eyebrow mb-1.5 !text-current">Correct answer</p>
                 <div className="text-sm">{renderCorrectAnswer()}</div>
               </div>
             )}
@@ -431,7 +431,7 @@ export default function YourResults() {
             )}
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto px-5">
+          <div className="flex-1 overflow-y-auto px-5" tabIndex={0} role="region" aria-label="Your answers, scroll to read them all">
             {reviewLoading ? (
               <div className="space-y-4 py-6"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>
             ) : reviewQuiz && selectedResult ? (() => {

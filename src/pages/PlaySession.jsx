@@ -280,7 +280,7 @@ export default function PlaySession() {
     <div className="relative min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(55%_100%_at_50%_0%,hsl(var(--brand)/0.08),transparent)]" />
       <div className="relative mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 pb-10 pt-4">
-        <div className="mb-4 flex items-center justify-between">
+        <header className="mb-4 flex items-center justify-between">
           <Link to="/" aria-label="Quizlike home"><Logo size={24} /></Link>
           <div className="flex min-w-0 items-center gap-3">
             {session?.quizTitle && <p className="max-w-[10rem] truncate text-xs text-[hsl(var(--muted-foreground))]">{session.quizTitle}</p>}
@@ -288,16 +288,18 @@ export default function PlaySession() {
               <button type="button" onClick={handleLeave} aria-label="Leave this game" title="Leave this game" className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"><PiSignOutBold className="h-4 w-4" /></button>
             )}
           </div>
-        </div>
-        {hud && me && <div className="mb-5"><PlayerHud rank={session.state === 'ended' ? finalRank : myRank} score={me.score || 0} streak={me.streak || 0} bonusPct={settings.streakBonus === false ? null : streakBonusPct(me.streak || 0)} team={teamCount ? me.team : null} out={out} /></div>}
-        {children}
+        </header>
+        <main className="flex flex-1 flex-col">
+          {hud && me && <div className="mb-5"><PlayerHud rank={session.state === 'ended' ? finalRank : myRank} score={me.score || 0} streak={me.streak || 0} bonusPct={settings.streakBonus === false ? null : streakBonusPct(me.streak || 0)} team={teamCount ? me.team : null} out={out} /></div>}
+          {children}
+        </main>
       </div>
     </div>
   );
 
   if (!joined) {
     return (
-      <div className="relative grid min-h-dvh place-items-center bg-[hsl(var(--background))] px-5 text-[hsl(var(--foreground))]">
+      <main className="relative grid min-h-dvh place-items-center bg-[hsl(var(--background))] px-5 text-[hsl(var(--foreground))]">
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(55%_100%_at_50%_0%,hsl(var(--brand)/0.09),transparent)]" />
         <motion.div variants={stagger(0.07)} initial="hidden" animate="show" className="relative w-full max-w-sm">
           <motion.div variants={rise}><Link to="/" aria-label="Quizlike home"><Logo /></Link></motion.div>
@@ -327,7 +329,7 @@ export default function PlaySession() {
             </Button>
           </motion.div>
         </motion.div>
-      </div>
+      </main>
     );
   }
 
@@ -420,7 +422,7 @@ export default function PlaySession() {
               <div className="mt-5"><PowerUpBar powerups={me.powerups} canFifty={canFifty} doubleArmed={doubleArmed} answered={answered} onUse={onPowerUp} /></div>
             )}
 
-            <div className={`mt-5 ${paused ? 'pointer-events-none opacity-40' : ''}`} aria-hidden={paused || undefined}>
+            <div className={`mt-5 ${paused ? 'pointer-events-none opacity-40' : ''}`} inert={paused ? true : undefined}>
               {question.type === 'MCQ' && (
                 <div className="flex flex-col gap-3">
                   {question.mcqData.options.map((opt, i) => {

@@ -18,6 +18,8 @@ export default function PublicNav({ bare = false }) {
   const home = userRole === 'teacher' ? '/teacher/home' : '/student/dashboard';
 
   return (
+    <>
+      <a href="#main-content" className="sr-only z-50 rounded-md bg-[hsl(var(--ink))] px-4 py-2 text-sm font-medium text-[hsl(var(--ink-foreground))] focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to the content</a>
     <header className="sticky top-0 z-30 border-b border-[hsl(var(--border))]/70 bg-[hsl(var(--background))]/85 backdrop-blur-md">
       <nav aria-label="Main" className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
         <Link to="/" aria-label="Quizlike home" className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"><Logo /></Link>
@@ -45,5 +47,6 @@ export default function PublicNav({ bare = false }) {
         </div>
       </nav>
     </header>
+    </>
   );
 }

@@ -19,16 +19,16 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:     'bg-[hsl(var(--ink))] text-[hsl(var(--ink-foreground))] hover:bg-[hsl(var(--ink))]/85',
-        brand:       'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90',
+        brand:       'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-90',
         destructive: 'border-[hsl(var(--destructive))]/40 bg-transparent text-[hsl(var(--destructive))] hover:bg-[hsl(var(--tint-red))]',
         outline:     'border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))] hover:border-[hsl(var(--input))]',
         secondary:   'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--surface-container-high))]',
         ghost:       'bg-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--muted))]',
         link:        'text-[hsl(var(--primary))] underline-offset-4 hover:underline p-0 h-auto rounded-none active:scale-100',
         // Older call sites. They all mean "the green go button" now, without the gradients.
-        student:     'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90',
-        teacher:     'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90',
-        app:         'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90',
+        student:     'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-90',
+        teacher:     'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-90',
+        app:         'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:brightness-90',
       },
       size: {
         default: 'h-9 px-4',

@@ -340,6 +340,7 @@ export default function HostSession() {
           {state === 'lobby' && (
             <motion.div key="lobby" variants={stagger(0.06)} initial="hidden" animate="show" exit={{ opacity: 0 }} className="grid gap-x-16 gap-y-12 pb-28 pt-4 lg:grid-cols-[1fr_1fr]">
               <div>
+                <h1 className="sr-only">Live game lobby for {session.quizTitle}</h1>
                 <motion.p variants={rise} className="eyebrow">Join at {joinHost}</motion.p>
                 <motion.p variants={rise} className="tabular mt-3 font-mono text-[clamp(4rem,11vw,8rem)] font-medium leading-none tracking-[0.12em]">{pin}</motion.p>
 

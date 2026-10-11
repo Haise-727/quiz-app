@@ -50,7 +50,7 @@ export default function QuizResult({ result, summary, mode, onReview, onExit, ex
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col justify-center px-6 py-14">
       {celebrate && <Confetti count={leveled ? 130 : 90} />}
       <motion.div variants={stagger(0.08)} initial="hidden" animate="show">
-        <motion.p variants={rise} className="eyebrow">{pending ? 'Submitted' : 'Quiz complete'}</motion.p>
+        <motion.h1 variants={rise} className="eyebrow">{pending ? 'Submitted' : 'Quiz complete'}</motion.h1>
 
         <motion.div variants={rise} className="mt-3 flex items-end gap-3">
           <span className="text-hero text-[7rem] leading-none text-[hsl(var(--foreground))] tabular">

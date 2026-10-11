@@ -119,7 +119,7 @@ export default function DashboardLayout({ children }) {
       <div className="shrink-0 space-y-3 border-t border-[hsl(var(--border))] p-4">
         {/* Students always see where they stand. */}
         {isStudent && level && (
-          <Link to="/student/dashboard" className="block rounded-lg p-1 hover:bg-[hsl(var(--muted))]/60" aria-label="Your progress">
+          <Link to="/student/dashboard" className="block rounded-lg p-1 hover:bg-[hsl(var(--muted))]/60">
             <div className="flex items-center gap-3">
               <LevelBadge level={level.level} size="sm" />
               <div className="min-w-0 flex-1">
@@ -130,6 +130,7 @@ export default function DashboardLayout({ children }) {
               </div>
               {stats && <StreakChip days={stats.streak.current} doneToday={stats.streak.doneToday} className="!px-2 !py-0.5 text-[11px]" />}
             </div>
+            <span className="sr-only">Your progress</span>
           </Link>
         )}
 
@@ -153,6 +154,7 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="flex min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
+      <a href="#main-content" className="sr-only z-50 rounded-md bg-[hsl(var(--ink))] px-4 py-2 text-sm font-medium text-[hsl(var(--ink-foreground))] focus:not-sr-only focus:fixed focus:left-4 focus:top-4">Skip to the content</a>
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-[hsl(var(--border))] md:block"><Sidebar /></aside>
 
       <AnimatePresence>
@@ -214,7 +216,7 @@ export default function DashboardLayout({ children }) {
           </div>
         </header>
 
-        <main className="relative flex-1 px-4 py-8 md:px-8 md:py-10">{children}</main>
+        <main id="main-content" tabIndex={-1} className="relative flex-1 px-4 py-8 outline-none md:px-8 md:py-10">{children}</main>
       </div>
     </div>
   );

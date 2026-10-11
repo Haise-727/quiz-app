@@ -31,7 +31,7 @@ export default function ResultCard({ question, result, rank }) {
       <motion.span variants={{ hidden: { scale: 0 }, show: { scale: 1, transition: springPop } }} className={`grid h-20 w-20 place-items-center rounded-3xl ${look.tile}`}>
         <look.Icon className="h-9 w-9" />
       </motion.span>
-      <motion.h2 variants={rise} className="mt-5 text-3xl font-semibold tracking-tight">{look.title}</motion.h2>
+      <motion.h1 variants={rise} className="mt-5 text-3xl font-semibold tracking-tight">{look.title}</motion.h1>
 
       {result && (
         <motion.p variants={rise} className="mt-2 text-hero text-6xl tabular text-[hsl(var(--foreground))]">

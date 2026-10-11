@@ -54,7 +54,7 @@ export default function Browse() {
   return (
     <div className="min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       <PublicNav />
-      <main className="mx-auto max-w-4xl px-5 pb-24 pt-14 sm:px-8 sm:pt-20">
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-4xl px-5 pb-24 pt-14 outline-none sm:px-8 sm:pt-20">
         <PageHeader serif eyebrow="Open to everyone" title="Pick a quiz." description="Every quiz here is open right now. No account needed to play." />
         <div className="mt-12">
           <QuizBrowser

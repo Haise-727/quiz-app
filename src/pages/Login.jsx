@@ -151,7 +151,7 @@ export default function Login() {
     <div className="min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       <PublicNav bare />
 
-      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-16 px-5 pb-20 pt-12 sm:px-8 lg:grid-cols-[1fr_28rem] lg:items-center lg:pt-24">
+      <main id="main-content" tabIndex={-1} className="mx-auto grid max-w-6xl grid-cols-1 gap-16 px-5 pb-20 pt-12 outline-none sm:px-8 lg:grid-cols-[1fr_28rem] lg:items-center lg:pt-24">
         <div className="hidden lg:block">
           <p className="eyebrow">{signup ? 'Create an account' : 'Welcome back'}</p>
           <h1 className="text-hero mt-5 text-7xl leading-[0.98]">{signup ? 'Start with a first quiz.' : 'Your streak is waiting.'}</h1>

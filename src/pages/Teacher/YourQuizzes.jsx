@@ -253,7 +253,7 @@ const YourQuizzes = () => {
     >
       <div className="min-w-0 flex-1 basis-60">
         <div className="flex items-center gap-2.5">
-          <h3 className="truncate font-medium text-[hsl(var(--foreground))]">{quiz.title}</h3>
+          {showHeadings ? <h3 className="truncate font-medium text-[hsl(var(--foreground))]">{quiz.title}</h3> : <h2 className="truncate font-medium text-[hsl(var(--foreground))]">{quiz.title}</h2>}
           <Badge variant={quiz.active ? 'success' : 'secondary'} className="shrink-0">{quiz.active ? 'Active' : 'Draft'}</Badge>
         </div>
         <p className="tabular mt-1 text-xs text-[hsl(var(--muted-foreground))]">

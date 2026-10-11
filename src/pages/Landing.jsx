@@ -70,7 +70,7 @@ export default function Landing() {
     <div className="min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       <PublicNav />
 
-      <main>
+      <main id="main-content" tabIndex={-1} className="outline-none">
         {/* Hero: one idea, one field. */}
         <section className="relative overflow-hidden">
           <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-48 h-[34rem] w-[34rem] rounded-full bg-[hsl(var(--brand))]/[0.07] blur-3xl" />

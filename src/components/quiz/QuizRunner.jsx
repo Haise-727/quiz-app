@@ -300,6 +300,7 @@ export default function QuizRunner({ quizId, mode, loadHistory, saveResult, reme
             exit="exit"
           >
             <QuestionView
+              headingLevel="h1"
               question={question}
               answer={answers[index]}
               onChange={onChange}

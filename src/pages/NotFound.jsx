@@ -10,7 +10,7 @@ export default function NotFound() {
   return (
     <div className="min-h-dvh bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       <PublicNav />
-      <main className="mx-auto max-w-6xl px-5 pb-24 pt-20 sm:px-8 sm:pt-32">
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-6xl px-5 pb-24 pt-20 outline-none sm:px-8 sm:pt-32">
         <motion.div variants={stagger(0.07)} initial="hidden" animate="show">
           <motion.p variants={rise} className="eyebrow">Error 404</motion.p>
           <motion.h1 variants={rise} className="text-hero mt-5 text-[clamp(3.5rem,10vw,8rem)] leading-[0.95]">This page is not here.</motion.h1>

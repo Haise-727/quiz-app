@@ -25,8 +25,11 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
  * @param onChange   (value, subIndex) => void   for options and typed answers
  * @param onDragEnd  the drag and drop result handler (Match, Reorder, Categorize)
  * @param onEnter    called when Enter is pressed inside a text answer, to move on
+ * @param headingLevel  'h1' when the question is the heading of its page, otherwise 'h2'
  */
-export default function QuestionView({ question, answer, onChange, onDragEnd, onEnter }) {
+export default function QuestionView({ question, answer, onChange, onDragEnd, onEnter, headingLevel = 'h2' }) {
+  // The quiz page makes the question its page heading (h1). A card inside a bigger page uses the default.
+  const Heading = headingLevel;
   // A "click on the image" question draws its picture inside the answer area, because the
   // picture IS the answer board. Showing it here as well would put it on screen twice.
   const media = question.type === 'HOTSPOT' ? null : getMainMedia(question);
@@ -53,9 +56,9 @@ export default function QuestionView({ question, answer, onChange, onDragEnd, on
         </div>
       )}
 
-      <h2 className="text-2xl font-semibold leading-snug tracking-tight text-[hsl(var(--foreground))] sm:text-[1.75rem]">
+      <Heading className="text-2xl font-semibold leading-snug tracking-tight text-[hsl(var(--foreground))] sm:text-[1.75rem]">
         <MathText text={question.questionText} />
-      </h2>
+      </Heading>
       {multi && <p className="eyebrow mt-3">Select all that apply</p>}
 
       <div className="mt-8">
