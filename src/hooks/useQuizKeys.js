@@ -22,6 +22,9 @@ export default function useQuizKeys(handlers, enabled = true) {
       const el = e.target;
       const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
       if (typing) return;
+      // Something on the page may need the arrow keys for itself (the click on the image picture
+      // moves its marker with them). It says so with data-owns-keys, and we keep out of its way.
+      if (e.key.startsWith('Arrow') && el && el.closest && el.closest('[data-owns-keys]')) return;
       const h = ref.current;
       // A focused button or link already turns Enter into a click. Handling it here too
       // would fire twice, so after clicking "Next" a press of Enter would skip a question.

@@ -8,6 +8,8 @@ import { PiArrowRightBold, PiClockBold, PiEyeBold } from 'react-icons/pi';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/firebase';
 import MediaRenderer from '@/components/MediaRenderer';
+import HotspotPicker from '@/components/quiz/HotspotPicker';
+import MathText from '@/components/MathText';
 import { CorrectAnswer, MiniMedia } from '@/components/AnswerReveal';
 import PageHeader from '@/components/layout/PageHeader';
 import AnimatedNumber from '@/components/game/AnimatedNumber';
@@ -30,7 +32,8 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
   const isPending = studentAnswerData.status === 'pending_review';
   const isCorrect = !isPending && !!studentAnswerData.isCorrect;
   const isPartial = !isPending && !isCorrect && studentAnswerData.pointsAwarded > 0;
-  const mainMedia = getMainMedia(originalQuestion);
+  // A click on the image question shows its picture inside the answer, with the student's mark on it.
+  const mainMedia = originalQuestion.type === 'HOTSPOT' ? null : getMainMedia(originalQuestion);
 
     const statusLabel = isPending ? 'Pending' : isCorrect ? 'Correct' : isPartial ? 'Partial' : 'Incorrect';
 
@@ -57,6 +60,10 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
           </div>
         );
       }
+      case 'NUMERIC':
+        return <span className="tabular">{ua}{originalQuestion.numericData?.unit && !String(ua).toLowerCase().includes(String(originalQuestion.numericData.unit).toLowerCase()) ? ` ${originalQuestion.numericData.unit}` : ''}</span>;
+      case 'HOTSPOT':
+        return <HotspotPicker media={originalQuestion.media} value={ua} />;
       case 'FILL_IN_THE_BLANK': case 'PARAGRAPH':
         return <p className="whitespace-pre-wrap m-0">{ua}</p>;
       case 'REORDER':
@@ -142,6 +149,8 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
             })}
           </div>
         );
+      case 'NUMERIC': case 'HOTSPOT':
+        return <CorrectAnswer q={originalQuestion} tone="plain" />;
       case 'FILL_IN_THE_BLANK':
         return <p className="m-0">{originalQuestion.fillBlankData.answers.map(a => a.text).join(' / ')}</p>;
       case 'REORDER':
@@ -192,7 +201,7 @@ const QuestionReview = ({ originalQuestion, studentAnswerData, index }) => {
         <span className="tabular mt-1 w-6 shrink-0 font-mono text-xs text-[hsl(var(--muted-foreground))]">{String(index + 1).padStart(2, '0')}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="min-w-0 flex-1 text-base font-medium leading-snug">{originalQuestion.questionText}</p>
+            <p className="min-w-0 flex-1 text-base font-medium leading-snug"><MathText text={originalQuestion.questionText} /></p>
             <Chip tone={tone}>{isPending ? 'Pending' : `${studentAnswerData.pointsAwarded}/${originalQuestion.points} ${statusLabel.toLowerCase()}`}</Chip>
           </div>
 

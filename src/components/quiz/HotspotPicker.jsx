@@ -54,6 +54,7 @@ export default function HotspotPicker({ media, value, onChange, regions = [], ma
         ref={box}
         role={interactive ? 'button' : 'img'}
         tabIndex={interactive ? 0 : undefined}
+        data-owns-keys={interactive ? '' : undefined}
         aria-label={interactive
           ? (value ? 'Picture. Your mark is placed. Tap to move it, or use the arrow keys.' : 'Picture. Tap the place you mean, or use the arrow keys to move a marker.')
           : 'Picture with the answer marked'}
