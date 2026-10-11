@@ -3,7 +3,7 @@ import { Link, matchPath, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
-  PiArrowsLeftRightBold, PiBookOpenBold, PiBooksBold, PiCaretLeftBold, PiGraduationCapBold, PiListBold,
+  PiArrowsLeftRightBold, PiBookOpenBold, PiBooksBold, PiCaretLeftBold, PiChartLineUpBold, PiGraduationCapBold, PiListBold,
   PiMoonBold, PiPlayCircleBold, PiSignOutBold, PiSpeakerHighBold, PiSpeakerSlashBold, PiSquaresFourBold,
   PiSunBold, PiTrophyBold, PiUserCircleBold, PiXBold,
 } from 'react-icons/pi';
@@ -39,6 +39,7 @@ const LINKS = {
     { path: '/teacher/your-quizzes', label: 'Your quizzes', icon: PiBookOpenBold },
     { path: '/teacher/classes', label: 'Classes', icon: PiGraduationCapBold },
     { path: '/teacher/question-bank', label: 'Question bank', icon: PiBooksBold },
+    { path: '/teacher/insights', label: 'Insights', icon: PiChartLineUpBold },
   ],
   student: [
     { path: '/student/dashboard', label: 'Dashboard', icon: PiSquaresFourBold },

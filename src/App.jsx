@@ -19,6 +19,7 @@ const CreateQuiz       = lazy(() => import('./pages/Teacher/CreateQuiz'));
 const YourQuizzes      = lazy(() => import('./pages/Teacher/YourQuizzes'));
 const Grading          = lazy(() => import('./pages/Teacher/Grading'));
 const Analytics        = lazy(() => import('./pages/Teacher/Analytics'));
+const Insights         = lazy(() => import('./pages/Teacher/Insights'));
 const Classes          = lazy(() => import('./pages/Teacher/Classes'));
 const QuestionBank     = lazy(() => import('./pages/Teacher/QuestionBank'));
 const HostSession      = lazy(() => import('./pages/Teacher/HostSession'));
@@ -93,6 +94,7 @@ function App() {
         <Route path="/teacher/question-bank"     element={<ProtectedRoute role="teacher"><DashboardLayout><QuestionBank /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/grading/:quizId"    element={<ProtectedRoute role="teacher"><DashboardLayout><Grading /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/analytics/:quizId" element={<ProtectedRoute role="teacher"><DashboardLayout><Analytics /></DashboardLayout></ProtectedRoute>} />
+        <Route path="/teacher/insights"          element={<ProtectedRoute role="teacher"><DashboardLayout><Insights /></DashboardLayout></ProtectedRoute>} />
         <Route path="/teacher/host/:pin"         element={<ProtectedRoute role="teacher"><HostSession /></ProtectedRoute>} />
 
         {/* ── Shared (any authenticated user) ── */}

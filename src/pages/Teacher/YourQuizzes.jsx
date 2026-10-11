@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
-import { collection, query, where, getDocs, deleteDoc, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, deleteDoc, deleteField, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -24,9 +24,12 @@ import { rise, spring, stagger } from '@/lib/motion';
 import {
   PiPlusBold, PiEyeBold, PiTrashBold, PiShareNetworkBold, PiPencilSimpleBold, PiDotsThreeVerticalBold,
   PiToggleLeftBold, PiToggleRightBold, PiClipboardTextBold, PiChartBarBold, PiMagnifyingGlassBold,
-  PiBroadcastBold, PiSpinnerGapBold, PiCheckBold,
+  PiBroadcastBold, PiSpinnerGapBold, PiCheckBold, PiCopyBold, PiFolderSimpleBold, PiLockSimpleBold, PiLockSimpleOpenBold,
 } from 'react-icons/pi';
 import { createLiveSession } from '../../utils/liveSession';
+import {
+  FOLDER_MAX, cloningAllowed, copyQuiz, folderNames, groupByFolder, matchExistingFolder, normalizeFolder,
+} from '../../utils/quizCopy';
 
 // ── Question preview inside details modal ──────────────────────────────────────
 const QuestionPreview = ({ question, index }) => {
@@ -95,7 +98,7 @@ const QuestionPreview = ({ question, index }) => {
 // ── Main page ─────────────────────────────────────────────────────────────────
 const YourQuizzes = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, displayName } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [quizzes, setQuizzes] = useState([]);
@@ -103,13 +106,21 @@ const YourQuizzes = () => {
   const [detailsQuiz, setDetailsQuiz] = useState(null);
   const [deleteQuiz, setDeleteQuiz] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  // Duplicate: the id of the quiz being copied, so its menu item can say so and not run twice.
+  const [duplicatingId, setDuplicatingId] = useState(null);
+  // Folders: which chip is selected, and the "Move to folder" dialog (quiz, typed value, saving).
+  const [folderFilter, setFolderFilter] = useState('all');
+  const [folderQuiz, setFolderQuiz] = useState(null);
+  const [folderValue, setFolderValue] = useState('');
+  const [savingFolder, setSavingFolder] = useState(false);
 
   useEffect(() => {
     if (currentUser) fetchQuizzes();
   }, [currentUser]);
 
-  const fetchQuizzes = async () => {
-    setLoading(true);
+  // `quiet` refreshes the list without swapping it for skeletons (used after a duplicate).
+  const fetchQuizzes = async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const snap = await getDocs(
         query(collection(db, 'quizzes'), where('createdBy', '==', currentUser.uid), orderBy('createdAt', 'desc'))
@@ -154,6 +165,55 @@ const YourQuizzes = () => {
     finally { setDeleting(false); }
   };
 
+  // Duplicate: a draft copy of this quiz with a new code and no results.
+  const handleDuplicate = async (quiz) => {
+    if (duplicatingId) return;
+    setDuplicatingId(quiz.id);
+    try {
+      const copy = await copyQuiz({
+        db, source: quiz, user: { uid: currentUser.uid, name: displayName || currentUser.displayName },
+        titleSuffix: ' (copy)', keepFolder: true,
+      });
+      await fetchQuizzes(true);
+      toast.success('Copy created as a draft.', {
+        action: { label: 'Open', onClick: () => navigate(`/teacher/edit-quiz/${copy.id}`) },
+      });
+    } catch (e) { toast.error(e.message || 'We could not duplicate that quiz.'); }
+    finally { setDuplicatingId(null); }
+  };
+
+  // Folders: open the dialog with the quiz's current folder filled in.
+  const openFolderDialog = (quiz) => { setFolderQuiz(quiz); setFolderValue(quiz.folder || ''); };
+
+  // An empty value removes the field, so the quiz goes back to Unfiled.
+  const saveFolder = async (e) => {
+    e.preventDefault();
+    if (!folderQuiz) return;
+    const folder = matchExistingFolder(folderValue, folders);
+    setSavingFolder(true);
+    try {
+      await updateDoc(doc(db, 'quizzes', folderQuiz.id), { folder: folder ? folder : deleteField() });
+      setQuizzes(qs => qs.map(q => {
+        if (q.id !== folderQuiz.id) return q;
+        const { folder: _old, ...rest } = q;
+        return folder ? { ...rest, folder } : rest;
+      }));
+      toast.success(folder ? `Moved to ${folder}.` : 'Removed from its folder.');
+      setFolderQuiz(null);
+    } catch { toast.error('We could not save the folder.'); }
+    finally { setSavingFolder(false); }
+  };
+
+  // Cloning switch: other teachers see Clone on an open quiz unless this is false.
+  const handleToggleCloning = async (quiz) => {
+    const next = !cloningAllowed(quiz);
+    try {
+      await updateDoc(doc(db, 'quizzes', quiz.id), { allowCloning: next });
+      setQuizzes(qs => qs.map(q => q.id === quiz.id ? { ...q, allowCloning: next } : q));
+      toast.success(next ? 'Other teachers can now clone this quiz.' : 'Other teachers can no longer clone this quiz.');
+    } catch { toast.error('We could not update that setting.'); }
+  };
+
   const handleShareLink = async (quiz) => {
     try { await navigator.clipboard.writeText(`${window.location.origin}/quiz/${quiz.id}`); toast.success('Share link copied.'); }
     catch { toast.error('We could not copy the link.'); }
@@ -169,6 +229,84 @@ const YourQuizzes = () => {
     !search ||
     q.title?.toLowerCase().includes(needle) ||
     q.description?.toLowerCase().includes(needle)
+  );
+
+  // Folders: the names in use, the unfiled count, and the groups to draw. A chip for a folder
+  // that has just been emptied no longer exists, so fall back to "All" instead of an empty page.
+  const folders = folderNames(quizzes);
+  const unfiledCount = quizzes.filter(q => !normalizeFolder(q.folder)).length;
+  const activeFilter = folderFilter === 'all' || (folderFilter === 'unfiled' && unfiledCount > 0) || folders.includes(folderFilter) ? folderFilter : 'all';
+  const groups = groupByFolder(shown, activeFilter);
+  // Headings only appear once the teacher has made a folder, so a plain list stays plain.
+  const showHeadings = folders.length > 0;
+  const chips = [{ key: 'all', label: 'All' }, ...folders.map(f => ({ key: f, label: f })), ...(folders.length && unfiledCount ? [{ key: 'unfiled', label: 'Unfiled' }] : [])];
+
+  // One quiz row. Kept as a function so every group draws its rows the same way.
+  const renderRow = (quiz) => (
+    <motion.li
+      key={quiz.id}
+      layout
+      variants={rise}
+      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+      transition={spring}
+      className="flex flex-wrap items-center gap-x-5 gap-y-3 py-4"
+    >
+      <div className="min-w-0 flex-1 basis-60">
+        <div className="flex items-center gap-2.5">
+          <h3 className="truncate font-medium text-[hsl(var(--foreground))]">{quiz.title}</h3>
+          <Badge variant={quiz.active ? 'success' : 'secondary'} className="shrink-0">{quiz.active ? 'Active' : 'Draft'}</Badge>
+        </div>
+        <p className="tabular mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+          {quiz.questions?.length || 0} {quiz.questions?.length === 1 ? 'question' : 'questions'}
+          <span className="px-1.5">·</span>{quiz.totalPoints || 0} pts
+          <span className="px-1.5">·</span>{formatDate(quiz.createdAt)}
+          {!cloningAllowed(quiz) && <><span className="px-1.5">·</span>Cloning off</>}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-0.5">
+        <span className="font-mono text-sm tracking-widest text-[hsl(var(--foreground))]">{quiz.code}</span>
+        <CopyCodeButton text={quiz.code} label={`Copy code ${quiz.code}`} successMessage="Quiz code copied." />
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <Button size="sm" variant="brand" onClick={() => handleHostLive(quiz)} disabled={hostingId === quiz.id}>
+          {hostingId === quiz.id ? <PiSpinnerGapBold className="animate-spin" /> : <PiBroadcastBold />}
+          Host live game
+        </Button>
+        <Button size="icon" variant="ghost" aria-label={`Edit ${quiz.title}`} title="Edit quiz" onClick={() => navigate(`/teacher/edit-quiz/${quiz.id}`)}>
+          <PiPencilSimpleBold />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" aria-label={`More actions for ${quiz.title}`} title="More actions">
+              <PiDotsThreeVerticalBold />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setDetailsQuiz(quiz)}><PiEyeBold className="h-4 w-4" /> Preview</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/teacher/grading/${quiz.id}`)}><PiClipboardTextBold className="h-4 w-4" /> Grade</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate(`/teacher/analytics/${quiz.id}`)}><PiChartBarBold className="h-4 w-4" /> Analytics</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleToggle(quiz)}>
+              {quiz.active ? <PiToggleLeftBold className="h-4 w-4" /> : <PiToggleRightBold className="h-4 w-4" />}
+              {quiz.active ? 'Deactivate' : 'Activate'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleDuplicate(quiz)} disabled={!!duplicatingId}><PiCopyBold className="h-4 w-4" /> Duplicate</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openFolderDialog(quiz)}><PiFolderSimpleBold className="h-4 w-4" /> Move to folder</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleToggleCloning(quiz)}>
+              {cloningAllowed(quiz) ? <PiLockSimpleBold className="h-4 w-4" /> : <PiLockSimpleOpenBold className="h-4 w-4" />}
+              {cloningAllowed(quiz) ? 'Stop allowing cloning' : 'Allow cloning'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleShareLink(quiz)}><PiShareNetworkBold className="h-4 w-4" /> Copy share link</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setDeleteQuiz(quiz)} className="text-[hsl(var(--destructive))] focus:bg-[hsl(var(--tint-red))] focus:text-[hsl(var(--destructive))]">
+              <PiTrashBold className="h-4 w-4" /> Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </motion.li>
   );
 
   return (
@@ -187,6 +325,24 @@ const YourQuizzes = () => {
           <Input aria-label="Search quizzes" placeholder="Search quizzes" value={search} onChange={e => setSearch(e.target.value)} className="h-9 pl-9" />
         </div>
 
+        {/* Folder filter. Only shown once at least one folder exists. */}
+        {!loading && folders.length > 0 && (
+          <div role="group" aria-label="Folder" className="-mx-1 mb-6 flex flex-wrap gap-x-1 gap-y-1">
+            {chips.map(c => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setFolderFilter(c.key)}
+                aria-pressed={activeFilter === c.key}
+                className={`relative isolate cursor-pointer rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] ${activeFilter === c.key ? 'font-medium text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'}`}
+              >
+                {activeFilter === c.key && <motion.span layoutId="folder-pill" transition={spring} className="absolute inset-0 -z-10 rounded-md bg-[hsl(var(--muted))]" />}
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div className="space-y-3 border-t border-[hsl(var(--border))] pt-4">
             {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}
@@ -200,69 +356,22 @@ const YourQuizzes = () => {
         ) : shown.length === 0 ? (
           <p className="border-t border-[hsl(var(--border))] pt-6 text-sm text-[hsl(var(--muted-foreground))]">No quiz matches that search.</p>
         ) : (
-          <motion.ul variants={stagger(0.04)} initial="hidden" animate="show" className="divide-y divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
-            <AnimatePresence>
-              {shown.map((quiz) => (
-                <motion.li
-                  key={quiz.id}
-                  layout
-                  variants={rise}
-                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                  transition={spring}
-                  className="flex flex-wrap items-center gap-x-5 gap-y-3 py-4"
-                >
-                  <div className="min-w-0 flex-1 basis-60">
-                    <div className="flex items-center gap-2.5">
-                      <h3 className="truncate font-medium text-[hsl(var(--foreground))]">{quiz.title}</h3>
-                      <Badge variant={quiz.active ? 'success' : 'secondary'} className="shrink-0">{quiz.active ? 'Active' : 'Draft'}</Badge>
-                    </div>
-                    <p className="tabular mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-                      {quiz.questions?.length || 0} {quiz.questions?.length === 1 ? 'question' : 'questions'}
-                      <span className="px-1.5">·</span>{quiz.totalPoints || 0} pts
-                      <span className="px-1.5">·</span>{formatDate(quiz.createdAt)}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-0.5">
-                    <span className="font-mono text-sm tracking-widest text-[hsl(var(--foreground))]">{quiz.code}</span>
-                    <CopyCodeButton text={quiz.code} label={`Copy code ${quiz.code}`} successMessage="Quiz code copied." />
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <Button size="sm" variant="brand" onClick={() => handleHostLive(quiz)} disabled={hostingId === quiz.id}>
-                      {hostingId === quiz.id ? <PiSpinnerGapBold className="animate-spin" /> : <PiBroadcastBold />}
-                      Host live game
-                    </Button>
-                    <Button size="icon" variant="ghost" aria-label={`Edit ${quiz.title}`} title="Edit quiz" onClick={() => navigate(`/teacher/edit-quiz/${quiz.id}`)}>
-                      <PiPencilSimpleBold />
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost" aria-label={`More actions for ${quiz.title}`} title="More actions">
-                          <PiDotsThreeVerticalBold />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setDetailsQuiz(quiz)}><PiEyeBold className="h-4 w-4" /> Preview</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/teacher/grading/${quiz.id}`)}><PiClipboardTextBold className="h-4 w-4" /> Grade</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/teacher/analytics/${quiz.id}`)}><PiChartBarBold className="h-4 w-4" /> Analytics</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleToggle(quiz)}>
-                          {quiz.active ? <PiToggleLeftBold className="h-4 w-4" /> : <PiToggleRightBold className="h-4 w-4" />}
-                          {quiz.active ? 'Deactivate' : 'Activate'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleShareLink(quiz)}><PiShareNetworkBold className="h-4 w-4" /> Copy share link</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setDeleteQuiz(quiz)} className="text-[hsl(var(--destructive))] focus:bg-[hsl(var(--tint-red))] focus:text-[hsl(var(--destructive))]">
-                          <PiTrashBold className="h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </motion.li>
-              ))}
-            </AnimatePresence>
-          </motion.ul>
+          <div className="space-y-10">
+            {groups.map(({ folder, quizzes: inGroup }) => (
+              <div key={folder ?? '__unfiled'}>
+                {showHeadings && (
+                  <h2 className="mb-2 flex items-baseline gap-2 text-sm font-medium text-[hsl(var(--foreground))]">
+                    <PiFolderSimpleBold aria-hidden="true" className="h-4 w-4 self-center text-[hsl(var(--muted-foreground))]" />
+                    {folder ?? 'Unfiled'}
+                    <span className="tabular text-xs font-normal text-[hsl(var(--muted-foreground))]">{inGroup.length}</span>
+                  </h2>
+                )}
+                <motion.ul variants={stagger(0.04)} initial="hidden" animate="show" className="divide-y divide-[hsl(var(--border))] border-y border-[hsl(var(--border))]">
+                  <AnimatePresence>{inGroup.map(renderRow)}</AnimatePresence>
+                </motion.ul>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
@@ -283,6 +392,56 @@ const YourQuizzes = () => {
               <QuestionPreview key={q.id || i} question={q} index={i} />
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move to folder dialog. An empty value removes the folder. */}
+      <Dialog open={!!folderQuiz} onOpenChange={open => !open && setFolderQuiz(null)}>
+        <DialogContent className="max-w-sm">
+          <form onSubmit={saveFolder}>
+            <DialogHeader>
+              <DialogTitle>Move to folder</DialogTitle>
+              <DialogDescription>
+                Pick a folder for <strong>"{folderQuiz?.title}"</strong>, or type a new name. Leave it empty to remove the quiz from its folder.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-2 px-6 pb-5">
+              <label htmlFor="folder-name" className="eyebrow">Folder name</label>
+              <Input
+                id="folder-name"
+                value={folderValue}
+                onChange={e => setFolderValue(e.target.value.slice(0, FOLDER_MAX))}
+                maxLength={FOLDER_MAX}
+                placeholder="For example, Term 1"
+                autoComplete="off"
+                autoFocus
+                className="mt-2"
+              />
+              <p className="tabular mt-1.5 text-right text-xs text-[hsl(var(--muted-foreground))]">{folderValue.length} of {FOLDER_MAX}</p>
+              {folders.length > 0 && (
+                <div className="mt-2">
+                  <p className="eyebrow">Your folders</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {folders.map(f => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setFolderValue(f)}
+                        aria-pressed={folderValue === f}
+                        className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] ${folderValue === f ? 'bg-[hsl(var(--ink))] text-[hsl(var(--ink-foreground))]' : 'bg-[hsl(var(--tint-neutral))] text-[hsl(var(--tint-neutral-fg))] hover:bg-[hsl(var(--muted))]'}`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setFolderQuiz(null)}>Cancel</Button>
+              <Button type="submit" disabled={savingFolder}>{savingFolder ? 'Saving' : 'Save'}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

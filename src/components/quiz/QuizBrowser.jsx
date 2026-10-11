@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PiMagnifyingGlassBold, PiPlayFill } from 'react-icons/pi';
+import { PiCopyBold, PiMagnifyingGlassBold, PiPlayFill, PiSpinnerGapBold } from 'react-icons/pi';
 import { Button } from '@/components/ui/button';
 import { ease, rise, spring, stagger } from '@/lib/motion';
 
@@ -15,8 +15,12 @@ const Skeleton = ({ className = '' }) => <div className={`animate-pulse rounded-
  * @param failed   the fetch failed (the list is then empty)
  * @param onPlay   (quizId) => void, since a signed in student plays at a different address
  * @param emptyHint  what to say when there are no open quizzes at all
+ * @param onClone  optional (quiz) => void. Only a signed in teacher is given it. When set, each
+ *                 quiz gets a Clone button, except the teacher's own and ones that opted out
+ * @param cloneUserId  the signed in teacher's uid, so their own quizzes never show Clone
+ * @param cloningId  id of the quiz being cloned right now, to show a spinner and stop double taps
  */
-export default function QuizBrowser({ quizzes, loading = false, failed = false, onPlay, emptyHint = 'Check back later, or sign in to make one.' }) {
+export default function QuizBrowser({ quizzes, loading = false, failed = false, onPlay, emptyHint = 'Check back later, or sign in to make one.', onClone, cloneUserId, cloningId = null }) {
   const [search, setSearch] = useState('');
   const [subject, setSubject] = useState('All');
 
@@ -100,6 +104,12 @@ export default function QuizBrowser({ quizzes, loading = false, failed = false, 
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
+                  {/* A missing allowCloning means allowed. Never offered on your own quiz. */}
+                  {onClone && q.allowCloning !== false && q.createdBy !== cloneUserId && (
+                    <Button variant="outline" size="sm" onClick={() => onClone(q)} disabled={!!cloningId} aria-label={`Clone ${q.title} into your quizzes`}>
+                      {cloningId === q.id ? <PiSpinnerGapBold className="animate-spin" /> : <PiCopyBold />} Clone
+                    </Button>
+                  )}
                   <Button variant="brand" size="sm" onClick={() => onPlay(q.id)}><PiPlayFill /> Play</Button>
                 </div>
               </motion.li>
