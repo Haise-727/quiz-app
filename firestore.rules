@@ -16,24 +16,27 @@ service cloud.firestore {
     }
 
     // ── users ─────────────────────────────────────────────────────────────────
-    // Any signed-in user can read other profiles (needed for teacher grading display names).
-    // Only the owner can write their own profile.
+    // A signed in user can read ONE profile when they know its id (a teacher needs a
+    // student's display name), but nobody can list the collection, so there is no way to
+    // collect every email address. Only the owner can write their own profile, and delete it
+    // (the account deletion on the Profile page).
     match /users/{userId} {
-      allow read:   if isSignedIn();
+      allow get:    if isSignedIn();
+      allow list:   if false;
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
-      allow delete: if false;
+      allow delete: if isOwner(userId);
     }
 
     // ── quizzes ───────────────────────────────────────────────────────────────
     // - Active quizzes are publicly readable (students/guests need to join by code).
     // - Creator can always read their own (even inactive).
-    // - Only signed-in users (teachers) can create quizzes.
+    // - A quiz can only be created in your own name, so nobody can publish a quiz as someone else.
     // - Only the creator can update or delete.
     match /quizzes/{quizId} {
       allow read:   if resource.data.active == true ||
                        isOwner(resource.data.createdBy);
-      allow create: if isSignedIn();
+      allow create: if isOwner(request.resource.data.createdBy);
       allow update: if isOwner(resource.data.createdBy);
       allow delete: if isOwner(resource.data.createdBy);
     }
@@ -43,13 +46,15 @@ service cloud.firestore {
     // - A signed-in student can read their own results.
     // - The quiz's teacher can read all results for their quiz.
     // - Only the teacher can UPDATE a result (for manual grading).
-    // - Only the quiz's teacher can delete results (e.g. clearing test data).
+    // - The quiz's teacher can delete results (e.g. clearing test data), and a student can
+    //   delete their own (account deletion).
     match /quiz_results/{resultId} {
       allow create: if true;   // guests + students
       allow read:   if isOwner(resource.data.userId) ||
                        isOwner(resource.data.teacherId);
       allow update: if isOwner(resource.data.teacherId);
-      allow delete: if isOwner(resource.data.teacherId);
+      allow delete: if isOwner(resource.data.teacherId) ||
+                       isOwner(resource.data.userId);
     }
 
     // ── classes ───────────────────────────────────────────────────────────────
@@ -86,12 +91,12 @@ service cloud.firestore {
     // ── notifications ─────────────────────────────────────────────────────────
     // - Any signed-in user can create a notification for another user (e.g. teacher
     //   notifying a student that their submission was graded).
-    // - Only the recipient can read/mark their own notifications as read.
+    // - Only the recipient can read, mark as read, or delete their own notifications.
     match /notifications/{notificationId} {
       allow read:   if isOwner(resource.data.userId);
       allow create: if isSignedIn();
       allow update: if isOwner(resource.data.userId);
-      allow delete: if false;
+      allow delete: if isOwner(resource.data.userId);
     }
   }
 }

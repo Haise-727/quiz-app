@@ -1,10 +1,32 @@
 {
   "rules": {
     "sessions": {
-      ".read": true,
-      ".write": true,
+      ".read": false,
       "$pin": {
-        ".validate": "newData.hasChildren(['quizId', 'hostId', 'state']) || !newData.exists()"
+        ".read": true,
+        ".validate": "newData.hasChildren(['quizId', 'hostId', 'state']) || !newData.exists()",
+        ".write": "auth != null && (!data.exists() || data.child('hostId').val() === auth.uid)",
+        "hostId": { ".validate": "newData.val() === auth.uid" },
+        "players": {
+          "$playerId": {
+            ".write": true,
+            ".validate": "newData.hasChildren(['name', 'score']) || !newData.exists()",
+            "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24" },
+            "score": { ".validate": "newData.isNumber()" },
+            "streak": { ".validate": "newData.isNumber()" },
+            "connected": { ".validate": "newData.isBoolean()" },
+            "team": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 4" },
+            "eliminatedAt": { ".validate": "newData.isNumber()" }
+          }
+        },
+        "answers": {
+          "$questionIndex": {
+            "$playerId": {
+              ".write": "!data.exists()",
+              ".validate": "newData.hasChildren(['correct', 'points'])"
+            }
+          }
+        }
       }
     }
   }

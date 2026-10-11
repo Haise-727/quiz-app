@@ -10,6 +10,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import AnimatedNumber from '@/components/game/AnimatedNumber';
 import Skeleton from '@/components/teacher/Skeleton';
 import { ease, rise, spring, stagger } from '@/lib/motion';
+import { getUserNames } from '../../utils/userNames';
 import { NEEDS_HELP_BELOW, mostMissed, studentRows, summarize, weeklyActivity } from '../../utils/insights';
 
 /**
@@ -80,7 +81,10 @@ export default function Insights() {
         getDocs(query(collection(db, 'quiz_results'), where('teacherId', '==', currentUser.uid))),
         getDocs(query(collection(db, 'quizzes'), where('createdBy', '==', currentUser.uid))),
       ]);
-      setResults(resultsSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const rows = resultsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // A signed in student's result carries no name, so look the names up (one profile at a time).
+      const names = await getUserNames(rows.map((r) => r.userId));
+      setResults(rows.map((r) => ({ ...r, userName: names[r.userId] || r.userName })));
       setQuizzes(quizzesSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);

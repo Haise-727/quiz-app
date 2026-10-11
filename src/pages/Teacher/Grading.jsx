@@ -11,6 +11,7 @@ import MediaRenderer from '../../components/MediaRenderer';
 import { mediaKind, getMainMedia, getSubQuestions } from '../../utils/media';
 import { Button } from '@/components/ui/button';
 import { createNotification } from '../../utils/notifications';
+import { getUserNames } from '../../utils/userNames';
 import PageHeader from '@/components/layout/PageHeader';
 import AnimatedNumber from '@/components/game/AnimatedNumber';
 import { rise, spring, stagger } from '@/lib/motion';
@@ -213,12 +214,8 @@ const Grading = () => {
       ));
       const subs = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      const userIds = [...new Set(subs.map(s => s.userId).filter(id => !id.startsWith('guest_')))];
-      const names = {};
-      if (userIds.length) {
-        const usersSnap = await getDocs(query(collection(db, 'users'), where('__name__', 'in', userIds)));
-        usersSnap.forEach(d => { names[d.id] = d.data().displayName || d.data().email; });
-      }
+      // Display names, read one profile at a time (see utils/userNames.js for why).
+      const names = await getUserNames(subs.map(s => s.userId));
 
       const enriched = subs.map(s => ({
         ...s,

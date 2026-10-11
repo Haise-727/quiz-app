@@ -1,4 +1,5 @@
 import { downloadCsv, safeFileName } from '../../utils/csv';
+import { getUserNames } from '../../utils/userNames';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { db } from '../../firebase';
@@ -63,16 +64,8 @@ const Analytics = () => {
       );
       const raw = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // Batch-fetch display names (30-item Firestore limit per query)
-      const userIds = [...new Set(raw.map(s => s.userId).filter(id => !id.startsWith('guest_')))];
-      const names = {};
-      for (let i = 0; i < userIds.length; i += 30) {
-        const batch = userIds.slice(i, i + 30);
-        if (batch.length) {
-          const snap = await getDocs(query(collection(db, 'users'), where('__name__', 'in', batch)));
-          snap.forEach(d => { names[d.id] = d.data().displayName || d.data().email; });
-        }
-      }
+      // Display names, read one profile at a time (see utils/userNames.js for why).
+      const names = await getUserNames(raw.map(s => s.userId));
 
       setSubs(raw.map(s => ({
         ...s,
