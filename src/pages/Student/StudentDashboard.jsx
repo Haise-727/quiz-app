@@ -12,12 +12,15 @@ import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/layout/PageHeader';
 import AnimatedNumber from '@/components/game/AnimatedNumber';
 import BadgeTile from '@/components/game/BadgeTile';
+import DailyQuestion from '@/components/game/DailyQuestion';
+import WeakSpots from '@/components/game/WeakSpots';
 import LevelBadge from '@/components/game/LevelBadge';
 import StreakChip from '@/components/game/StreakChip';
 import XPBar from '@/components/game/XPBar';
 import { joinClassByCode, getStudentClasses } from '@/utils/classHelpers';
 import { formatDueDate, getDueStatus, getQuizzesByIds } from '@/utils/assignmentHelpers';
-import { findActiveQuizByCode } from '@/utils/quizLookup';
+import { findActiveQuizByCode, getReadableQuizzes } from '@/utils/quizLookup';
+import { weakSpots } from '@/utils/weakSpots';
 import { pop, rise, stagger } from '@/lib/motion';
 
 const formatTime = (s) => {
@@ -39,7 +42,9 @@ export default function StudentDashboard() {
   const { currentUser: user, displayName } = useAuth();
 
   // Progress comes from the shared context, so the sidebar and this page always agree.
-  const { results, normalized, stats, level, badges } = useProgress();
+  // XP, level, streak and badges use everything. The counts, averages and lists below use
+  // quizResults, which leaves out the daily question so it cannot skew them.
+  const { results, quizResults, quizNormalized, stats, level, badges } = useProgress();
   const [classes, setClasses] = useState([]);
   const [quizInfo, setQuizInfo] = useState({});
   const [quizError, setQuizError] = useState('');
@@ -60,20 +65,37 @@ export default function StudentDashboard() {
 
   useEffect(() => { fetchClasses(); }, [fetchClasses]);
 
+  // The quizzes behind the student's results, for the weak spots (subject and question points).
+  // Fetched one by one and cached, so a refresh after a quiz only reads the new ones.
+  const [spotQuizzes, setSpotQuizzes] = useState(null);
+  const spotIds = useMemo(() => [...new Set((quizResults || []).map((r) => r.quizId))].slice(0, 30), [quizResults]);
+  useEffect(() => {
+    if (!quizResults) return undefined;
+    let cancelled = false;
+    getReadableQuizzes(spotIds.filter((id) => !spotQuizzes?.[id]))
+      .then((found) => { if (!cancelled) setSpotQuizzes((prev) => ({ ...(prev || {}), ...found })); })
+      .catch(() => { if (!cancelled) setSpotQuizzes((prev) => prev || {}); });
+    return () => { cancelled = true; };
+    // spotQuizzes is read only to skip quizzes we already have, so it is not a trigger
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spotIds]);
+  const spots = useMemo(() => (quizResults && spotQuizzes ? weakSpots(quizResults, spotQuizzes) : null), [quizResults, spotQuizzes]);
+  const hasGradedWork = useMemo(() => (quizResults || []).some((r) => (r.answers || []).some((a) => a?.status !== 'pending_review')), [quizResults]);
+
   const progress = useMemo(() => {
     if (!results) return null;
-    const pcts = normalized.map((r) => (r.maxScore > 0 ? (r.finalScore / r.maxScore) * 100 : 0));
+    const pcts = quizNormalized.map((r) => (r.maxScore > 0 ? (r.finalScore / r.maxScore) * 100 : 0));
     return {
       stats, level,
       badges: [...badges].sort((a, b) => Number(b.earned) - Number(a.earned) || (b.value / b.target) - (a.value / a.target)),
-      taken: normalized.length,
+      taken: quizNormalized.length,
       average: pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : 0,
       best: pcts.length ? Math.round(Math.max(...pcts)) : 0,
-      time: results.reduce((sum, r) => sum + (r.timeSpent || 0), 0),
+      time: quizResults.reduce((sum, r) => sum + (r.timeSpent || 0), 0),
     };
-  }, [results, normalized, stats, level, badges]);
+  }, [results, quizResults, quizNormalized, stats, level, badges]);
 
-  const doneQuizIds = useMemo(() => new Set((results || []).map((r) => r.quizId)), [results]);
+  const doneQuizIds = useMemo(() => new Set((quizResults || []).map((r) => r.quizId)), [quizResults]);
 
   const joinQuiz = async (code) => {
     setQuizError(''); setJoiningQuiz(true);
@@ -100,7 +122,7 @@ export default function StudentDashboard() {
   };
 
   const first = (displayName || user?.displayName || user?.email?.split('@')[0] || 'there').split(' ')[0];
-  const recent = (results || []).slice(0, 6);
+  const recent = (quizResults || []).slice(0, 6);
 
   return (
     <div className="mx-auto w-full max-w-5xl pb-16">
@@ -137,6 +159,9 @@ export default function StudentDashboard() {
         Or <button type="button" onClick={() => navigate('/student/attend-quiz')} className="font-medium text-[hsl(var(--foreground))] underline underline-offset-4">browse every available quiz</button>.
       </p>
 
+      {/* The daily question: one a day, the same for everyone, keeps the streak alive. */}
+      <DailyQuestion />
+
       {/* The numbers. */}
       <dl className="mt-12 grid grid-cols-2 gap-y-6 border-y border-[hsl(var(--border))] sm:grid-cols-4 sm:divide-x sm:divide-[hsl(var(--border))]">
         {[
@@ -154,6 +179,9 @@ export default function StudentDashboard() {
           <dd className="tabular mt-2 text-3xl font-medium text-[hsl(var(--foreground))]">{progress ? formatTime(progress.time) : <Skeleton className="h-8 w-16" />}</dd>
         </div>
       </dl>
+
+      {/* Weak spots: where points are lost, with a way back to those quizzes. */}
+      {spots && <WeakSpots spots={spots} hasWork={hasGradedWork} />}
 
       {/* Badges. */}
       <section aria-label="Badges" className="mt-14">
@@ -219,7 +247,7 @@ export default function StudentDashboard() {
           <h2 className="text-xl font-semibold tracking-tight">Recent activity</h2>
           {recent.length > 0 && <button type="button" onClick={() => navigate('/student/results')} className="text-sm font-medium text-[hsl(var(--foreground))] underline underline-offset-4">View all</button>}
         </div>
-        {results === null ? <Skeleton className="mt-4 h-40 w-full" /> : recent.length === 0 ? (
+        {quizResults === null ? <Skeleton className="mt-4 h-40 w-full" /> : recent.length === 0 ? (
           <motion.div variants={pop} initial="hidden" animate="show" className="mt-6 border-t border-[hsl(var(--border))] pt-8">
             <p className="text-lg font-medium">Nothing here yet.</p>
             <p className="mt-1 text-[hsl(var(--muted-foreground))]">Finish your first quiz to earn XP and start a streak.</p>

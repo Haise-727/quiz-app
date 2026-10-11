@@ -1,6 +1,6 @@
 import {
   PiFlagBold, PiFlameFill, PiCalendarCheckBold, PiTargetBold, PiCrownSimpleFill,
-  PiCompassBold, PiTrendUpBold, PiStarFill,
+  PiCompassBold, PiTrendUpBold, PiStarFill, PiSunBold,
 } from 'react-icons/pi';
 
 /**
@@ -17,6 +17,7 @@ export const BADGE_ICONS = {
   trend: PiTrendUpBold,
   flame: PiFlameFill,
   star: PiStarFill,
+  sun: PiSunBold,
 };
 
 /** Pastel tints from the theme. They switch with light and dark mode on their own. */

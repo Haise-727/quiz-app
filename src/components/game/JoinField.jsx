@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 export default function JoinField({ label, placeholder, maxLength, button, busy, error, onSubmit, inputMode }) {
   const [value, setValue] = useState('');
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(value); }}>
+    <form className="min-w-0" onSubmit={(e) => { e.preventDefault(); onSubmit(value); }}>
       <label className="eyebrow">{label}</label>
       <div className="mt-2 flex items-end gap-3">
         <input

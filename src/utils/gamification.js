@@ -12,7 +12,13 @@
  * docs/security.md.
  *
  * A "result" in this file is the normalised shape from normalizeResult():
- *   { quizId, finalScore, maxScore, questionCount, completedAt: Date, status }
+ *   { quizId, finalScore, maxScore, questionCount, completedAt: Date, status, kind }
+ *
+ * `kind` is 'quiz' for a normal graded attempt and 'daily' for the one question a day
+ * (src/utils/daily.js). A daily result is stored in the same collection, but it only
+ * feeds the STREAK, the XP total and the "Daily habit" badge. It never counts as a quiz
+ * attempt, so it cannot change attempts, distinct quizzes, perfects, comebacks or the
+ * badges built on them.
  */
 
 // ── XP ──────────────────────────────────────────────────────────────────────────────
@@ -22,12 +28,23 @@ export const XP_RULES = {
   participation: 2,     // just for finishing each question, right or wrong
   perfectBonus: 25,     // a flawless attempt
   maxPerAttempt: 250,   // so a giant junk quiz cannot be farmed for levels
+  dailyRight: 15,       // the daily question answered correctly, flat
+  dailyWrong: 5,        // the daily question answered wrong, flat (showing up still counts)
 };
+
+/** Is this the one-a-day question rather than a normal quiz attempt? */
+export const isDailyResult = (r) => r?.kind === 'daily';
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
 /** XP for one attempt. Accuracy is the share of points earned, so partial credit counts. */
-export function xpForAttempt({ finalScore, maxScore, questionCount }) {
+export function xpForAttempt({ finalScore, maxScore, questionCount, kind }) {
+  // The daily question is flat: it has one question, so the per-quiz formula (which gives a
+  // perfect bonus on top) does not apply. Each day is its own quizId, so the best-attempt
+  // rule in totalXp already limits it to once per day.
+  if (kind === 'daily') {
+    return Number(maxScore) > 0 && Number(finalScore) >= Number(maxScore) ? XP_RULES.dailyRight : XP_RULES.dailyWrong;
+  }
   const questions = Math.max(0, Number(questionCount) || 0);
   const accuracy = Number(maxScore) > 0 ? clamp(Number(finalScore) / Number(maxScore), 0, 1) : 0;
   const raw =
@@ -108,9 +125,13 @@ export function streakInfo(results, now = new Date()) {
 // ── Stats and badges ────────────────────────────────────────────────────────────────
 
 export function statsFromResults(results, now = new Date()) {
+  // XP and the streak use every result, daily ones included. Everything else is about
+  // quizzes only, so it reads `quizzes`: a daily answer must not look like a quiz attempt.
   const xp = totalXp(results);
+  const quizzes = results.filter((r) => !isDailyResult(r));
+  const dailyDays = new Set(results.filter(isDailyResult).map((r) => r.quizId)).size;   // quizId is daily-<date>
   const byQuiz = new Map();
-  for (const r of results) {
+  for (const r of quizzes) {
     if (!byQuiz.has(r.quizId)) byQuiz.set(r.quizId, []);
     byQuiz.get(r.quizId).push(r);
   }
@@ -130,9 +151,10 @@ export function statsFromResults(results, now = new Date()) {
   });
 
   return {
-    attempts: results.length,
+    attempts: quizzes.length,
     distinctQuizzes: byQuiz.size,
-    perfect: results.filter((r) => r.maxScore > 0 && r.finalScore >= r.maxScore).length,
+    dailyDays,
+    perfect: quizzes.filter((r) => r.maxScore > 0 && r.finalScore >= r.maxScore).length,
     comebacks,
     xp,
     level: levelInfo(xp).level,
@@ -157,6 +179,7 @@ export const BADGES = [
   { id: 'streak-7',      name: 'One week',       hint: 'Quiz seven days in a row',        icon: 'flame',     tone: 'red',    target: 7,  value: (s) => s.streak.best },
   { id: 'streak-30',     name: 'Thirty days',    hint: 'Quiz thirty days in a row',       icon: 'flame',     tone: 'red',    target: 30, value: (s) => s.streak.best },
   { id: 'level-5',       name: 'Sharp',          hint: 'Reach level 5',                   icon: 'star',      tone: 'blue',   target: 5,  value: (s) => s.level },
+  { id: 'daily-habit',   name: 'Daily habit',    hint: 'Answer the daily question on 7 days', icon: 'sun',   tone: 'blue',   target: 7,  value: (s) => s.dailyDays },
 ];
 
 /** Every badge with how far along it is. Earned ones have earned: true. */
@@ -201,7 +224,8 @@ export function normalizeResult(raw) {
   if (!raw) return null;
   const at = raw.completedAt;
   let completedAt;
-  if (at && typeof at.toDate === 'function') completedAt = at.toDate();       // Firestore Timestamp
+  if (at instanceof Date) completedAt = new Date(at.getTime());               // already a Date
+  else if (at && typeof at.toDate === 'function') completedAt = at.toDate();  // Firestore Timestamp
   else if (at && typeof at.seconds === 'number') completedAt = new Date(at.seconds * 1000);
   else if (typeof at === 'string' || typeof at === 'number') completedAt = new Date(at);
   else completedAt = new Date();   // serverTimestamp() has not resolved yet: it was just written
@@ -214,5 +238,6 @@ export function normalizeResult(raw) {
     questionCount: Number(raw.questionCount ?? (Array.isArray(raw.answers) ? raw.answers.length : 0)),
     completedAt,
     status: raw.status || 'completed',
+    kind: raw.kind === 'daily' ? 'daily' : 'quiz',
   };
 }

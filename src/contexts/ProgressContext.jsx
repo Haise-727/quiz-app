@@ -10,6 +10,12 @@ import { badgeProgress, levelInfo, normalizeResult, statsFromResults } from '@/u
  * screens all agree and none of them runs its own query. Call refresh() after a quiz is
  * submitted and every screen updates.
  *
+ * Results come in two kinds. `results` and `normalized` hold EVERYTHING (the daily
+ * question included), which is what XP, the streak and badges are worked out from.
+ * `quizResults` and `quizNormalized` hold quiz attempts only, for any screen that shows
+ * counts, averages or a list of quizzes, so a daily answer can never distort them.
+ * `dailyNormalized` is the daily answers alone.
+ *
  * Teachers do not get progress, so nothing is fetched for them.
  */
 const ProgressContext = createContext({ loading: false, results: null, stats: null, level: null, badges: [], refresh: async () => {} });
@@ -41,10 +47,17 @@ export function ProgressProvider({ children }) {
   }, [uid, isStudent, refresh]);
 
   const value = useMemo(() => {
-    if (!raw) return { loading, results: null, stats: null, level: null, badges: [], refresh };
+    if (!raw) return { loading, results: null, normalized: null, quizResults: null, quizNormalized: null, dailyNormalized: null, stats: null, level: null, badges: [], refresh };
     const normalized = raw.map(normalizeResult).filter(Boolean);
     const stats = statsFromResults(normalized);
-    return { loading, results: raw, normalized, stats, level: levelInfo(stats.xp), badges: badgeProgress(stats), refresh };
+    const isDaily = (r) => r.kind === 'daily';
+    return {
+      loading, results: raw, normalized,
+      quizResults: raw.filter((r) => !isDaily(r)),
+      quizNormalized: normalized.filter((r) => !isDaily(r)),
+      dailyNormalized: normalized.filter(isDaily),
+      stats, level: levelInfo(stats.xp), badges: badgeProgress(stats), refresh,
+    };
   }, [raw, loading, refresh]);
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

@@ -178,6 +178,112 @@ test('question count comes from answers, and score falls back to score', () => {
   const n = normalizeResult({ quizId: 'a', score: 7, maxScore: 10, answers: [{}, {}, {}] });
   assert.equal(n.questionCount, 3); assert.equal(n.finalScore, 7);
 });
+test('a Date object is used as it is', () => {
+  const when = new Date('2026-10-09T10:00:00Z');
+  assert.equal(normalizeResult({ quizId: 'a', completedAt: when }).completedAt.getTime(), when.getTime());
+});
 test('null input is null', () => assert.equal(normalizeResult(null), null));
+
+// ── The daily question ──────────────────────────────────────────────────────────────
+// A daily result is saved like any result, with kind 'daily' and its own quizId per day.
+const daily = (date, right, quizId = `daily-${date}`) =>
+  ({ quizId, finalScore: right ? 1 : 0, maxScore: 1, questionCount: 1, completedAt: day(date), status: 'completed', kind: 'daily' });
+
+console.log('daily question: xp');
+test('a right daily answer is a flat 15 XP, a wrong one 5', () => {
+  assert.equal(xpForAttempt(daily('2026-10-09', true)), 15);
+  assert.equal(xpForAttempt(daily('2026-10-09', false)), 5);
+  assert.equal(XP_RULES.dailyRight, 15); assert.equal(XP_RULES.dailyWrong, 5);
+});
+test('a right daily answer gets no perfect bonus (the quiz formula would give 10 + 2 + 25)', () => {
+  assert.notEqual(xpForAttempt(daily('2026-10-09', true)), xpForAttempt({ ...daily('2026-10-09', true), kind: 'quiz' }));
+});
+test('a daily result with no maximum score still earns the wrong answer amount, never NaN', () => {
+  assert.equal(xpForAttempt({ kind: 'daily' }), 5);
+});
+test('daily XP adds to the total, one per day', () => {
+  const rs = [daily('2026-10-07', true), daily('2026-10-08', false), attempt('a', 100, 100, 10)];
+  assert.equal(totalXp(rs), 15 + 5 + 145);
+});
+test('answering the same day twice cannot farm XP (same quizId, best one counts)', () => {
+  assert.equal(totalXp([daily('2026-10-09', false), daily('2026-10-09', true), daily('2026-10-09', true)]), 15);
+});
+
+console.log('daily question: streak');
+test('a daily answer alone starts a streak', () => {
+  assert.deepEqual(streakInfo([daily('2026-10-09', false)], day('2026-10-09')), { current: 1, best: 1, doneToday: true });
+});
+test('a daily answer joins a quiz streak', () => {
+  const rs = [attempt('a', 1, 1, 1, '2026-10-07'), daily('2026-10-08', true), attempt('b', 1, 1, 1, '2026-10-09')];
+  assert.equal(streakInfo(rs, day('2026-10-09')).current, 3);
+});
+test('a daily answer fills a gap day so the streak does not break', () => {
+  const rs = [attempt('a', 1, 1, 1, '2026-10-07'), attempt('a', 1, 1, 1, '2026-10-09')];
+  assert.equal(streakInfo(rs, day('2026-10-09')).current, 1);
+  assert.equal(streakInfo([...rs, daily('2026-10-08', false)], day('2026-10-09')).current, 3);
+});
+
+console.log('daily question: not a quiz attempt');
+test('dailies do not count in attempts, distinctQuizzes, perfect or comebacks', () => {
+  const rs = [daily('2026-10-05', true), daily('2026-10-06', true), daily('2026-10-07', true), daily('2026-10-07', false)];
+  const s = statsFromResults(rs, day('2026-10-09'));
+  assert.equal(s.attempts, 0); assert.equal(s.distinctQuizzes, 0); assert.equal(s.perfect, 0); assert.equal(s.comebacks, 0);
+});
+test('a right daily answer is not a perfect score, and a worse then better daily is not a comeback', () => {
+  const s = statsFromResults([daily('2026-10-09', false, 'daily-x'), { ...daily('2026-10-09', true, 'daily-x'), completedAt: new Date(day('2026-10-09').getTime() + 1000) }], day('2026-10-09'));
+  assert.equal(s.comebacks, 0); assert.equal(s.perfect, 0);
+});
+test('quiz numbers are the same with or without dailies mixed in', () => {
+  const quizzes = [attempt('a', 40, 100, 10, '2026-10-01'), attempt('a', 90, 100, 10, '2026-10-02'), attempt('b', 100, 100, 10, '2026-10-03')];
+  const mixed = [...quizzes, daily('2026-10-04', true), daily('2026-10-05', true)];
+  const a = statsFromResults(quizzes, day('2026-10-09')); const b = statsFromResults(mixed, day('2026-10-09'));
+  for (const k of ['attempts', 'distinctQuizzes', 'perfect', 'comebacks']) assert.equal(b[k], a[k], k);
+  assert.equal(b.xp, a.xp + 30);
+});
+test('daily answers do not unlock First steps, Warming up, Explorer or Flawless', () => {
+  const rs = Array.from({ length: 6 }, (_, i) => daily(`2026-10-0${i + 1}`, true));
+  const earned = badgeProgress(statsFromResults(rs, day('2026-10-09'))).filter((b) => b.earned).map((b) => b.id);
+  for (const id of ['first-steps', 'warming-up', 'explorer', 'perfect', 'comeback', 'regular']) assert.ok(!earned.includes(id), `${id} should stay locked`);
+});
+
+console.log('daily question: Daily habit badge');
+test('seven different days earn Daily habit, six do not', () => {
+  const days = ['01', '02', '03', '04', '05', '06', '07'].map((d) => daily(`2026-10-${d}`, d === '03'));
+  const find = (rs) => badgeProgress(statsFromResults(rs, day('2026-10-09'))).find((b) => b.id === 'daily-habit');
+  assert.equal(find(days.slice(0, 6)).earned, false); assert.equal(find(days.slice(0, 6)).value, 6);
+  assert.equal(find(days).earned, true);
+});
+test('Daily habit counts days, not answers: the same day twice is one', () => {
+  const rs = [...Array.from({ length: 6 }, (_, i) => daily(`2026-10-0${i + 1}`, true)), { ...daily('2026-10-06', false), completedAt: new Date(day('2026-10-06').getTime() + 3600000) }];
+  assert.equal(statsFromResults(rs, day('2026-10-09')).dailyDays, 6);
+});
+test('Daily habit needs daily results: seven quizzes on seven days do not earn it', () => {
+  const rs = Array.from({ length: 7 }, (_, i) => attempt(`q${i}`, 1, 1, 1, `2026-10-0${i + 1}`));
+  assert.equal(badgeProgress(statsFromResults(rs, day('2026-10-09'))).find((b) => b.id === 'daily-habit').earned, false);
+});
+test('the badge list now has Daily habit with a known icon key', () => {
+  const b = badgeProgress(statsFromResults([], day('2026-10-09')));
+  assert.equal(b.length, 12);
+  assert.equal(b.find((x) => x.id === 'daily-habit').icon, 'sun');
+});
+test('the seventh daily answer reports Daily habit as a new badge in the summary', () => {
+  const before = ['01', '02', '03', '04', '05', '06'].map((d) => daily(`2026-10-${d}`, true));
+  const s = progressSummary(before, [...before, daily('2026-10-07', true)], day('2026-10-07'));
+  // seven days in a row also reaches the One week streak badge, which is right: dailies feed the streak
+  assert.deepEqual(s.newBadges.map((b) => b.id).sort(), ['daily-habit', 'streak-7']);
+  assert.equal(s.xpGained, 15);
+});
+
+console.log('daily question: reading it back');
+test('normalizeResult keeps kind daily and defaults to quiz', () => {
+  assert.equal(normalizeResult({ quizId: 'daily-2026-10-09', kind: 'daily', finalScore: 1, maxScore: 1 }).kind, 'daily');
+  assert.equal(normalizeResult({ quizId: 'a' }).kind, 'quiz');
+  assert.equal(normalizeResult({ quizId: 'a', kind: 'something else' }).kind, 'quiz');
+});
+test('a saved daily document round trips into the right XP', () => {
+  const saved = { userId: 'u', quizId: 'daily-2026-10-09', quizTitle: 'Daily question', teacherId: '', kind: 'daily', score: 1, finalScore: 1, maxScore: 1, questionCount: 1, status: 'completed', completedAt: '2026-10-09T10:00:00Z' };
+  assert.equal(xpForAttempt(normalizeResult(saved)), 15);
+  assert.equal(xpForAttempt(normalizeResult({ ...saved, score: 0, finalScore: 0 })), 5);
+});
 
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

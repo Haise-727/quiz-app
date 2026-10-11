@@ -239,7 +239,9 @@ export default function YourResults() {
     (async () => {
       try {
         const snap = await getDocs(query(collection(db, 'quiz_results'), where('userId', '==', currentUser.uid), orderBy('completedAt', 'desc')));
-        setResults(snap.docs.map((d) => {
+        // The daily question is saved in the same collection, but it is not a quiz attempt:
+        // leave it out so it cannot change the counts, the average, the trend or the list.
+        setResults(snap.docs.filter((d) => d.data().kind !== 'daily').map((d) => {
           const data = d.data();
           const display = data.status === 'completed' ? data.finalScore : data.score;
           const pct = data.maxScore > 0 ? Math.round((display / data.maxScore) * 100) : 0;
