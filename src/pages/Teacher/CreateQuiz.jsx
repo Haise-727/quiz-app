@@ -12,7 +12,7 @@ import {
     PiArrowLeftBold, PiCaretUpBold, PiClipboardBold, PiClipboardTextBold, PiDatabaseBold, PiDotsSixVerticalBold,
     PiFloppyDiskBold, PiHeadphonesBold, PiImageBold, PiImagesBold, PiLaptopBold, PiListChecksBold, PiListNumbersBold,
     PiPlusBold, PiSpinnerGapBold, PiSquaresFourBold, PiArrowsLeftRightBold, PiTextAlignLeftBold, PiTextTBold,
-    PiToggleLeftBold, PiTrashBold, PiWarningCircleBold, PiXBold, PiCalculatorBold, PiCursorClickBold,
+    PiToggleLeftBold, PiTrashBold, PiWarningCircleBold, PiXBold, PiCalculatorBold, PiCursorClickBold, PiFileArrowUpBold,
 } from 'react-icons/pi';
 import { toast } from 'sonner';
 import { saveToBank, getBankQuestions, cleanQuestionForFirestore } from '../../utils/questionBankHelpers';
@@ -22,6 +22,7 @@ const ImageEditorModal = lazy(() => import('../../components/ImageEditorModal'))
 import { uploadQuestionMedia } from '../../utils/mediaUpload';
 import { validateQuestions } from '../../utils/questionValidation';
 import HotspotEditor from '../../components/teacher/HotspotEditor';
+import ImportQuestionsDialog from '../../components/teacher/ImportQuestionsDialog';
 import MathText from '../../components/MathText';
 import { hasMath } from '../../utils/mathText';
 
@@ -104,6 +105,7 @@ const CreateQuiz = () => {
 
     const [savingToBankId, setSavingToBankId] = useState(null);
     const [isBankOpen, setIsBankOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     const [bankQuestions, setBankQuestions] = useState([]);
     const [bankSearch, setBankSearch] = useState('');
     const [bankFilterType, setBankFilterType] = useState('ALL');
@@ -222,6 +224,17 @@ const CreateQuiz = () => {
 
     const updateQuestionState = (qIndex, updateCallback) => {
         setQuestions(currentQuestions => currentQuestions.map((q, i) => i === qIndex ? updateCallback(q) : q));
+    };
+
+    // Questions read from a pasted table or a CSV file join the end of the quiz. If the editor still
+    // holds only the empty question it started with, that one is replaced instead of left behind.
+    const handleImport = (imported) => {
+        setQuestions(current => {
+            const untouched = current.length === 1 && !current[0].questionText.trim() && !current[0].localMediaFile && !current[0].media;
+            return untouched ? imported : [...current, ...imported];
+        });
+        setActiveId(imported[0]?.id);
+        toast.success(`${imported.length} ${imported.length === 1 ? 'question' : 'questions'} added`);
     };
 
     const handleAddQuestion = (type = quizType === 'MIXED' ? 'MCQ' : quizType) => {
@@ -582,6 +595,7 @@ const CreateQuiz = () => {
     return (
         <div className="create-quiz-container">
             <input type="file" ref={hiddenFileInput} style={{ display: 'none' }} onChange={handleFileInputChange} accept="image/*,video/*,audio/*" />
+            <ImportQuestionsDialog open={isImportOpen} onClose={() => setIsImportOpen(false)} onImport={handleImport} />
             {isUploadModalOpen && (<UploadChoiceModal onChoice={handleUploadChoice} onClose={() => setIsUploadModalOpen(false)} />)}
 
             {editorState.isOpen && (
@@ -826,6 +840,9 @@ const CreateQuiz = () => {
                                     ))}
                                     <motion.button type="button" className="add-type-btn is-bank" whileTap={{ scale: 0.96 }} transition={spring} onClick={openBankModal}>
                                         <PiDatabaseBold aria-hidden="true" />Insert from bank
+                                    </motion.button>
+                                    <motion.button type="button" className="add-type-btn is-bank" whileTap={{ scale: 0.96 }} transition={spring} onClick={() => setIsImportOpen(true)}>
+                                        <PiFileArrowUpBold aria-hidden="true" />Import from a table
                                     </motion.button>
                                 </div>
                             </div>
