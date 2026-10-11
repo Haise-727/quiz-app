@@ -17,6 +17,8 @@
  *   REORDER             [itemId, ...] in the order the player left them
  *   CATEGORIZE          { [itemId]: categoryId }
  *   *_COMPREHENSION     { ['s' + subQuestionIndex]: [optionId, ...] }
+ *   NUMERIC             string, as typed
+ *   HOTSPOT             { x, y } percentages of the picture
  *
  * The 's' prefix on the comprehension keys is load bearing. The Realtime Database turns an
  * object whose keys are 0, 1, 2 back into an ARRAY, so a player who answered sub question 2
@@ -24,6 +26,7 @@
  * an object. getSubAnswers still accepts the array form, so older answers keep grading.
  */
 import { getSubQuestions, isComprehension } from './media.js';
+import { gradeNumeric, hotspotHit } from './quizAttempt.js';
 
 // ── Which questions are playable ────────────────────────────────────────────────────
 
@@ -31,6 +34,7 @@ export const LIVE_SUPPORTED_TYPES = [
   'MCQ', 'TRUE_FALSE', 'FILL_IN_THE_BLANK',
   'MATCH_THE_FOLLOWING', 'REORDER', 'CATEGORIZE',
   'VISUAL_COMPREHENSION', 'LISTENING_COMPREHENSION',
+  'NUMERIC', 'HOTSPOT',
 ];
 
 /** Realtime Database has no undefined, so answers are normalised to plain maps. */
@@ -167,6 +171,12 @@ export function scoreAnswer(question, answer, timeTakenMs, opts = {}) {
       ratio = question.fillBlankData.answers
         .map((a) => String(a.text ?? '').trim().toLowerCase())
         .includes(String(answer ?? '').trim().toLowerCase()) && String(answer ?? '').trim() ? 1 : 0;
+      break;
+    case 'NUMERIC':
+      ratio = gradeNumeric(question.numericData, answer) ? 1 : 0;
+      break;
+    case 'HOTSPOT':
+      ratio = hotspotHit(question.hotspotData?.regions, answer) ? 1 : 0;
       break;
     case 'MATCH_THE_FOLLOWING': {
       // Compared on answer text, not id, so two pairs sharing an answer are both accepted,
@@ -311,6 +321,8 @@ export function toLiveAnswer(question, answer) {
     case 'MCQ': return Array.isArray(answer) ? answer : [];
     case 'TRUE_FALSE': return answer === true || answer === false ? answer : null;
     case 'FILL_IN_THE_BLANK': return String(answer ?? '');
+    case 'NUMERIC': return String(answer ?? '');
+    case 'HOTSPOT': return answer && Number.isFinite(answer.x) && Number.isFinite(answer.y) ? { x: answer.x, y: answer.y } : null;
     case 'MATCH_THE_FOLLOWING':
       return Object.fromEntries(Object.entries(asMap(answer?.pairs)).map(([promptId, card]) => [String(promptId), String(card.id)]));
     case 'REORDER':
@@ -340,7 +352,9 @@ export function hasLiveAnswer(question, answer) {
   switch (question.type) {
     case 'MCQ': return Array.isArray(answer) && answer.length > 0;
     case 'TRUE_FALSE': return answer === true || answer === false;
-    case 'FILL_IN_THE_BLANK': return String(answer ?? '').trim().length > 0;
+    case 'FILL_IN_THE_BLANK':
+    case 'NUMERIC': return String(answer ?? '').trim().length > 0;
+    case 'HOTSPOT': return !!answer && Number.isFinite(answer.x) && Number.isFinite(answer.y);
     case 'MATCH_THE_FOLLOWING': return Object.keys(asMap(answer?.pairs)).length > 0;
     case 'REORDER': return false;    // an untouched shuffle is not an answer: nothing is sent, as before
     case 'CATEGORIZE': return Object.entries(asMap(answer)).some(([k, v]) => k !== 'bank' && Array.isArray(v) && v.length > 0);
@@ -348,4 +362,128 @@ export function hasLiveAnswer(question, answer) {
     case 'LISTENING_COMPREHENSION': return Object.values(asMap(answer)).some((v) => Array.isArray(v) && v.length > 0);
     default: return false;
   }
+}
+
+// ── Pausing ─────────────────────────────────────────────────────────────────────────
+
+/** Has the host paused the game? `pausedAt` is the server time the pause began. */
+export const isPaused = (session) => !!session?.pausedAt;
+
+/**
+ * Milliseconds left on the clock. While the game is paused the clock stands still at the
+ * moment of the pause, so this keeps returning the same number until the host resumes.
+ */
+export function remainingMs(session, question, now) {
+  const deadline = questionDeadline(session, question);
+  if (deadline == null) return null;
+  return Math.max(0, deadline - (session.pausedAt || now));
+}
+
+/**
+ * What to write when the host resumes: the start (and a moved deadline, if there is one) slide
+ * later by exactly as long as the pause lasted, so every player gets back the time they had.
+ * The 3, 2, 1 works the same way, because a pause during it moves the start that is still ahead.
+ */
+export function resumeShift(session, now) {
+  const paused = Number(session?.pausedAt);
+  if (!paused) return { pausedAt: null };
+  const gap = Math.max(0, now - paused);
+  const out = { pausedAt: null };
+  if (session.questionStartedAt) out.questionStartedAt = session.questionStartedAt + gap;
+  if (session.questionEndsAt) out.questionEndsAt = session.questionEndsAt + gap;
+  return out;
+}
+
+// ── Coming back to a game ───────────────────────────────────────────────────────────
+
+/** Names are compared without caring about case or extra spaces: "  Ada  Li" is "ada li". */
+export const normalizeName = (name) => String(name ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+/**
+ * Can someone take this name? A free name is fine. A name held by a player who has dropped
+ * (`connected === false`) is theirs to take back, which is how someone rejoins from a new
+ * phone with their score kept. A name held by a player who is still connected is taken.
+ * @returns {{ status: 'free' } | { status: 'rejoin', id: string } | { status: 'taken' }}
+ */
+export function claimSeat(players, name) {
+  const key = normalizeName(name);
+  const holders = Object.entries(asMap(players)).filter(([, p]) => normalizeName(p.name) === key);
+  if (holders.length === 0) return { status: 'free' };
+  const away = holders.filter(([, p]) => p.connected === false).sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0));
+  return away.length ? { status: 'rejoin', id: away[0][0] } : { status: 'taken' };
+}
+
+// ── Team mode ───────────────────────────────────────────────────────────────────────
+
+/** Team names. They follow the answer tile order (red, blue, yellow, green) so a team has a colour and a shape. */
+export const TEAM_NAMES = ['Red', 'Blue', 'Yellow', 'Green'];
+export const TEAM_COUNTS = [2, 3, 4];
+
+/** The team a new player joins: the smallest, and the lowest numbered when sizes tie. */
+export function assignTeam(players, teamCount) {
+  const sizes = Array.from({ length: teamCount }, () => 0);
+  Object.values(asMap(players)).forEach((p) => { if (Number.isInteger(p.team) && p.team >= 0 && p.team < teamCount) sizes[p.team] += 1; });
+  return sizes.indexOf(Math.min(...sizes));
+}
+
+/** Spread everyone over `teamCount` teams in the order they joined: used when a host turns teams on after people arrived. */
+export function assignAllTeams(players, teamCount) {
+  const ids = Object.entries(asMap(players)).sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0)).map(([id]) => id);
+  return Object.fromEntries(ids.map((id, i) => [id, i % teamCount]));
+}
+
+/**
+ * The team standings. A team's score is the AVERAGE of its players, not the total, so a team
+ * with one more player does not win by size. Ties share a rank. Empty teams are left out.
+ * @returns {{ team: number, name: string, members: number, total: number, average: number, rank: number }[]}
+ */
+export function rankTeams(players, teamCount) {
+  const rows = Array.from({ length: teamCount }, (_, team) => ({ team, name: TEAM_NAMES[team], members: 0, total: 0 }));
+  Object.values(asMap(players)).forEach((p) => {
+    if (Number.isInteger(p.team) && rows[p.team]) { rows[p.team].members += 1; rows[p.team].total += Number(p.score) || 0; }
+  });
+  const list = rows.filter((r) => r.members > 0).map((r) => ({ ...r, average: Math.round(r.total / r.members) }));
+  list.sort((a, b) => b.average - a.average || a.team - b.team);
+  let rank = 0; let last = null;
+  return list.map((r, i) => { if (r.average !== last) { rank = i + 1; last = r.average; } return { ...r, rank }; });
+}
+
+// ── Sudden death ────────────────────────────────────────────────────────────────────
+
+/** Has this player been knocked out? `eliminatedAt` is the number of the question that did it. */
+export const isOut = (player) => Number.isInteger(player?.eliminatedAt);
+
+export const alivePlayerIds = (players) => Object.entries(asMap(players)).filter(([, p]) => !isOut(p)).map(([id]) => id);
+
+/**
+ * Who is out after a question. Anyone still in who did not answer, or did not get it fully
+ * right, is out. One rule protects the game: if that would knock out EVERY player still in,
+ * nobody goes, so a very hard question can never end the game with no winner.
+ * @param answers answers/{questionIndex}
+ * @returns {string[]} player ids to eliminate
+ */
+export function suddenDeathOut(players, answers) {
+  const alive = alivePlayerIds(players);
+  const failed = alive.filter((id) => !asMap(answers)[id]?.correct);
+  return failed.length === alive.length ? [] : failed;
+}
+
+/** Is the game over? More than one person started, and one or none is left standing. */
+export const suddenDeathOver = (players) => Object.keys(asMap(players)).length > 1 && alivePlayerIds(players).length <= 1;
+
+/**
+ * Final order for a sudden death game: everyone still standing first (by score), then those
+ * knocked out LATER before those knocked out earlier, then by score. Players in exactly the
+ * same position share a rank.
+ */
+export function rankSuddenDeath(players) {
+  const list = Object.entries(asMap(players)).map(([id, p]) => ({ id, ...p, score: Number(p.score) || 0 }));
+  const lasted = (p) => (isOut(p) ? p.eliminatedAt : Infinity);
+  list.sort((a, b) => lasted(b) - lasted(a) || b.score - a.score || (a.joinedAt || 0) - (b.joinedAt || 0));
+  let rank = 0; let lastKey = null;
+  return list.map((p, i) => {
+    const key = `${lasted(p)}:${p.score}`;
+    if (key !== lastKey) { rank = i + 1; lastKey = key; }
+    return { ...p, rank };
+  });
 }

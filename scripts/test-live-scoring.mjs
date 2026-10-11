@@ -11,6 +11,8 @@ import {
   scoreAnswer, streakBonusPct, fiftyFiftyHide, rankPlayers, previousRanks, ordinal, toLiveAnswer, hasLiveAnswer,
   getSubAnswers, subAnswerKey, isLivePlayable, getPlayableQuestions, getPlaySequence, shuffledOrder, questionDeadline,
   STREAK_CAP, FIFTY_FIFTY_PENALTY,
+  isPaused, remainingMs, resumeShift, normalizeName, claimSeat, TEAM_NAMES, assignTeam, assignAllTeams, rankTeams,
+  isOut, alivePlayerIds, suddenDeathOut, suddenDeathOver, rankSuddenDeath, LIVE_SUPPORTED_TYPES,
 } from '../src/utils/liveScoring.js';
 import { initialAnswer, dragAnswer, changeAnswer } from '../src/utils/quizAttempt.js';
 
@@ -242,5 +244,166 @@ test('nothing touched means nothing to send', () => {
   assert.equal(hasLiveAnswer(comp([sub([1])]), { 0: [1] }), true);
 });
 test('subAnswerKey is never a bare number', () => assert.equal(subAnswerKey(0), 's0'));
+
+console.log('number and click on the image, live');
+const numeric = (answer, tolerance = 0, unit = '') => ({ type: 'NUMERIC', points: 100, timeLimit: 20, numericData: { answer, tolerance, unit } });
+const hotspot = (...regions) => ({ type: 'HOTSPOT', points: 100, timeLimit: 20, hotspotData: { regions } });
+const box = { id: 'r', x: 10, y: 10, w: 20, h: 20 };
+test('both new types can be played live', () => {
+  assert.ok(LIVE_SUPPORTED_TYPES.includes('NUMERIC')); assert.ok(LIVE_SUPPORTED_TYPES.includes('HOTSPOT'));
+  assert.equal(isLivePlayable(numeric(1)), true); assert.equal(isLivePlayable(hotspot(box)), true);
+});
+test('a number is scored with its tolerance and the same speed rule', () => {
+  const q = numeric(9.8, 0.1, 'm/s');
+  assert.equal(scoreAnswer(q, '9.8', 0).points, 100);
+  assert.equal(scoreAnswer(q, '9,85 m/s', 10000).points, 75);
+  assert.equal(scoreAnswer(q, '10', 0).points, 0);
+  assert.equal(scoreAnswer(q, '', 0).points, 0);
+  assert.equal(scoreAnswer(q, 'abc', 0).correct, false);
+});
+test('a click inside the area scores, a click outside does not', () => {
+  const q = hotspot(box);
+  assert.equal(scoreAnswer(q, { x: 20, y: 20 }, 0).points, 100);
+  assert.equal(scoreAnswer(q, { x: 50, y: 50 }, 0).points, 0);
+  assert.equal(scoreAnswer(q, null, 0).points, 0);
+});
+test('streak and double points apply to the new types too', () => {
+  const r = scoreAnswer(numeric(5), '5', 0, { streak: 2, streakBonus: true, doubled: true });
+  assert.equal(r.parts.streakPct, 20); assert.equal(r.points, 100 * 1.2 * 2);
+});
+test('answers travel as plain JSON and a half made click is not sent', () => {
+  assert.equal(toLiveAnswer(numeric(1), 12), '12'); assert.equal(toLiveAnswer(numeric(1), null), '');
+  assert.deepEqual(toLiveAnswer(hotspot(box), { x: 1, y: 2, extra: 9 }), { x: 1, y: 2 });
+  assert.equal(toLiveAnswer(hotspot(box), { x: 1 }), null); assert.equal(toLiveAnswer(hotspot(box), null), null);
+  assert.equal(hasLiveAnswer(numeric(1), ' '), false); assert.equal(hasLiveAnswer(numeric(1), '0'), true);
+  assert.equal(hasLiveAnswer(hotspot(box), null), false); assert.equal(hasLiveAnswer(hotspot(box), { x: 0, y: 0 }), true);
+});
+
+console.log('pausing');
+const running = { questionStartedAt: 10_000, questionEndsAt: null };
+const q20 = { timeLimit: 20 };
+test('a running clock counts down and is never negative', () => {
+  assert.equal(remainingMs(running, q20, 15_000), 15_000);
+  assert.equal(remainingMs(running, q20, 99_000), 0);
+  assert.equal(remainingMs({}, q20, 5), null);
+});
+test('a paused clock stands still, however long you wait', () => {
+  const paused = { ...running, pausedAt: 14_000 };
+  assert.equal(isPaused(paused), true); assert.equal(isPaused(running), false);
+  assert.equal(remainingMs(paused, q20, 14_000), 16_000);
+  assert.equal(remainingMs(paused, q20, 500_000), 16_000);
+});
+test('resuming moves the start and the deadline later by exactly the pause', () => {
+  const s = { questionStartedAt: 10_000, questionEndsAt: 70_000, pausedAt: 14_000 };
+  assert.deepEqual(resumeShift(s, 24_000), { pausedAt: null, questionStartedAt: 20_000, questionEndsAt: 80_000 });
+});
+test('the time left after resuming is the time left when it was paused', () => {
+  const s = { questionStartedAt: 10_000, questionEndsAt: null, pausedAt: 14_000 };
+  const left = remainingMs(s, q20, 14_000);
+  const after = { ...s, ...resumeShift(s, 100_000) };
+  assert.equal(remainingMs(after, q20, 100_000), left);
+});
+test('a pause during the 3, 2, 1 keeps the start still ahead by the same amount', () => {
+  const s = { questionStartedAt: 13_000, pausedAt: 11_000 };               // 2 seconds of countdown left
+  const r = resumeShift(s, 50_000);
+  assert.equal(r.questionStartedAt - 50_000, 2_000);
+});
+test('resuming a game that was not paused changes nothing', () => {
+  assert.deepEqual(resumeShift(running, 99_000), { pausedAt: null });
+});
+test('a deadline that was never moved stays unset', () => {
+  assert.equal('questionEndsAt' in resumeShift({ questionStartedAt: 1, pausedAt: 2 }, 5), false);
+});
+
+console.log('coming back to a game');
+const seats = { a: { name: 'Ada Li', connected: true, joinedAt: 1 }, b: { name: 'Ben', connected: false, joinedAt: 2 }, c: { name: 'ben', connected: false, joinedAt: 3 } };
+test('names ignore case and spacing', () => { assert.equal(normalizeName('  Ada   LI '), 'ada li'); assert.equal(normalizeName(null), ''); });
+test('a new name is free', () => assert.deepEqual(claimSeat(seats, 'Zed'), { status: 'free' }));
+test('a name held by someone still connected is taken, in any case', () => {
+  assert.deepEqual(claimSeat(seats, 'ada li'), { status: 'taken' }); assert.deepEqual(claimSeat(seats, ' ADA  LI'), { status: 'taken' });
+});
+test('a name held by someone who dropped can be taken back, earliest seat first', () => {
+  assert.deepEqual(claimSeat(seats, 'BEN'), { status: 'rejoin', id: 'b' });
+});
+test('the earliest joined seat is the one given back, whatever order they are stored in', () => {
+  assert.deepEqual(claimSeat({ x: { name: 'Zoe', connected: false, joinedAt: 9 }, y: { name: 'zoe', connected: false, joinedAt: 3 } }, 'ZOE'), { status: 'rejoin', id: 'y' });
+});
+test('a seat with no connected flag at all counts as taken', () => {
+  assert.deepEqual(claimSeat({ x: { name: 'Old' } }, 'old'), { status: 'taken' });
+});
+test('an empty game has every name free', () => { assert.deepEqual(claimSeat(undefined, 'a'), { status: 'free' }); assert.deepEqual(claimSeat({}, 'a'), { status: 'free' }); });
+
+console.log('teams');
+const pl = (specs) => Object.fromEntries(specs.map(([id, team, score, joinedAt]) => [id, { name: id, team, score, joinedAt }]));
+test('a new player joins the smallest team', () => {
+  assert.equal(assignTeam({}, 2), 0);
+  assert.equal(assignTeam(pl([['a', 0, 0], ['b', 0, 0]]), 2), 1);
+  assert.equal(assignTeam(pl([['a', 0, 0], ['b', 1, 0], ['c', 1, 0]]), 3), 2);
+});
+test('ties go to the lowest numbered team', () => assert.equal(assignTeam(pl([['a', 0, 0], ['b', 1, 0]]), 2), 0));
+test('players with no team, or a team that no longer exists, are not counted', () => {
+  assert.equal(assignTeam({ a: { name: 'a' }, b: { name: 'b', team: 7 } }, 2), 0);
+});
+test('turning teams on spreads everyone in join order', () => {
+  const out = assignAllTeams(pl([['c', undefined, 0, 3], ['a', undefined, 0, 1], ['b', undefined, 0, 2], ['d', undefined, 0, 4]]), 2);
+  assert.deepEqual(out, { a: 0, b: 1, c: 0, d: 1 });
+});
+test('a team scores the AVERAGE of its players, so size does not win', () => {
+  const t = rankTeams(pl([['a', 0, 100], ['b', 0, 100], ['c', 0, 100], ['d', 1, 150]]), 2);
+  assert.equal(t[0].name, 'Blue'); assert.equal(t[0].average, 150);
+  assert.equal(t[1].average, 100); assert.equal(t[1].total, 300); assert.equal(t[1].members, 3);
+});
+test('averages are rounded, and teams with nobody are left out', () => {
+  const t = rankTeams(pl([['a', 0, 10], ['b', 0, 11]]), 3);
+  assert.equal(t.length, 1); assert.equal(t[0].average, 11);       // 10.5 rounds up
+});
+test('teams on the same average share a rank, then the next rank skips', () => {
+  const t = rankTeams(pl([['a', 0, 50], ['b', 1, 50], ['c', 2, 10]]), 3);
+  assert.deepEqual(t.map((x) => x.rank), [1, 1, 3]);
+});
+test('team names follow the tile order', () => assert.deepEqual(TEAM_NAMES, ['Red', 'Blue', 'Yellow', 'Green']));
+
+console.log('sudden death');
+const sd = (specs) => Object.fromEntries(specs.map(([id, out, score = 0, joinedAt = 0]) => [id, { name: id, score, joinedAt, ...(out == null ? {} : { eliminatedAt: out }) }]));
+const ans = (...rows) => Object.fromEntries(rows.map(([id, correct]) => [id, { correct }]));
+test('everyone starts in, and a number marks who is out', () => {
+  assert.equal(isOut({ eliminatedAt: 0 }), true);          // knocked out by the first question counts
+  assert.equal(isOut({}), false); assert.equal(isOut(undefined), false);
+  assert.deepEqual(alivePlayerIds(sd([['a', null], ['b', 2], ['c', null]])), ['a', 'c']);
+});
+test('wrong answers and no answer are out, right answers stay', () => {
+  const players = sd([['a', null], ['b', null], ['c', null]]);
+  assert.deepEqual(suddenDeathOut(players, ans(['a', true], ['b', false])).sort(), ['b', 'c']);
+});
+test('a part right answer is not fully right, so it is out', () => {
+  assert.deepEqual(suddenDeathOut(sd([['a', null], ['b', null]]), { a: { correct: true }, b: { correct: false, points: 40 } }), ['b']);
+});
+test('if everyone would go out, nobody does', () => {
+  assert.deepEqual(suddenDeathOut(sd([['a', null], ['b', null]]), ans(['a', false], ['b', false])), []);
+  assert.deepEqual(suddenDeathOut(sd([['a', null]]), {}), []);
+});
+test('players already out are not knocked out twice', () => {
+  const players = sd([['a', null], ['b', 1], ['c', null]]);
+  assert.deepEqual(suddenDeathOut(players, ans(['a', true])), ['c']);
+});
+test('the game is over when one is left, but not for a game of one', () => {
+  assert.equal(suddenDeathOver(sd([['a', null], ['b', 0]])), true);
+  assert.equal(suddenDeathOver(sd([['a', null], ['b', null]])), false);
+  assert.equal(suddenDeathOver(sd([['a', null]])), false);
+  assert.equal(suddenDeathOver({}), false);
+});
+test('final order: standing first, then the later you went out the better, then score', () => {
+  const r = rankSuddenDeath(sd([['early', 0, 900], ['late', 3, 100], ['mid', 2, 500], ['winner', null, 50], ['alsoMid', 2, 800]]));
+  assert.deepEqual(r.map((p) => p.id), ['winner', 'late', 'alsoMid', 'mid', 'early']);
+  assert.deepEqual(r.map((p) => p.rank), [1, 2, 3, 4, 5]);
+});
+test('two players out on the same question with the same score share a rank', () => {
+  const r = rankSuddenDeath(sd([['a', 1, 40], ['b', 1, 40], ['c', null, 0]]));
+  assert.deepEqual(r.map((p) => p.rank), [1, 2, 2]);
+});
+test('two standing players are ranked by score', () => {
+  const r = rankSuddenDeath(sd([['a', null, 10], ['b', null, 30]]));
+  assert.deepEqual(r.map((p) => p.id), ['b', 'a']);
+});
 
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

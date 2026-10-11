@@ -13,14 +13,23 @@ import { playTick } from '@/utils/sounds';
  * @param limitMs  the question's full time limit, which is what a full bar means
  * @param onZero   called once when it hits zero
  * @param tick     play the soft tick in the last ten seconds
+ * @param pausedAt server time the host paused at. While set the clock stands still on the
+ *                 time that was left at that moment, and the bar stops where it was.
  */
-export default function LiveClock({ endsAt, limitMs, running = true, onZero, tick = true, big = false }) {
-  const [left, setLeft] = useState(() => Math.max(0, Math.ceil((endsAt - serverNow()) / 1000)));
+export default function LiveClock({ endsAt, limitMs, running = true, onZero, tick = true, big = false, pausedAt = null }) {
+  // The moment the clock reads: the pause time while paused, otherwise right now.
+  const readAt = () => pausedAt || serverNow();
+  const active = running && !pausedAt;
+  const [left, setLeft] = useState(() => Math.max(0, Math.ceil((endsAt - readAt()) / 1000)));
   const zero = useRef(onZero);
   zero.current = onZero;
 
   useEffect(() => {
-    if (!running) return undefined;
+    if (!active) {
+      // Not counting: show the time left at the moment it stopped.
+      setLeft(Math.max(0, Math.ceil((endsAt - (pausedAt || serverNow())) / 1000)));
+      return undefined;
+    }
     let fired = false;
     let shown = null;
     const step = () => {
@@ -36,9 +45,9 @@ export default function LiveClock({ endsAt, limitMs, running = true, onZero, tic
     step();
     const id = setInterval(step, 200);
     return () => clearInterval(id);
-  }, [endsAt, running, tick]);
+  }, [endsAt, active, tick, pausedAt]);
 
-  const remainingMs = Math.max(0, endsAt - serverNow());
+  const remainingMs = Math.max(0, endsAt - readAt());
   const fraction = Math.max(0, Math.min(1, remainingMs / limitMs));
   const urgent = left <= 5;
 
@@ -52,8 +61,8 @@ export default function LiveClock({ endsAt, limitMs, running = true, onZero, tic
         <motion.div
           key={endsAt}
           initial={{ scaleX: fraction }}
-          animate={{ scaleX: running ? 0 : fraction }}
-          transition={{ duration: running ? remainingMs / 1000 : 0, ease: 'linear' }}
+          animate={{ scaleX: active ? 0 : fraction }}
+          transition={{ duration: active ? remainingMs / 1000 : 0, ease: 'linear' }}
           style={{ originX: 0 }}
           className={`h-full w-full rounded-full ${urgent ? 'bg-[hsl(var(--destructive))]' : 'bg-[hsl(var(--brand))]'}`}
         />

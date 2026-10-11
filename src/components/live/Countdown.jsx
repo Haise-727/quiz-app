@@ -11,18 +11,20 @@ import { playTick } from '@/utils/sounds';
  * @param startsAt  server time in ms when the question opens
  * @param label     a line above, such as "Question 3 of 10"
  * @param hint      a line below, such as "Multiple choice, 20 seconds"
+ * @param pausedAt  server time the host paused at: the number holds still until the host resumes
  */
-export default function Countdown({ startsAt, label, hint, size = 'md' }) {
-  const [n, setN] = useState(() => Math.max(0, Math.ceil((startsAt - serverNow()) / 1000)));
+export default function Countdown({ startsAt, label, hint, size = 'md', pausedAt = null }) {
+  const [n, setN] = useState(() => Math.max(0, Math.ceil((startsAt - (pausedAt || serverNow())) / 1000)));
 
   useEffect(() => {
+    if (pausedAt) { setN(Math.max(0, Math.ceil((startsAt - pausedAt) / 1000))); return undefined; }
     let last = null;
     const id = setInterval(() => {
       const next = Math.max(0, Math.ceil((startsAt - serverNow()) / 1000));
       if (next !== last) { last = next; setN(next); if (next > 0) playTick(); }
     }, 80);
     return () => clearInterval(id);
-  }, [startsAt]);
+  }, [startsAt, pausedAt]);
 
   return (
     <div className="flex flex-col items-center text-center" role="timer" aria-live="polite" aria-label={`Starts in ${n}`}>

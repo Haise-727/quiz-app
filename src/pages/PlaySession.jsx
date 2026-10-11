@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { PiArrowRightBold, PiLockSimpleFill, PiSpinnerGapBold } from 'react-icons/pi';
+import { PiArrowRightBold, PiLockSimpleFill, PiPauseFill, PiSignOutBold, PiSkullBold, PiSpinnerGapBold } from 'react-icons/pi';
 import { db } from '@/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import Countdown from '@/components/live/Countdown';
 import LiveClock from '@/components/live/LiveClock';
 import LiveOption from '@/components/live/LiveOption';
 import Leaderboard from '@/components/live/Leaderboard';
+import TeamBoard from '@/components/live/TeamBoard';
+import MathText from '@/components/MathText';
 import PlayerHud from '@/components/live/PlayerHud';
 import Podium from '@/components/live/Podium';
 import PowerUpBar from '@/components/live/PowerUpBar';
@@ -21,10 +23,11 @@ import ResultCard from '@/components/live/ResultCard';
 import { changeAnswer, dragAnswer, initialAnswer, isMultiSelect } from '@/utils/quizAttempt';
 import { mediaKind } from '@/utils/media';
 import {
-  fiftyFiftyHide, generateGuestId, getMainMedia, getPlaySequence, hasLiveAnswer, joinSession, leaveSession,
-  listenToSession, ordinal, previousRanks, questionDeadline, rankPlayers, serverNow, streakBonusPct, submitAnswer,
-  toLiveAnswer, spendPowerUp,
+  alivePlayerIds, fiftyFiftyHide, generateGuestId, getMainMedia, getPlaySequence, hasLiveAnswer, isOut, isPaused,
+  joinSession, leaveSession, listenToSession, ordinal, previousRanks, questionDeadline, rankPlayers, rankSuddenDeath,
+  rankTeams, serverNow, setPresence, streakBonusPct, submitAnswer, TEAM_NAMES, toLiveAnswer, spendPowerUp, watchPresence,
 } from '@/utils/liveSession';
+import { tileFor } from '@/components/live/tiles';
 import { playBadge, playClick, playComplete, playCorrect, playSelect, playWrong } from '@/utils/sounds';
 import { pop, rise, stagger } from '@/lib/motion';
 
@@ -32,10 +35,20 @@ const TYPE_LABEL = {
   MCQ: 'Multiple choice', TRUE_FALSE: 'True or false', FILL_IN_THE_BLANK: 'Type the answer',
   MATCH_THE_FOLLOWING: 'Match them up', REORDER: 'Put in order', CATEGORIZE: 'Sort into groups',
   VISUAL_COMPREHENSION: 'Look, then answer', LISTENING_COMPREHENSION: 'Listen, then answer',
+  NUMERIC: 'Type a number', HOTSPOT: 'Tap the picture',
 };
 
+/**
+ * A phone remembers which seat it had in a game, so a reload, a dropped signal or going out
+ * of the room and back does not lose the player's place. Seats are forgotten after six hours.
+ */
+const SEAT_KEY = 'quizlike_live_seat';
+const readSeat = () => { try { const v = JSON.parse(localStorage.getItem(SEAT_KEY)); return v && Date.now() - v.at < 6 * 3600 * 1000 ? v : null; } catch { return null; } };
+const saveSeat = (seat) => { try { localStorage.setItem(SEAT_KEY, JSON.stringify({ ...seat, at: Date.now() })); } catch { /* private mode: rejoin by name still works */ } };
+const clearSeat = () => { try { localStorage.removeItem(SEAT_KEY); } catch { /* nothing to clear */ } };
+
 const RULES = [
-  ['streakBonus', 'Streak bonus'], ['powerUps', 'Power-ups'], ['shuffle', 'Shuffled'], ['lockOnStart', 'Locks when started'],
+  ['streakBonus', 'Streak bonus'], ['powerUps', 'Power-ups'], ['shuffle', 'Shuffled'], ['lockOnStart', 'Locks when started'], ['suddenDeath', 'Sudden death'],
 ];
 
 /**
@@ -66,6 +79,7 @@ export default function PlaySession() {
   const playerIdRef = useRef(currentUser?.uid || null);
   const pinRef = useRef(null);
   const startRef = useRef(0);                            // server time this player's question clock started
+  const lastStartRef = useRef(0);                        // the questionStartedAt we last saw, to notice a resume
   const wasInRef = useRef(false);
 
   // ── Join ────────────────────────────────────────────────────────────────────────────
@@ -76,10 +90,15 @@ export default function PlaySession() {
     if (!name) { setError('Please enter your name.'); return; }
     setError(''); setJoining(true);
     try {
-      const playerId = currentUser?.uid || generateGuestId();
+      // A phone that already had a seat in THIS game keeps using it, and so keeps its score.
+      const saved = readSeat();
+      const playerId = currentUser?.uid || (saved?.pin === pin ? saved.playerId : null) || generateGuestId();
       playerIdRef.current = playerId;
       pinRef.current = pin;
-      await joinSession(pin, playerId, name);
+      // joinSession returns the seat actually given: a name that matches someone who dropped takes their seat.
+      const seat = await joinSession(pin, playerId, name);
+      playerIdRef.current = seat.playerId;
+      saveSeat({ pin, playerId: seat.playerId, name });
       setJoined(true);
     } catch (err) {
       setError(err.message || 'We could not join that game.');
@@ -87,6 +106,28 @@ export default function PlaySession() {
       setJoining(false);
     }
   };
+
+  // ── Coming back ─────────────────────────────────────────────────────────────────────
+  // If this phone had a seat in a game that is still going, go straight back into it.
+  useEffect(() => {
+    const seat = readSeat();
+    if (!seat || (pinFromUrl && seat.pin !== pinFromUrl)) return;
+    let cancelled = false;
+    setJoining(true);
+    playerIdRef.current = seat.playerId;
+    pinRef.current = seat.pin;
+    joinSession(seat.pin, seat.playerId, seat.name)
+      .then((back) => {
+        if (cancelled) return;
+        playerIdRef.current = back.playerId;
+        setPinInput(seat.pin); setNameInput(seat.name);
+        setJoined(true);
+        toast('Welcome back. Your score is kept.');
+      })
+      .catch(() => { clearSeat(); pinRef.current = null; })     // the game ended or is gone: show the join form
+      .finally(() => { if (!cancelled) setJoining(false); });
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Listen to the session once joined ───────────────────────────────────────────────
   useEffect(() => {
@@ -99,11 +140,21 @@ export default function PlaySession() {
         return current;
       });
     });
+    // Keep the seat marked as connected while this page is open and online.
+    const stopPresence = watchPresence(pinRef.current, playerIdRef.current);
     return () => {
       unsub();
-      if (pinRef.current && playerIdRef.current) leaveSession(pinRef.current, playerIdRef.current).catch(() => {});
+      stopPresence();
+      // Leaving the page marks the seat as away. It does NOT delete it, so coming back keeps the score.
+      if (pinRef.current && playerIdRef.current) setPresence(pinRef.current, playerIdRef.current, false).catch(() => {});
     };
   }, [joined, navigate]);
+
+  const handleLeave = async () => {
+    clearSeat();
+    if (pinRef.current && playerIdRef.current) await leaveSession(pinRef.current, playerIdRef.current).catch(() => {});
+    window.location.href = '/';
+  };
 
   // ── What is being asked ─────────────────────────────────────────────────────────────
   const sequence = useMemo(() => getPlaySequence(quiz, session?.order), [quiz, session?.order]);
@@ -117,7 +168,17 @@ export default function PlaySession() {
   if (me) wasInRef.current = true;
   const removed = joined && !!session && wasInRef.current && !me;
 
-  const media = getMainMedia(question);
+  // A click on the image question draws its own picture inside the answer area.
+  const media = question?.type === 'HOTSPOT' ? null : getMainMedia(question);
+  const paused = isPaused(session);
+  const teamCount = Number(settings.teams) || 0;
+  const out = !!settings.suddenDeath && isOut(me);
+  const outBefore = out && me.eliminatedAt < idx;           // knocked out by an earlier question: only watching now
+  const outNow = out && me.eliminatedAt === idx;            // knocked out by the question just played
+  const orderedPlayers = useMemo(() => (settings.suddenDeath ? rankSuddenDeath(players) : ranked), [settings.suddenDeath, players, ranked]);
+  const finalRank = orderedPlayers.find((p) => p.id === playerIdRef.current)?.rank;
+  const teamsRanked = useMemo(() => (teamCount ? rankTeams(players, teamCount) : []), [players, teamCount]);
+  const stillIn = alivePlayerIds(players).length;
   const multi = question?.type === 'MCQ' && isMultiSelect(question);
   const limitMs = (parseInt(question?.timeLimit, 10) || 30) * 1000;
   const endsAt = questionDeadline(session, question);
@@ -127,6 +188,7 @@ export default function PlaySession() {
     setAnswer(question ? initialAnswer(question) : null);
     setTouched(false); setAnswered(false); setResult(null);
     startRef.current = session?.questionStartedAt || serverNow();
+    lastStartRef.current = session?.questionStartedAt || 0;
   }, [question]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The 3, 2, 1: the question opens at a server time every phone was given.
@@ -138,6 +200,14 @@ export default function PlaySession() {
     const id = setTimeout(() => setOpened(true), wait);
     return () => clearTimeout(id);
   }, [session?.state, session?.currentQuestionIndex, session?.questionStartedAt]);
+
+  // When the host resumes after a pause the start moves later by the length of the pause. Move this
+  // player's own stopwatch by the same amount, so a pause never eats the speed bonus.
+  useEffect(() => {
+    const started = session?.questionStartedAt || 0;
+    if (lastStartRef.current && started > lastStartRef.current && !answered) startRef.current += started - lastStartRef.current;
+    lastStartRef.current = started;
+  }, [session?.questionStartedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // If the host pushes the deadline out (a clip is still loading), time from that moment so a
   // slow clip does not eat the speed bonus.
@@ -157,7 +227,7 @@ export default function PlaySession() {
 
   // ── Answering ───────────────────────────────────────────────────────────────────────
   const submit = async (value = answer) => {
-    if (answered || !question) return;
+    if (answered || !question || paused || outBefore) return;
     setAnswered(true);
     const taken = Math.max(0, serverNow() - startRef.current);
     try {
@@ -188,7 +258,7 @@ export default function PlaySession() {
   // The clock hit zero: send what the player has rather than throwing their work away.
   // Nothing is sent for a board they never touched, which still scores 0.
   const onZero = () => {
-    if (answered || session?.state !== 'question' || !question) return;
+    if (answered || paused || outBefore || session?.state !== 'question' || !question) return;
     if (touched || hasLiveAnswer(question, answer)) submit(answer);
   };
 
@@ -212,9 +282,14 @@ export default function PlaySession() {
       <div className="relative mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 pb-10 pt-4">
         <div className="mb-4 flex items-center justify-between">
           <Link to="/" aria-label="Quizlike home"><Logo size={24} /></Link>
-          {session?.quizTitle && <p className="max-w-[55%] truncate text-xs text-[hsl(var(--muted-foreground))]">{session.quizTitle}</p>}
+          <div className="flex min-w-0 items-center gap-3">
+            {session?.quizTitle && <p className="max-w-[10rem] truncate text-xs text-[hsl(var(--muted-foreground))]">{session.quizTitle}</p>}
+            {joined && session?.state !== 'ended' && (
+              <button type="button" onClick={handleLeave} aria-label="Leave this game" title="Leave this game" className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"><PiSignOutBold className="h-4 w-4" /></button>
+            )}
+          </div>
         </div>
-        {hud && me && <div className="mb-5"><PlayerHud rank={myRank} score={me.score || 0} streak={me.streak || 0} bonusPct={settings.streakBonus === false ? null : streakBonusPct(me.streak || 0)} /></div>}
+        {hud && me && <div className="mb-5"><PlayerHud rank={session.state === 'ended' ? finalRank : myRank} score={me.score || 0} streak={me.streak || 0} bonusPct={settings.streakBonus === false ? null : streakBonusPct(me.streak || 0)} team={teamCount ? me.team : null} out={out} /></div>}
         {children}
       </div>
     </div>
@@ -283,17 +358,27 @@ export default function PlaySession() {
             <motion.h1 variants={rise} className="text-hero mt-3 text-5xl">Waiting for the host</motion.h1>
             <motion.p variants={rise} className="mt-4 text-[hsl(var(--muted-foreground))]">The game starts when the host presses start. Keep this screen open.</motion.p>
 
+            {teamCount > 0 && Number.isInteger(me?.team) && (() => { const t = tileFor(me.team); return (
+              <motion.p variants={rise} className={`mt-5 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-medium ${t.bg} ${t.fg}`}><t.Icon className="h-4 w-4" />You are on the {TEAM_NAMES[me.team]} team</motion.p>
+            ); })()}
+
             <motion.ul variants={stagger(0.04)} className="mt-8 flex flex-wrap gap-2" aria-label="Players in the game">
-              {ranked.map((p) => (
-                <motion.li key={p.id} variants={pop} className={`rounded-full border px-3.5 py-1.5 text-sm ${p.id === playerIdRef.current ? 'border-[hsl(var(--primary))] bg-[hsl(var(--tint-green))] font-medium' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>{p.name}</motion.li>
-              ))}
+              {ranked.map((p) => {
+                const t = teamCount > 0 && Number.isInteger(p.team) ? tileFor(p.team) : null;
+                return (
+                  <motion.li key={p.id} variants={pop} className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm ${p.connected === false ? 'opacity-50' : ''} ${p.id === playerIdRef.current ? 'border-[hsl(var(--primary))] bg-[hsl(var(--tint-green))] font-medium' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]'}`}>
+                    {t && <t.Icon className={`h-3.5 w-3.5 ${t.fg}`} aria-label={`${TEAM_NAMES[p.team]} team`} />}{p.name}
+                  </motion.li>
+                );
+              })}
             </motion.ul>
 
             <motion.div variants={rise} className="mt-9 border-t border-[hsl(var(--border))] pt-5">
               <p className="eyebrow mb-3">The rules today</p>
               <ul className="flex flex-wrap gap-2 text-xs font-medium">
                 {RULES.filter(([key]) => settings[key]).map(([key, label]) => <li key={key} className="rounded-full bg-[hsl(var(--tint-neutral))] px-2.5 py-1 text-[hsl(var(--tint-neutral-fg))]">{label}</li>)}
-                {!RULES.some(([key]) => settings[key]) && <li className="text-[hsl(var(--muted-foreground))]">Just you, the clock and the questions.</li>}
+                {teamCount > 0 && <li className="rounded-full bg-[hsl(var(--tint-neutral))] px-2.5 py-1 text-[hsl(var(--tint-neutral-fg))]">{teamCount} teams</li>}
+                {!RULES.some(([key]) => settings[key]) && teamCount === 0 && <li className="text-[hsl(var(--muted-foreground))]">Just you, the clock and the questions.</li>}
               </ul>
             </motion.div>
           </motion.div>
@@ -302,34 +387,46 @@ export default function PlaySession() {
         {/* ── A question ── */}
         {session.state === 'question' && question && !opened && (
           <motion.div key={`count-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="my-auto">
-            <Countdown startsAt={session.questionStartedAt} label={`Question ${idx + 1} of ${sequence.length}`} hint={`${TYPE_LABEL[question.type] || 'Question'}, ${Math.round(limitMs / 1000)} seconds`} />
+            <Countdown startsAt={session.questionStartedAt} pausedAt={session.pausedAt} label={`Question ${idx + 1} of ${sequence.length}`} hint={`${TYPE_LABEL[question.type] || 'Question'}, ${Math.round(limitMs / 1000)} seconds`} />
           </motion.div>
         )}
 
-        {session.state === 'question' && question && opened && (
+        {session.state === 'question' && question && opened && outBefore && (
+          <motion.div key={`out-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="my-auto py-6 text-center">
+            <PiSkullBold className="mx-auto h-9 w-9 text-[hsl(var(--tint-red-fg))]" />
+            <h1 className="text-hero mt-4 text-4xl">You are out</h1>
+            <p className="mt-3 text-[hsl(var(--muted-foreground))]">Keep watching. <span className="tabular font-medium text-[hsl(var(--foreground))]">{stillIn}</span> {stillIn === 1 ? 'player is' : 'players are'} still in.</p>
+            <p className="mt-6 text-sm text-[hsl(var(--muted-foreground))]">Question {idx + 1} of {sequence.length}</p>
+          </motion.div>
+        )}
+
+        {session.state === 'question' && question && opened && !outBefore && (
           <motion.div key={`q-${idx}`} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
             <p className="eyebrow mb-3">Question {idx + 1} of {sequence.length}</p>
-            <LiveClock endsAt={endsAt} limitMs={limitMs} running={!answered} onZero={onZero} tick={!answered} />
+            <LiveClock endsAt={endsAt} pausedAt={session.pausedAt} limitMs={limitMs} running={!answered} onZero={onZero} tick={!answered} />
+            {paused && (
+              <p role="status" className="mt-3 flex items-center gap-2 rounded-xl bg-[hsl(var(--tint-yellow))] px-3.5 py-2.5 text-sm font-medium text-[hsl(var(--tint-yellow-fg))]"><PiPauseFill className="h-4 w-4" /> The host paused the game. Your time is kept.</p>
+            )}
 
             {media && (
               <div className="mt-5 flex justify-center overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/50">
                 <MediaRenderer media={media} transform="question_main" className={mediaKind(media) === 'audio' ? 'w-full p-2' : 'max-h-56 w-auto max-w-full object-contain'} />
               </div>
             )}
-            <h1 className="mt-5 text-2xl font-semibold leading-snug tracking-tight">{question.questionText}</h1>
+            <h1 className="mt-5 text-2xl font-semibold leading-snug tracking-tight"><MathText text={question.questionText} /></h1>
             {multi && <p className="eyebrow mt-2">Choose every right answer</p>}
 
             {settings.powerUps !== false && me?.powerups && (
               <div className="mt-5"><PowerUpBar powerups={me.powerups} canFifty={canFifty} doubleArmed={doubleArmed} answered={answered} onUse={onPowerUp} /></div>
             )}
 
-            <div className="mt-5">
+            <div className={`mt-5 ${paused ? 'pointer-events-none opacity-40' : ''}`} aria-hidden={paused || undefined}>
               {question.type === 'MCQ' && (
                 <div className="flex flex-col gap-3">
                   {question.mcqData.options.map((opt, i) => {
                     const chosen = (answer || []).includes(opt.id);
                     const state = answered ? (chosen ? 'locked' : 'unpicked') : chosen ? 'picked' : 'idle';
-                    return <LiveOption key={opt.id} index={i} multi={multi} media={opt.media} hidden={hiddenIds.includes(opt.id)} state={state} onSelect={() => change(opt.id)}>{opt.text}</LiveOption>;
+                    return <LiveOption key={opt.id} index={i} multi={multi} media={opt.media} hidden={hiddenIds.includes(opt.id)} state={state} onSelect={() => change(opt.id)}><MathText text={opt.text} /></LiveOption>;
                   })}
                 </div>
               )}
@@ -363,11 +460,26 @@ export default function PlaySession() {
         {/* ── The reveal ── */}
         {session.state === 'reveal' && (
           <motion.div key={`reveal-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="my-auto py-6">
-            <ResultCard
-              question={question}
-              result={answered ? result : null}
-              rank={{ now: myRank, before: previousRanks(players, session.answers?.[idx])[playerIdRef.current] }}
-            />
+            {outBefore ? (
+              <div className="text-center">
+                <PiSkullBold className="mx-auto h-9 w-9 text-[hsl(var(--tint-red-fg))]" />
+                <h1 className="text-hero mt-4 text-4xl">You are out</h1>
+                <p className="mt-3 text-[hsl(var(--muted-foreground))]"><span className="tabular font-medium text-[hsl(var(--foreground))]">{stillIn}</span> {stillIn === 1 ? 'player is' : 'players are'} still in.</p>
+              </div>
+            ) : (
+              <>
+                <ResultCard
+                  question={question}
+                  result={answered ? result : null}
+                  rank={{ now: myRank, before: previousRanks(players, session.answers?.[idx])[playerIdRef.current] }}
+                />
+                {settings.suddenDeath && (
+                  <p role="status" className={`mt-6 rounded-xl px-4 py-3 text-center text-sm font-medium ${outNow ? 'bg-[hsl(var(--tint-red))] text-[hsl(var(--tint-red-fg))]' : 'bg-[hsl(var(--tint-green))] text-[hsl(var(--tint-green-fg))]'}`}>
+                    {outNow ? 'That answer knocked you out. You can keep watching.' : `You are still in. ${stillIn} ${stillIn === 1 ? 'player is' : 'players are'} left.`}
+                  </p>
+                )}
+              </>
+            )}
           </motion.div>
         )}
 
@@ -376,7 +488,8 @@ export default function PlaySession() {
           <motion.div key={`board-${idx}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="my-auto w-full py-6">
             <p className="eyebrow mb-1 text-center">After question {idx + 1} of {sequence.length}</p>
             <h1 className="text-hero mb-6 text-center text-5xl">Leaderboard</h1>
-            <Leaderboard players={players} answers={session.answers?.[idx]} meId={playerIdRef.current} limit={5} />
+            {teamCount > 0 && <div className="mb-6"><TeamBoard players={players} teams={teamCount} myTeam={me?.team ?? null} /></div>}
+            <Leaderboard players={players} answers={session.answers?.[idx]} meId={playerIdRef.current} limit={5} suddenDeath={!!settings.suddenDeath} />
           </motion.div>
         )}
 
@@ -384,11 +497,20 @@ export default function PlaySession() {
         {session.state === 'ended' && (
           <motion.div key="ended" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="my-auto w-full py-6 text-center">
             <p className="eyebrow">Game over</p>
-            <h1 className="text-hero mt-3 text-5xl">{myRank ? `You finished ${ordinal(myRank)}` : 'Thanks for playing'}</h1>
+            <h1 className="text-hero mt-3 text-5xl">
+              {!finalRank ? 'Thanks for playing'
+                : settings.suddenDeath && finalRank === 1 ? 'You were the last one standing'
+                : teamCount > 0 && Number.isInteger(me?.team) ? `The ${TEAM_NAMES[me.team]} team finished ${ordinal(teamsRanked.find((t) => t.team === me.team)?.rank || 1)}`
+                : `You finished ${ordinal(finalRank)}`}
+            </h1>
             <p className="tabular mt-3 text-[hsl(var(--muted-foreground))]">
               {me ? `${me.score || 0} points · ${me.correctCount || 0} right · best streak ${me.bestStreak || 0}` : ''}
             </p>
-            <div className="mt-10"><Podium ranked={ranked} /></div>
+            <div className="mt-10">
+              {teamCount > 0
+                ? <Podium ranked={teamsRanked.map((t) => ({ id: `team-${t.team}`, name: `${t.name} team`, score: t.average, rank: t.rank }))} />
+                : <Podium ranked={orderedPlayers} />}
+            </div>
             <div className="mt-10 flex justify-center gap-3">
               <Button onClick={() => navigate('/')}>Back to home</Button>
               <Button variant="outline" onClick={() => { window.location.href = '/play'; }}>Join another game</Button>
