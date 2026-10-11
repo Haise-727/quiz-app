@@ -2,8 +2,9 @@
 
 **Status: feature complete and deployed** at https://quizlike.vercel.app. The
 last round of work was a full redesign, a game layer on every kind of quiz, and a
-rebuilt live game. What remains is hardening, which is planned together with the
-move to AWS.
+rebuilt live game, and then eleven question types, a quiz importer, teacher insights,
+a daily question and team and sudden death live games. What remains is hardening that
+needs a server of our own.
 
 ## What it is
 
@@ -24,9 +25,14 @@ game. Guests can take part with no account.
 
 ### Building quizzes (teachers)
 
-- Nine question types: multiple choice (one or several answers), true or false,
-  fill in the blank, paragraph (marked by hand), match, reorder, categorize,
-  visual comprehension and listening comprehension
+- Eleven question types: multiple choice (one or several answers), true or false,
+  fill in the blank, number (with a tolerance and a unit), click on the image,
+  paragraph (marked by hand), match, reorder, categorize, visual comprehension and
+  listening comprehension
+- Maths between dollar signs, drawn as formulas
+- Import questions from a pasted table or a CSV file, with a preview and row by row errors
+- A check before publishing that names any broken question
+- Duplicate a quiz, folders, and cloning of open quizzes by other teachers
 - Pictures, audio and video on questions and on answer options
 - Crop and annotate images before upload
 - Draft autosave, and full editing of published quizzes
@@ -45,7 +51,9 @@ game. Guests can take part with no account.
 
 - XP for every quiz: more for accuracy, a bonus for a perfect score, and only
   the best attempt on each quiz counts
-- Levels, a daily streak and eleven badges, all worked out from saved results
+- Levels, a daily streak and twelve badges, all worked out from saved results
+- A daily question that is the same for every student, which keeps the streak going
+- Weak spots: subjects ranked by accuracy and the questions to revisit
 - A result screen that fills the XP bar, levels up and shows new badges
 - Guests keep progress on their device until they sign up
 - A student dashboard and sidebar chip that show level, XP and streak
@@ -57,8 +65,11 @@ game. Guests can take part with no account.
 - A QR code and a link as well as the code, with copy buttons
 - A shared 3, 2, 1 on every device, using server time
 - Streak bonus up to +50%, a 50/50 and a double points power-up for each player
+- Teams (a team scores the average of its players) or sudden death (a wrong answer knocks you out)
+- A pause button that gives everyone back exactly the time they had
+- A seat is kept when a player reloads, loses signal or changes phone
 - A leaderboard that shows who moved, and a podium
-- Eight of the nine question types, including Match, Reorder and Categorize
+- Ten of the eleven question types, including Match, Reorder, Categorize, number and click on the image
 - Pictures, audio and video on each player's own device. A long clip extends the clock
 - The host can kick players and export the results as a spreadsheet
 
@@ -73,6 +84,7 @@ game. Guests can take part with no account.
 - A home page with live numbers, a quiz list with a menu per quiz, and one button to host
 - Grading with a queue of pending answers and partial credit
 - Analytics for each quiz: score spread, accuracy per question and a student table
+- Insights across all quizzes: activity by week, the most missed questions, a student table with trends
 - A CSV export that neutralises spreadsheet formulas
 
 ### Student pages
@@ -107,6 +119,7 @@ game. Guests can take part with no account.
 | Question bank | `/teacher/question-bank` | Teacher |
 | Grading | `/teacher/grading/:quizId` | Teacher |
 | Analytics | `/teacher/analytics/:quizId` | Teacher |
+| Insights | `/teacher/insights` | Teacher |
 | Host live game | `/teacher/host/:pin` | Teacher |
 | Student dashboard | `/student/dashboard` | Student |
 | Join a quiz | `/student/attend-quiz` | Student |
@@ -134,8 +147,9 @@ practice and flashcard links, which now open the quiz.
 
 - Close the gaps in [security.md](security.md). The biggest are answer keys that
   can be read, scores that the browser writes, and the open live game database.
-- Move to AWS, following [aws-migration.md](aws-migration.md). The hardening and
-  the move are the same job.
+- Publish the new rules in the Firebase console (steps in [security.md](security.md)).
+- A server of our own, so scores and answer keys stop living in the browser. An AWS
+  plan exists ([aws-migration.md](aws-migration.md)) but the move is not under way.
 - Run lint, build and the unit tests on every push.
 - Commit browser tests for the main flows.
 

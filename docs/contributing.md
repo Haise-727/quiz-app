@@ -187,17 +187,29 @@ Always double-check that you are pushing to `main-update` branch, not to `main`.
 Run these from the project folder. They take under a minute.
 
 ```
-npm run lint                         # no errors
-npm run build                        # must finish without errors
-node scripts/test-gamification.mjs   # the rules have their own tests
-node scripts/test-quiz-attempt.mjs
-node scripts/test-live-scoring.mjs
-node scripts/test-csv.mjs
+npm run lint      # no errors
+npm run build     # must finish without errors
+npm test          # every unit test file, the rules have their own tests
 ```
 
-If you change something in `src/utils` that scores, grades or exports, add or
-update the matching test. Break the rule on purpose first and confirm the test
+If you change something in `src/utils` that scores, grades, imports or exports, add
+or update the matching test. Break the rule on purpose first and confirm the test
 fails, then fix it.
+
+### Trying a change with nothing at stake
+
+The app normally talks to the real Firebase project. To try something risky (a rule
+change, deleting data, a live game with test players) run the emulators on your own
+computer instead. You need Java 17 or newer.
+
+```
+npm run emulators      # in one terminal
+npm run dev:emulated   # in another, then open http://localhost:5174
+```
+
+Sign up as a teacher and as a student there. Everything disappears when you stop the
+emulators. To change a security rule, edit `firestore.rules` or `database.rules.json`,
+restart the emulators, and try it before anything is published.
 
 ### Keeping the look consistent
 

@@ -1,7 +1,7 @@
 # Quizlike technical reference
 
 Schemas, rules and code patterns. For what the project is, see the
-[README](../README.md). For the cloud move, see [aws-migration.md](aws-migration.md).
+[README](../README.md). For an optional plan to move to AWS, see [aws-migration.md](aws-migration.md).
 For known weaknesses, see [security.md](security.md).
 
 ## Project structure
@@ -16,15 +16,16 @@ quiz-app/
 │   │   ├── Guest/GuestTakeQuiz.jsx                               a guest taking a quiz
 │   │   ├── Student/   StudentDashboard  AttendQuiz  TakeQuiz  YourResults
 │   │   ├── Teacher/   TeacherHome  CreateQuiz  YourQuizzes  Classes  QuestionBank
-│   │   │              Grading  Analytics  HostSession
+│   │   │              Grading  Analytics  Insights  HostSession
 │   │   └── Profile.jsx
 │   ├── components/
 │   │   ├── quiz/      QuizRunner  QuestionView  OptionCard  PlacementChip  QuizBrowser ...
 │   │   ├── live/      LiveOption  Countdown  Leaderboard  Podium  PowerUpBar  ...
-│   │   ├── game/      XPBar  LevelBadge  StreakChip  BadgeTile  AnimatedNumber  JoinField
+│   │   ├── game/      XPBar  LevelBadge  StreakChip  BadgeTile  AnimatedNumber  JoinField  DailyQuestion  WeakSpots
 │   │   ├── landing/   HeroDemo  LevelDemo
 │   │   ├── layout/    DashboardLayout  PageHeader  PublicNav  PublicFooter
-│   │   ├── teacher/   CopyCodeButton  Skeleton
+│   │   ├── teacher/   HotspotEditor  ImportQuestionsDialog  CopyCodeButton  Skeleton
+│   │   ├── MathText.jsx                  formulas in question text (KaTeX, loaded on demand)
 │   │   └── ui/        button  input  dialog  dropdown-menu  switch  ...
 │   ├── utils/
 │   │   ├── gamification.js     XP, levels, streaks, badges (pure)
@@ -33,6 +34,13 @@ quiz-app/
 │   │   ├── liveSession.js      live game database calls
 │   │   ├── guestProgress.js    a guest's progress, kept in the browser
 │   │   ├── csv.js              safe spreadsheet export
+│   │   ├── questionImport.js   reads a pasted table or CSV into questions (pure)
+│   │   ├── questionValidation.js  what must be true before a quiz is published (pure)
+│   │   ├── mathText.js         finds formulas in text (pure)
+│   │   ├── insights.js         teacher insights (pure)
+│   │   ├── daily.js  weakSpots.js  the daily question and weak spots (pure)
+│   │   ├── accountPlan.js  accountData.js  export and delete an account
+│   │   ├── quizCopy.js  userNames.js  duplicate and clone, and name lookups
 │   │   ├── media.js  mediaUpload.js  quizLookup.js  sounds.js  ...
 │   ├── contexts/      AuthContext  ThemeContext  ProgressContext
 │   ├── hooks/useQuizKeys.js
@@ -41,7 +49,7 @@ quiz-app/
 │   └── firebase.js
 ├── scripts/                    unit tests and the media seeding script
 ├── docs/
-├── firestore.rules  database.rules.json  vercel.json
+├── firestore.rules  database.rules.json  firebase.json  .env.emulator  vercel.json
 ```
 
 ## Design system
@@ -87,7 +95,19 @@ and the same file can run on a server later.
 | Which attempts count | The best attempt on each quiz, so a retake earns only the difference |
 | Level `n` starts at | `50 * n * (n - 1)` XP |
 | Streak | Days in a row with at least one result. It stays alive until the end of the next day |
-| Badges | 11, each with a target value and a progress bar while locked |
+| Badges | 12, each with a target value and a progress bar while locked |
+
+**The daily question.** Every student gets the same question each day, chosen by a
+hash of the local date from the open quizzes (single answer multiple choice, true
+or false, and fill in the blank, with no media). Answering it is saved ONCE per day
+as a result with the id `daily-YYYY-MM-DD` and an empty `teacherId`, so it needs no
+new rules and no teacher ever sees it. It counts toward the streak and earns a flat
+15 XP when right or 5 when wrong. It never counts in the averages, the quizzes taken,
+the recent activity or the quiz badges (`src/utils/daily.js`).
+
+**Weak spots.** `src/utils/weakSpots.js` ranks the student's subjects by accuracy on
+their latest attempt of each quiz, and lists up to six questions missed on that latest
+attempt, newest first. A question answered right on a later attempt drops off.
 
 A signed in student's progress comes from `ProgressContext`, which fetches
 results once and shares them with the sidebar chip, the dashboard and the
@@ -133,10 +153,11 @@ sessions/{pin}
   quizId, quizTitle, hostId, totalQuestions, skippedCount, createdAt
   state: "lobby" | "question" | "reveal" | "leaderboard" | "ended"
   currentQuestionIndex, questionStartedAt, questionEndsAt
-  settings: { streakBonus, powerUps, shuffle, lockOnStart }
+  settings: { streakBonus, powerUps, shuffle, lockOnStart, teams, suddenDeath }
+  pausedAt: server time the host paused at, absent while the game runs
   order: [position, ...]                      only when shuffle is on
-  players: { [playerId]: { name, score, streak, bestStreak, correctCount, joinedAt,
-                           powerups: { fifty, double }, doubleFor, fiftyFor } }
+  players: { [playerId]: { name, score, streak, bestStreak, correctCount, joinedAt, connected,
+                           team, eliminatedAt, powerups: { fifty, double }, doubleFor, fiftyFor } }
   answers: { [questionIndex]: { [playerId]: { answer, correct, points, parts, answeredAt } } }
 ```
 
@@ -162,11 +183,32 @@ A player's score, streak and stored answer are all computed inside one
 transaction from the player's own record, so a bonus or a double cannot apply
 twice, and answering twice returns the first result.
 
+**Coming back.** A seat is never deleted when a connection drops: `watchPresence` marks it
+`connected: false` and the seat keeps its score. A phone saves its seat in `localStorage`
+and rejoins by itself after a reload. A new phone that uses the name of someone who has
+dropped takes their seat (`claimSeat`), and a name held by someone still connected is
+refused. Seats are forgotten after six hours.
+
+**Pausing.** The host writes `pausedAt`. Every clock shows the time left at that moment.
+On resume the start, and any moved deadline, slide later by exactly the length of the
+pause (`resumeShift`), so players get back the time they had and the speed bonus is kept.
+
+**Teams.** With `settings.teams` of 2, 3 or 4, a new player joins the smallest team and
+turning teams on after players have joined spreads them in join order. A team scores the
+AVERAGE of its players. Teams and sudden death cannot be on together.
+
+**Sudden death.** Whoever did not answer fully right is marked `eliminatedAt` with the
+question number. The host does this about 1.5 seconds AFTER the reveal, because a
+player's answer is stored a beat after their phone says "locked in" and must be counted.
+If a question would knock out everyone still in, nobody goes. The game ends when one
+player is left. The final order is those still standing, then the later you went out the
+better, then score.
+
 **Settings.** The host picks them in the lobby. `shuffle` stores one random
 `order` that everyone reads. `lockOnStart` makes `joinSession` refuse late
 joiners.
 
-**Types.** Eight of the nine question types play live (`LIVE_SUPPORTED_TYPES`).
+**Types.** Ten of the eleven question types play live (`LIVE_SUPPORTED_TYPES`).
 Paragraph needs marking by hand, so it is skipped and counted in
 `skippedCount`. Comprehension questions are one live question with partial
 credit. Their answer keys are `s0`, `s1` and so on, never bare numbers, because
@@ -185,6 +227,38 @@ the Realtime Database turns an object with whole number keys into an array.
 | `REORDER` | Reorder | yes |
 | `VISUAL_COMPREHENSION` | Image plus follow up questions | yes |
 | `LISTENING_COMPREHENSION` | Audio or video plus follow up questions | yes |
+| `NUMERIC` | A number with a tolerance and an optional unit | yes |
+| `HOTSPOT` | Tap the right place on a picture | yes |
+
+### Number and click on the image
+
+`NUMERIC` stores `numericData: { answer, tolerance, unit }`. A student's answer is the text
+as typed. `parseNumeric` accepts a comma or a point as the decimal mark, a thousands comma
+(`1,000` is 1000), spaces and the unit after the number, and `gradeNumeric` allows the
+tolerance as a plain plus or minus. Text that is not a number is never marked right.
+
+`HOTSPOT` stores `hotspotData: { regions: [{ id, x, y, w, h }] }`, boxes drawn on the
+question's own picture (`question.media`), all in percentages of the picture so they match
+at any size. The student's answer is `{ x, y }` in the same unit, and a tap inside any box
+is right. The picture is shown uncropped, because a crop would move the boxes. The picture
+claims the arrow keys (`data-owns-keys`) so the quiz shortcuts do not steal them.
+
+## Maths
+
+Between dollar signs a question or option is drawn as a formula: `$x^2$` inline, `$$...$$`
+on its own line, `\$` for a plain dollar sign. Money is safe: `$5 and $10` is not maths,
+because an inline formula needs text touching both dollar signs. `splitMath` finds the
+formulas (pure, tested). `MathText` draws them with KaTeX, fetched only when a formula
+appears, with `trust` off so teacher text cannot add links or scripts.
+
+## Importing questions
+
+`importQuestions` in `src/utils/questionImport.js` turns a table into editor questions. It
+guesses the separator (comma, semicolon or tab, so a paste from a spreadsheet works),
+reads quoted cells with commas, quotes and line breaks, and reports problems by the row
+number a spreadsheet would show. The right answer can be a letter, a number or the
+option's own text. The editor's dialog previews the result before anything is added.
+`validateQuestions` (`questionValidation.js`) runs before every publish.
 
 ## Media
 
@@ -241,18 +315,41 @@ run when a teacher opens the export. The analytics export uses it.
 
 ## Tests
 
-The rules that matter are plain functions, tested without a browser:
+The rules that matter are plain functions, tested without a browser. Run them all:
 
 ```
-node scripts/test-gamification.mjs     XP, levels, streaks, badges (run it under several time zones)
-node scripts/test-quiz-attempt.mjs     answer shapes and grading
-node scripts/test-live-scoring.mjs     live scoring, streaks, power-ups, ranking
-node scripts/test-csv.mjs              formula neutralising
+npm test
 ```
 
-Each file checks its own behaviour and was mutation checked: break a rule on
-purpose and the matching test fails. Run them before a commit that touches
-`src/utils`.
+| File | What it checks |
+|---|---|
+| `test-gamification.mjs` | XP, levels, streaks, badges, the daily result (run it under several time zones) |
+| `test-quiz-attempt.mjs` | answer shapes, grading, numbers with tolerance, clicks on a picture |
+| `test-live-scoring.mjs` | live scoring, power-ups, ranking, pausing, rejoining, teams, sudden death |
+| `test-question-import.mjs` | reading a pasted table or CSV |
+| `test-question-validation.mjs` | what must be true before publishing |
+| `test-math-text.mjs` | finding formulas and not mistaking money for maths |
+| `test-insights.mjs`, `test-daily.mjs`, `test-weak-spots.mjs` | teacher insights, the daily question, weak spots |
+| `test-account-plan.mjs`, `test-csv.mjs` | what an account owns, safe spreadsheet export |
+
+Each file was mutation checked: break a rule on purpose and the matching test fails.
+
+## Trying things with nothing at stake
+
+`npm run emulators` starts the Firebase Authentication, Firestore and Realtime Database
+emulators on your own computer, loaded with `firestore.rules` and `database.rules.json`
+(it needs Java 17 or newer). `npm run dev:emulated` runs the app at
+http://localhost:5174 wired to them with fake keys from `.env.emulator`. Accounts and data
+live only in the emulators and disappear when you stop them. Use it to try a rule change
+before publishing it: every rule in this repo was proven this way.
+
+## Accessibility
+
+Every page, dialog and live screen was checked with axe-core in light and dark mode. Pages
+have a skip to the content link, one main landmark and one level one heading, headings go
+up one level at a time, and the paused live screen makes its answer board `inert`. The
+quiz works from the keyboard: number keys choose, Enter moves on, the arrow keys move a
+marker on a picture question.
 
 ## Environment
 

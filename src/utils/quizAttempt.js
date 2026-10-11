@@ -6,9 +6,9 @@
  * for the two comprehension types, so a guest scored 0 on every one of them. Both pages
  * now call this one module, and scripts/test-quiz-attempt.mjs checks it.
  *
- * It is also the piece that should move to a server on AWS. Grading in the browser means
+ * It is also the piece that should move to a server. Grading in the browser means
  * anyone can send any score (docs/security.md, findings 1 and 2). These functions have no
- * React and no Firebase in them, so they can be copied into a Lambda unchanged.
+ * React and no Firebase in them, so they can be copied onto a server unchanged.
  *
  * The stored shapes (what `userAnswer` looks like in a saved result) are read by the
  * results review and the teacher's grading page, so they must not change:

@@ -36,9 +36,11 @@ plan at the end puts the cheap fixes first.
   in Vercel's environment settings.
 - The Firebase web config in the code is public by design. It identifies the
   project and does not grant access. Access is decided by the rules.
-- No unsafe rendering. The code never uses `dangerouslySetInnerHTML`, `eval` or
-  `innerHTML`, and React escapes everything it prints. Player names and quiz text
-  cannot inject script.
+- No unsafe rendering. The code never uses `dangerouslySetInnerHTML` or `eval`, and
+  React escapes everything it prints. The one place text becomes markup is the formula
+  drawer (KaTeX, for maths between dollar signs). It builds its own markup from the
+  formula, with links and raw HTML switched off (`trust: false`), so player names and
+  quiz text cannot inject script.
 - Anonymous visitors cannot list users, classes, enrolments, results, question
   bank items or notifications. Those rules hold.
 - Results, the question bank and notifications can only be read by their owner.
@@ -107,6 +109,14 @@ can still pick a believable score.
 
 ### 3. The live game database is open to the whole internet (High)
 
+**Status: mostly fixed in `database.rules.json`, in effect once published.** The list of games
+cannot be read any more, only the host (who must be signed in) can create, change or delete a
+game, a name must be 1 to 24 characters, scores and teams must be numbers, and an answer can
+be written once. What is NOT fixed: a player writes their own seat, so someone who knows
+another player's id can still change that seat, including their own score. That needs
+something only a server can do. The original
+finding follows.
+
 **Evidence.** With no login we listed every live game PIN, read a session
 including the host's user id, wrote a new session, read it back and deleted it.
 The rules are `.read: true` and `.write: true` on `sessions`.
@@ -150,11 +160,17 @@ and quota, and it lets someone host unwanted files under our account.
 browser already has one. The function can verify it against Google's public keys
 without a service account. Remove the wildcard CORS header, because the app only
 calls it from its own origin. Add a rate limit. In the ImageKit dashboard,
-restrict the allowed file types and sizes. When we move to AWS, an S3 presigned
-upload can enforce a maximum size and file type itself, which closes this
+restrict the allowed file types and sizes. With a server of our own, a presigned
+upload to a storage bucket can enforce a maximum size and file type itself, which closes this
 properly.
 
 ### 5. Any signed in user can list every user's email (High)
+
+**Status: fixed in `firestore.rules`, in effect once the rules are published** (see
+"Publishing the new rules" below). A signed in user can still read ONE profile by its
+id, which is what a teacher needs to see a student's name, but cannot list them. Analytics,
+Grading and Insights now look names up one profile at a time (`src/utils/userNames.js`).
+The original finding follows.
 
 **Evidence.** A brand new account with no profile and no role listed all 31
 profiles. All 31 include an email address, plus role, display name and last login.
@@ -301,9 +317,9 @@ custom claims. This removes findings 1, 2, 4 and 6 for good, and it is the same
 function that will award points and badges for the gamification work, so that
 score cannot be forged either.
 
-**Phase 3: the AWS move.**
-The server function in phase 2 becomes the first real API tier. See
-[aws-migration.md](aws-migration.md).
+**Phase 3: a server of our own.**
+The server function in phase 2 becomes the first real API tier. An optional plan for
+building it on AWS is in [aws-migration.md](aws-migration.md). It is not under way.
 
 ## Accepted for now
 
@@ -329,8 +345,35 @@ The server function in phase 2 becomes the first real API tier. See
   `=HYPERLINK("http://example.com","click")` would run when a teacher opened the
   file. This was found while testing the export and is fixed, see below.
 
+## Publishing the new rules
+
+The repository holds the new rules. They only protect the real project once someone
+publishes them in the Firebase console. They were tested first, for real, against the
+Firebase emulators with the whole app on top: 42 checks on the rules themselves (who can
+read, write and delete what, using raw requests) plus a full live game with a host, a guest
+and a student, teams, sudden death, pausing, rejoining and deleting an account.
+
+To publish, from the Firebase console of the project:
+
+1. Firestore Database, then the **Rules** tab. Replace everything with the contents of
+   `firestore.rules`, then press **Publish**.
+2. Realtime Database, then the **Rules** tab. Replace everything with the contents of
+   `database.rules.json`, then press **Publish**.
+3. Open the live site, sign in as a teacher and as a student, and play one quick live game
+   to see that nothing is blocked. If something is, press the clock icon in the Rules tab
+   to restore the previous version.
+
+What changes: nobody can list users, a quiz can only be created in your own name, people can
+delete their own profile, results and notifications (this is what makes **Delete my account**
+work), and the live game rules above. Nothing else about how the app behaves changes.
+
+To try any rule change safely first, run `npm run emulators` and `npm run dev:emulated`
+(docs/technical.md).
+
 ## Already changed
 
+- Rules for users, quizzes, results, notifications and live games, ready to publish and tested in the emulators (see above).
+- A way to download your data and delete your account, which removes personal data a person asked to remove (`src/utils/accountData.js`).
 - The CSV export neutralises cells that start with `=`, `+`, `-`, `@`, a tab or a
   carriage return (`src/utils/csv.js`, with tests in `scripts/test-csv.mjs`).
 - Two unused dependencies and the packages only they needed were removed

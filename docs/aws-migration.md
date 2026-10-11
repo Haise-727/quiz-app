@@ -1,5 +1,10 @@
 # Moving Quizlike to AWS
 
+> **Status: not under way.** The owner looked at this in October 2026 and decided not to
+> move. It is kept as a reference in case a server of our own is wanted later. The
+> Free plan section describes how AWS's free tier really works, which is worth knowing
+> before trying any AWS service.
+
 ## The short answer
 
 Yes, it is possible, and it is a reasonable plan. It is not a rewrite.

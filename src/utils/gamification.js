@@ -6,8 +6,8 @@
  * graded later (a teacher marks a paragraph answer), XP, level and badges simply
  * update the next time they are computed.
  *
- * These are plain functions with no React and no Firebase in them. When the app moves
- * to AWS they can be copied into a Lambda unchanged, which is the point: that is where
+ * These are plain functions with no React and no Firebase in them. If the app ever gets a
+ * server of its own they can be copied onto it unchanged, which is the point: that is where
  * progress should eventually be computed so the browser cannot invent it. See
  * docs/security.md.
  *

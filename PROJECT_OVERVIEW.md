@@ -102,12 +102,15 @@ rules are deployed separately from the Firebase console.
 ## Known limitations
 
 - **Security gaps.** Answer keys are readable by anyone who can read a quiz,
-  scores are written by the browser, the live game database is open, and roles
-  are a preference rather than a boundary. All of it is written up in
-  [docs/security.md](docs/security.md), with fixes ordered by effort. The plan is
-  to close these while moving to AWS ([docs/aws-migration.md](docs/aws-migration.md)).
-- **Tests cover rules, not screens.** The scoring, grading, XP and export rules
-  have unit tests. There are no committed browser tests yet.
+  scores are written by the browser, and roles are a preference rather than a
+  boundary. The rules for users, quizzes and live games have been tightened and
+  tested (they take effect once published, see
+  [docs/security.md](docs/security.md)). What is left needs a server of our own.
+  A plan for one on AWS exists in [docs/aws-migration.md](docs/aws-migration.md), but
+  the move is not under way.
+- **Tests cover rules, not screens.** The scoring, grading, XP, import and export
+  rules have unit tests (`npm test`). The screens were checked in a real browser and
+  against the Firebase emulators, but those browser checks are not committed.
 - **No CI.** Lint and build run on a developer's machine, not on every push.
 - **`--legacy-peer-deps` is needed.** `@toast-ui/react-image-editor` declares a
   React 17 peer dependency. It runs on React 19, but installs need the flag until

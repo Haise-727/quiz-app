@@ -4,7 +4,7 @@
  *
  * Nothing here touches Firebase or React, so scripts/test-live-scoring.mjs can run it
  * under plain Node. utils/liveSession.js re-exports everything, so pages keep importing
- * from there. Like the quiz grading, this is what should move to a server on AWS so a
+ * from there. Like the quiz grading, this is what should move to a server so a
  * player's browser cannot award itself points (docs/security.md, finding 3).
  *
  * Answer shapes a player writes to answers/{questionIndex}/{playerId}/answer. All are

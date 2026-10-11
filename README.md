@@ -32,10 +32,11 @@ a player, not a form filler.
 
 | For students | For teachers |
 |---|---|
-| Join with a code, no account needed | Nine question types, with pictures, audio and video |
-| Earn XP, level up, keep a daily streak, collect badges | Host live games with power-ups, streaks and a podium |
-| See every attempt, and review each answer | Classes, due dates and a queue for hand marking |
-| Join live games from a phone | Analytics per quiz and per question, with CSV export |
+| Join with a code, no account needed | Eleven question types, with pictures, audio, video and maths |
+| Earn XP, level up, keep a daily streak, collect badges | Host live games with power-ups, teams and sudden death |
+| A daily question, and a list of your weak spots | Import questions from a spreadsheet |
+| See every attempt, and review each answer | Insights across all your quizzes, and per quiz analytics |
+| Rejoin a live game after a dropped signal | Classes, due dates, folders, and a queue for hand marking |
 
 ---
 
@@ -52,7 +53,7 @@ keyboard too: `1` to `9` choose an option, `Enter` moves on.
 </tr>
 </table>
 
-### Nine question types
+### Eleven question types
 
 | Type | How it works | Live games |
 |---|---|:---:|
@@ -64,11 +65,16 @@ keyboard too: `1` to `9` choose an option, `Enter` moves on.
 | Categorize | Sort items into groups | yes |
 | Visual comprehension | A picture and follow up questions | yes |
 | Listening comprehension | Audio or video and follow up questions | yes |
+| Number | A number, with a tolerance and a unit. A comma or a point both work | yes |
+| Click on the image | Tap the right place on a picture. Works from the keyboard too | yes |
 | Paragraph | A written answer, marked by a teacher | no |
 
 Match, Reorder and Categorize give partial credit, so three of four right is
 worth three quarters of the marks. Pictures, audio and video can go on a
-question and on each answer option.
+question and on each answer option. Write maths between dollar signs, like
+`$x^2 + 1$`, and it is drawn as a real formula.
+
+<img src="docs/screenshots/new-questions.png" alt="Two phone screens: a multiple choice question with a formula, and a click on the image question with the student's mark on the water" width="62%">
 
 ---
 
@@ -92,6 +98,13 @@ worked out from the quizzes you finish.
 - **Eleven badges**, each with a progress bar while locked.
 - Sound effects and confetti, with a switch to turn the sound off.
 
+- **A daily question.** Every student gets the same one each day. Answering it
+  keeps the streak alive and earns a little XP.
+- **Weak spots.** The dashboard ranks your subjects by accuracy and lists the
+  questions you missed, each with a link to retake that quiz.
+
+<img src="docs/screenshots/dashboard-new.png" alt="The student dashboard: the daily question, the stats strip and the weak spots with questions to revisit" width="100%">
+
 Guests earn progress too. It stays on their device until they make an account.
 
 ---
@@ -113,9 +126,23 @@ Put the code and a QR code on the projector. Students join on their phones.
 - **Power-ups.** Every player gets one 50/50 and one double points.
 - **Rules chosen in the lobby.** Streak bonus, power-ups, shuffled questions
   and a lock on late joiners.
+- **Teams.** Split the room into two, three or four teams. A team scores the
+  average of its players, so a bigger team does not win by size.
+- **Sudden death.** A wrong answer knocks a player out. The last one standing wins.
+- **A pause button.** The clock stands still for everyone and gives back exactly
+  the time that was left.
+- **Come back any time.** A reload, a lost signal or a new phone keeps the
+  player's seat and score.
 - **A live board** that shows who moved up or down, and a podium at the end.
 - **All the boards work live**, including Match, Reorder and Categorize, and
   media plays on each player's own device.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/live-teams.png" alt="The leaderboard of a team game: Red team and Blue team, then each player"></td>
+<td width="50%"><img src="docs/screenshots/live-sudden-death.png" alt="A sudden death reveal: who knocked out on this question, and how many are still in"></td>
+</tr>
+</table>
 
 <table>
 <tr>
@@ -137,7 +164,21 @@ Put the code and a QR code on the projector. Students join on their phones.
 </table>
 
 - **A calm editor.** The open question is a card, the rest fold to one line.
-  Save any question to a bank and reuse it in other quizzes.
+  Save any question to a bank and reuse it in other quizzes. A quiz cannot be
+  published with a question that has no right answer: the editor says which one.
+- **Import from a spreadsheet.** Paste rows or choose a CSV file, see what was
+  understood and which rows have problems, then add them.
+- **A quiz library.** Duplicate a quiz, sort quizzes into folders, and let other
+  teachers clone your open quizzes (or switch that off).
+- **Insights.** Across all your quizzes: activity by week, the questions most
+  students miss, and a student table with a trend arrow and a "needs help" filter.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/import.png" alt="The import dialog showing three questions ready and one problem row explained"></td>
+<td width="50%"><img src="docs/screenshots/insights.png" alt="Insights: submissions, students, average score, activity by week and the most missed questions"></td>
+</tr>
+</table>
 - **Classes and assignments.** Invite students with a code, set due dates, see
   who has finished, and notify them when work is set.
 - **Marking.** Everything is graded automatically except paragraphs, which go to
@@ -148,13 +189,23 @@ Put the code and a QR code on the projector. Students join on their phones.
 
 ---
 
+## Your data
+
+On the profile page anyone can download everything Quizlike holds about them as
+one file, or delete their account. Deleting removes their results, class
+memberships and notifications, and for a teacher their quizzes, classes and
+question bank, then the profile and the sign in itself.
+
+---
+
 ## Design
 
 A warm off white page, near black ink, hairline borders and one green. Serif
 headings, a clean sans for the interface and a mono face for numbers. Light is
 the default and dark is a switch away. Animation uses only `transform` and
 `opacity`, follows the system "reduce motion" setting, and is built from one
-shared set of springs so every page moves the same way.
+shared set of springs so every page moves the same way. Every page was checked
+with axe-core in light and dark mode, and there is a skip to the content link.
 
 ---
 
@@ -168,6 +219,7 @@ shared set of springs so every page moves the same way.
 | Auth | Firebase Authentication: Google and email |
 | Data | Cloud Firestore for quizzes and results, Realtime Database for live games |
 | Media | ImageKit CDN, TUI Image Editor |
+| Maths | KaTeX, downloaded only when a question has a formula |
 | Hosting | Vercel: static files plus one serverless function |
 
 Access is enforced by Firestore security rules. Some parts of the design lean on
@@ -192,13 +244,18 @@ React 17 peer dependency but runs on React 19.
 A blank page on first run almost always means a missing `VITE_*` value. See
 `.env.local.example`.
 
-The scoring, grading and progress rules are plain functions with their own tests:
+The scoring, grading, import and progress rules are plain functions with their own tests:
 
 ```bash
-node scripts/test-gamification.mjs
-node scripts/test-quiz-attempt.mjs
-node scripts/test-live-scoring.mjs
-node scripts/test-csv.mjs
+npm test
+```
+
+To try the app with nothing real at stake, run the Firebase emulators on your own
+computer (needs Java 17 or newer) and a copy of the app wired to them:
+
+```bash
+npm run emulators      # in one terminal
+npm run dev:emulated   # in another, at http://localhost:5174
 ```
 
 ---
@@ -209,7 +266,7 @@ node scripts/test-csv.mjs
 |---|---|
 | [Technical reference](docs/technical.md) | Structure, design system, scoring rules, schemas |
 | [Security review](docs/security.md) | What is weak today and how to fix it |
-| [Moving to AWS](docs/aws-migration.md) | A plan to leave Firebase and Vercel |
+| [Moving to AWS](docs/aws-migration.md) | An optional plan, not under way |
 | [Progress report](docs/progress-report.md) | What is built and what is left |
 | [Contributing](docs/contributing.md) | Setup guide for new collaborators |
 | [Project overview](PROJECT_OVERVIEW.md) | Why it is built the way it is |
