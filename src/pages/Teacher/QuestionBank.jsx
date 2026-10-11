@@ -15,6 +15,8 @@ const QUESTION_TYPES = [
   { value: 'MCQ', label: 'Multiple choice' },
   { value: 'TRUE_FALSE', label: 'True or false' },
   { value: 'FILL_IN_THE_BLANK', label: 'Fill in the blank' },
+  { value: 'NUMERIC', label: 'Number' },
+  { value: 'HOTSPOT', label: 'Click on the image' },
   { value: 'PARAGRAPH', label: 'Paragraph' },
   { value: 'MATCH_THE_FOLLOWING', label: 'Match the following' },
   { value: 'CATEGORIZE', label: 'Categorize items' },
@@ -81,6 +83,26 @@ const QuestionPreviewBody = ({ question }) => {
           </div>
         </div>
       );
+
+    case 'NUMERIC': {
+      const { answer, tolerance, unit } = question.numericData || {};
+      return (
+        <div className="mt-4">
+          <PreviewLabel>Right number</PreviewLabel>
+          <Chip tone="green">{answer}{unit ? ` ${unit}` : ''}{Number(tolerance) > 0 ? `, plus or minus ${tolerance}` : ''}</Chip>
+        </div>
+      );
+    }
+
+    case 'HOTSPOT': {
+      const count = (question.hotspotData?.regions || []).length;
+      return (
+        <div className="mt-4">
+          <PreviewLabel>Right area</PreviewLabel>
+          <Chip tone="green">{count} {count === 1 ? 'area' : 'areas'} marked on the picture</Chip>
+        </div>
+      );
+    }
 
     case 'PARAGRAPH':
       return (

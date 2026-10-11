@@ -4,6 +4,8 @@ import { PiDotsSixVerticalBold } from 'react-icons/pi';
 import MediaRenderer from '../MediaRenderer';
 import { MiniMedia } from '../AnswerReveal';
 import OptionCard from './OptionCard';
+import HotspotPicker from './HotspotPicker';
+import MathText from '../MathText';
 import { PlacementChip } from './PlacementChip';
 import { slotProps, usePlacement } from './placement';
 import { getMainMedia, getSubQuestions, mediaKind } from '@/utils/media';
@@ -25,7 +27,9 @@ const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
  * @param onEnter    called when Enter is pressed inside a text answer, to move on
  */
 export default function QuestionView({ question, answer, onChange, onDragEnd, onEnter }) {
-  const media = getMainMedia(question);
+  // A "click on the image" question draws its picture inside the answer area, because the
+  // picture IS the answer board. Showing it here as well would put it on screen twice.
+  const media = question.type === 'HOTSPOT' ? null : getMainMedia(question);
   const kind = media ? mediaKind(media) : null;
   const multi = question.type === 'MCQ' && isMultiSelect(question);
 
@@ -50,7 +54,7 @@ export default function QuestionView({ question, answer, onChange, onDragEnd, on
       )}
 
       <h2 className="text-2xl font-semibold leading-snug tracking-tight text-[hsl(var(--foreground))] sm:text-[1.75rem]">
-        {question.questionText}
+        <MathText text={question.questionText} />
       </h2>
       {multi && <p className="eyebrow mt-3">Select all that apply</p>}
 
@@ -98,6 +102,35 @@ export function QuestionBody({ question, answer, onChange, onDragEnd, onEnter })
             />
           )}
 
+          {question.type === 'NUMERIC' && (
+            <div>
+              <div className="flex items-baseline gap-3 border-b-2 border-[hsl(var(--input))] transition-colors focus-within:border-[hsl(var(--ink))]">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  autoComplete="off"
+                  spellCheck="false"
+                  value={answer || ''}
+                  onChange={(e) => onChange(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') onEnter?.(); }}
+                  placeholder="Type a number"
+                  aria-label="Your answer"
+                  className="min-w-0 flex-1 bg-transparent pb-3 text-2xl tabular text-[hsl(var(--foreground))] outline-none placeholder:text-[hsl(var(--muted-foreground))]/45"
+                />
+                {question.numericData?.unit && <span className="pb-3 text-lg text-[hsl(var(--muted-foreground))]">{question.numericData.unit}</span>}
+              </div>
+              <p className="eyebrow mt-3">A number{question.numericData?.unit ? `, in ${question.numericData.unit}` : ''}</p>
+            </div>
+          )}
+
+          {question.type === 'HOTSPOT' && (
+            <div>
+              <HotspotPicker media={question.media} value={answer} onChange={(point) => onChange(point)} />
+              <p className="eyebrow mt-3">{answer ? 'Tap to move your mark' : 'Tap the picture where the answer is'}</p>
+            </div>
+          )}
+
           {question.type === 'PARAGRAPH' && (
             <div>
               <textarea
@@ -122,7 +155,7 @@ export function QuestionBody({ question, answer, onChange, onDragEnd, onEnter })
                 <div key={sub.id ?? si} className={si > 0 ? 'border-t border-[hsl(var(--border))] pt-9' : ''}>
                   <p className="mb-4 flex gap-3 text-lg font-medium leading-snug">
                     <span className="font-mono text-sm text-[hsl(var(--muted-foreground))] tabular">{si + 1}.</span>
-                    <span>{sub.questionText}</span>
+                    <span><MathText text={sub.questionText} /></span>
                   </p>
                   {sub.type === 'MCQ' && (
                     <OptionList mcq={sub} picked={answer?.[si] || []} onPick={(id) => onChange(id, si)} />
@@ -149,7 +182,7 @@ function OptionList({ mcq, picked, onPick }) {
       {mcq.mcqData.options.map((opt, i) => (
         <motion.div key={opt.id} variants={rise}>
           <OptionCard letter={LETTERS[i]} multi={multi} selected={picked.includes(opt.id)} onSelect={() => onPick(opt.id)} media={opt.media}>
-            {opt.text}
+            <MathText text={opt.text} />
           </OptionCard>
         </motion.div>
       ))}

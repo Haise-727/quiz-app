@@ -19,6 +19,8 @@
  *   REORDER              [item, ...] in the student's order
  *   CATEGORIZE           { [categoryId]: [item, ...], bank: [item, ...] }
  *   comprehension        { [subIndex]: [optionId, ...] }
+ *   NUMERIC              string, exactly as typed ("9.8", "9,8 m/s")
+ *   HOTSPOT              { x, y } where the student clicked, as percentages (0 to 100) of the image
  */
 import { getSubQuestions, isComprehension } from './media.js';
 
@@ -50,7 +52,9 @@ export function initialAnswer(q) {
     case 'MCQ': return [];
     case 'TRUE_FALSE': return null;
     case 'FILL_IN_THE_BLANK':
+    case 'NUMERIC':
     case 'PARAGRAPH': return '';
+    case 'HOTSPOT': return null;
     case 'MATCH_THE_FOLLOWING':
       return { pairs: {}, bank: shuffle((q.matchData?.pairs || []).map((p) => ({ id: p.id, answerText: p.answer, answerMedia: p.answerMedia }))) };
     case 'REORDER': return shuffleDifferent(q.reorderData?.items || []);
@@ -153,7 +157,9 @@ export function isAnswered(q, a) {
     case 'MCQ': return Array.isArray(a) && a.length > 0;
     case 'TRUE_FALSE': return a === true || a === false;
     case 'FILL_IN_THE_BLANK':
+    case 'NUMERIC':
     case 'PARAGRAPH': return typeof a === 'string' && a.trim().length > 0;
+    case 'HOTSPOT': return !!a && Number.isFinite(a.x) && Number.isFinite(a.y);
     case 'MATCH_THE_FOLLOWING': return !!a && Object.keys(a.pairs || {}).length > 0;
     case 'REORDER': return Array.isArray(a) && a.length > 0;
     case 'CATEGORIZE': return !!a && Object.keys(a).some((k) => k !== 'bank' && (a[k] || []).length > 0);
@@ -165,6 +171,51 @@ export function isAnswered(q, a) {
 }
 
 // ── Grading ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Reads what a student typed into a number question. Forgiving about how people write
+ * numbers: spaces, a comma or a point for the decimal, a thousands comma, and the unit
+ * after the number ("9,8 m/s"). Returns NaN when it is not a number at all.
+ *
+ * A single comma followed by exactly three digits ("1,000") is a thousands separator.
+ * Any other single comma ("1,5", "0,25") is a decimal comma. With both a comma and a
+ * point, whichever comes last is the decimal mark.
+ */
+export function parseNumeric(text, unit = '') {
+  let t = String(text ?? '').trim();
+  const u = String(unit ?? '').trim();
+  if (u && t.toLowerCase().endsWith(u.toLowerCase())) t = t.slice(0, t.length - u.length).trim();
+  t = t.replace(/[\s_]/g, '');
+  if (!t) return NaN;
+  const lastComma = t.lastIndexOf(','); const lastPoint = t.lastIndexOf('.');
+  if (lastComma !== -1 && lastPoint !== -1) {
+    const decimal = lastComma > lastPoint ? ',' : '.';
+    const other = decimal === ',' ? '.' : ',';
+    t = t.split(other).join('').replace(decimal, '.');
+  } else if (lastComma !== -1) {
+    const parts = t.split(',');
+    const thousands = parts.length > 1 && parts.slice(1).every((g) => /^\d{3}$/.test(g)) && /^[-+]?\d{1,3}$/.test(parts[0]);
+    t = thousands ? parts.join('') : (parts.length === 2 ? `${parts[0]}.${parts[1]}` : '');
+  }
+  return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t) ? Number(t) : NaN;
+}
+
+/** Is a typed answer within the allowed tolerance of the right number? */
+export function gradeNumeric(numericData, text) {
+  const want = Number(numericData?.answer);
+  if (!Number.isFinite(want)) return false;
+  const got = parseNumeric(text, numericData?.unit);
+  if (!Number.isFinite(got)) return false;
+  const tolerance = Math.max(0, Number(numericData?.tolerance) || 0);
+  // A hair of slack so 0.1 + 0.2 style rounding never marks a right answer wrong.
+  return Math.abs(got - want) <= tolerance + 1e-9 * Math.max(1, Math.abs(want));
+}
+
+/** Did a click land inside any of the marked areas? All numbers are percentages of the image. */
+export function hotspotHit(regions, point) {
+  if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
+  return (regions || []).some((r) => point.x >= r.x && point.x <= r.x + r.w && point.y >= r.y && point.y <= r.y + r.h);
+}
 
 const sameSet = (want, got) => {
   const w = (want || []).map(String); const g = (got || []).map(String);
@@ -194,6 +245,12 @@ export function gradeQuestion(q, ua) {
       if (given && accepted.includes(given)) { pts = max; correct = true; }
       break;
     }
+    case 'NUMERIC':
+      if (gradeNumeric(q.numericData, ua)) { pts = max; correct = true; }
+      break;
+    case 'HOTSPOT':
+      if (hotspotHit(q.hotspotData?.regions, ua)) { pts = max; correct = true; }
+      break;
     case 'PARAGRAPH':
       status = 'pending_review';
       break;

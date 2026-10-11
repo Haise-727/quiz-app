@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { PiArrowLeftBold, PiSpinnerGapBold, PiWarningCircleBold } from 'react-icons/pi';
+import HotspotPicker from '../../components/quiz/HotspotPicker';
 import MediaRenderer from '../../components/MediaRenderer';
 import { mediaKind, getMainMedia, getSubQuestions } from '../../utils/media';
 import { Button } from '@/components/ui/button';
@@ -48,8 +49,11 @@ const AnswerBlock = ({ originalQuestion, answer, onPointsChange, isGraded }) => 
             ))}
           </ul>
         );
-      case 'FILL_IN_THE_BLANK': case 'PARAGRAPH':
+      case 'FILL_IN_THE_BLANK': case 'NUMERIC': case 'PARAGRAPH':
         return <p className="whitespace-pre-wrap text-sm m-0">{ua}</p>;
+      case 'HOTSPOT':
+        // The picture with the student's mark and the right area outlined.
+        return <HotspotPicker media={originalQuestion.media} value={ua} regions={originalQuestion.hotspotData?.regions || []} />;
       case 'REORDER':
         return (
           <ol className="flex flex-col gap-1">

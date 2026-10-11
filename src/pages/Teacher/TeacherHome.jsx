@@ -16,7 +16,7 @@ import {
   PiPlusBold, PiBroadcastBold, PiStackBold, PiChalkboardTeacherBold, PiBooksBold, PiArrowRightBold,
   PiCheckSquareBold, PiTextAlignLeftBold, PiArrowsLeftRightBold, PiSquaresFourBold, PiArrowsDownUpBold,
   PiToggleLeftBold, PiImageBold, PiHeadphonesBold, PiShuffleBold, PiTrashBold,
-  PiSparkleBold, PiSpinnerGapBold, PiNotePencilBold, PiWrenchBold,
+  PiSparkleBold, PiSpinnerGapBold, PiNotePencilBold, PiWrenchBold, PiCalculatorBold, PiCursorClickBold,
 } from 'react-icons/pi';
 import { clearInvalidQuizzes, seedTestQuiz, clearAllQuizResults } from '../../utils/devTools';
 
@@ -24,6 +24,8 @@ const QUIZ_TYPES = [
   { type: 'MCQ',                     icon: PiCheckSquareBold,     label: 'Multiple choice',         desc: 'Auto graded choices.' },
   { type: 'TRUE_FALSE',              icon: PiToggleLeftBold,      label: 'True or false',           desc: 'Quick binary questions.' },
   { type: 'FILL_IN_THE_BLANK',       icon: PiTextAlignLeftBold,   label: 'Fill in the blank',       desc: 'Short, specific answers.' },
+  { type: 'NUMERIC',                 icon: PiCalculatorBold,      label: 'Number',                  desc: 'A number, with a tolerance.' },
+  { type: 'HOTSPOT',                 icon: PiCursorClickBold,     label: 'Click on the image',      desc: 'Tap the right place.' },
   { type: 'PARAGRAPH',               icon: PiNotePencilBold,      label: 'Paragraph',               desc: 'Long answers, marked by hand.' },
   { type: 'MATCH_THE_FOLLOWING',     icon: PiArrowsLeftRightBold, label: 'Match the following',     desc: 'Connect pairs correctly.' },
   { type: 'CATEGORIZE',              icon: PiSquaresFourBold,     label: 'Categorize items',        desc: 'Sort into groups.' },

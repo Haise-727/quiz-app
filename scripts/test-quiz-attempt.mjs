@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import {
   initialAnswer, initAnswers, changeAnswer, dragAnswer, isAnswered, isMultiSelect,
-  gradeQuestion, gradeAttempt, shuffle,
+  gradeQuestion, gradeAttempt, shuffle, parseNumeric, gradeNumeric, hotspotHit,
 } from '../src/utils/quizAttempt.js';
 
 let passed = 0;
@@ -245,6 +245,100 @@ test('each type', () => {
   assert.equal(isAnswered(categorize(), { c1: [], c2: [], bank: [1] }), false); assert.equal(isAnswered(categorize(), { c1: [{}], c2: [], bank: [] }), true);
   assert.equal(isAnswered(reorder(), [{ id: 'a' }]), true);
   assert.equal(isAnswered(comp([sub([1])]), { 0: [] }), false); assert.equal(isAnswered(comp([sub([1])]), { 0: [1] }), true);
+});
+
+console.log('number questions');
+const numeric = (answer, tolerance = 0, unit = '') => ({ type: 'NUMERIC', points: 10, numericData: { answer, tolerance, unit } });
+test('reads numbers the way people write them', () => {
+  assert.equal(parseNumeric('9.8'), 9.8);
+  assert.equal(parseNumeric('9,8'), 9.8);                 // decimal comma
+  assert.equal(parseNumeric('  42  '), 42);
+  assert.equal(parseNumeric('1,000'), 1000);              // thousands comma
+  assert.equal(parseNumeric('1.000,5'), 1000.5);          // both marks: the last one is the decimal
+  assert.equal(parseNumeric('1,000.5'), 1000.5);
+  assert.equal(parseNumeric('1234,567'), 1234.567);      // too many digits before the comma to be a thousands group
+  assert.equal(parseNumeric('12,345,678'), 12345678);    // several groups of three
+  assert.equal(parseNumeric('-2'), -2);
+  assert.equal(parseNumeric('.5'), 0.5);
+  assert.equal(parseNumeric('1e3'), 1000);
+});
+test('anything that is not a number is NaN, never zero', () => {
+  for (const bad of ['', '   ', 'abc', '1,2,3', '12abc', '--1', '1..2', null, undefined]) assert.ok(Number.isNaN(parseNumeric(bad)), String(bad));
+});
+test('the unit after the number is ignored, in any case', () => {
+  assert.equal(parseNumeric('9.8 m/s', 'm/s'), 9.8);
+  assert.equal(parseNumeric('9.8M/S', 'm/s'), 9.8);
+  assert.ok(Number.isNaN(parseNumeric('9.8 kg', 'm/s')));  // a different unit is not stripped
+});
+test('an exact answer is right and a near miss is wrong when tolerance is zero', () => {
+  assert.equal(gradeQuestion(numeric(9.8), '9.8').correct, true);
+  assert.equal(gradeQuestion(numeric(9.8), '9.81').correct, false);
+});
+test('tolerance is a plain plus or minus, and includes its own edge', () => {
+  const q = numeric(100, 0.5);
+  for (const ok of ['100', '99.5', '100.5', '99.7']) assert.equal(gradeQuestion(q, ok).correct, true, ok);
+  for (const no of ['99.4', '100.6', '0', '200']) assert.equal(gradeQuestion(q, no).correct, false, no);
+});
+test('rounding noise never marks a right answer wrong', () => {
+  assert.equal(gradeNumeric({ answer: 0.3, tolerance: 0 }, String(0.1 + 0.2)), true);
+});
+test('a negative tolerance is treated as zero', () => {
+  assert.equal(gradeNumeric({ answer: 5, tolerance: -3 }, '5'), true);
+  assert.equal(gradeNumeric({ answer: 5, tolerance: -3 }, '6'), false);
+});
+test('a question with no valid answer set can never be right', () => {
+  assert.equal(gradeNumeric({ answer: 'x' }, '1'), false);
+  assert.equal(gradeNumeric(undefined, '1'), false);
+});
+test('full marks or nothing, and the points never exceed the question', () => {
+  const q = { ...numeric(3, 0), points: 7 };
+  assert.deepEqual(gradeQuestion(q, '3'), { pts: 7, correct: true, status: 'auto_graded' });
+  assert.deepEqual(gradeQuestion(q, '4'), { pts: 0, correct: false, status: 'auto_graded' });
+});
+test('starts empty, counts as answered once something is typed', () => {
+  assert.equal(initialAnswer(numeric(1)), '');
+  assert.equal(isAnswered(numeric(1), ''), false); assert.equal(isAnswered(numeric(1), '  '), false); assert.equal(isAnswered(numeric(1), '0'), true);
+  assert.equal(changeAnswer(numeric(1), '', '12'), '12');
+});
+
+console.log('click on the image');
+const hotspot = (regions) => ({ type: 'HOTSPOT', points: 10, hotspotData: { regions } });
+const area = { id: 'r1', x: 20, y: 30, w: 10, h: 10 };      // covers x 20 to 30, y 30 to 40
+test('a click inside the area is right, outside is wrong', () => {
+  const q = hotspot([area]);
+  assert.equal(gradeQuestion(q, { x: 25, y: 35 }).correct, true);
+  assert.equal(gradeQuestion(q, { x: 19.9, y: 35 }).correct, false);
+  assert.equal(gradeQuestion(q, { x: 25, y: 40.1 }).correct, false);
+  assert.equal(gradeQuestion(q, { x: 80, y: 80 }).correct, false);
+});
+test('the edges of the area count as inside', () => {
+  for (const p of [{ x: 20, y: 30 }, { x: 30, y: 40 }, { x: 20, y: 40 }, { x: 30, y: 30 }]) assert.equal(hotspotHit([area], p), true);
+});
+test('any one of several areas will do', () => {
+  const regions = [area, { id: 'r2', x: 60, y: 60, w: 20, h: 20 }];
+  assert.equal(hotspotHit(regions, { x: 70, y: 70 }), true);
+  assert.equal(hotspotHit(regions, { x: 45, y: 45 }), false);
+});
+test('no click, a broken click or no areas is never right', () => {
+  assert.equal(hotspotHit([area], null), false);
+  assert.equal(hotspotHit([area], { x: 'a', y: 1 }), false);
+  assert.equal(hotspotHit([area], { x: NaN, y: 35 }), false);
+  assert.equal(hotspotHit([], { x: 25, y: 35 }), false);
+  assert.equal(hotspotHit(undefined, { x: 25, y: 35 }), false);
+});
+test('starts with no click, and a click counts as answered', () => {
+  assert.equal(initialAnswer(hotspot([area])), null);
+  assert.equal(isAnswered(hotspot([area]), null), false);
+  assert.equal(isAnswered(hotspot([area]), { x: 0, y: 0 }), true);          // the top left corner is a real click
+  assert.deepEqual(changeAnswer(hotspot([area]), null, { x: 1, y: 2 }), { x: 1, y: 2 });
+});
+test('a whole attempt with both new types is marked and saved in the stored shape', () => {
+  const quiz = { questions: [numeric(4, 0.1), hotspot([area])] };
+  const r = gradeAttempt(quiz, ['4.05', { x: 21, y: 31 }]);
+  assert.equal(r.total, 20); assert.equal(r.needsManual, false);
+  assert.deepEqual(r.detailed.map((d) => d.isCorrect), [true, true]);
+  assert.deepEqual(r.detailed[1].userAnswer, { x: 21, y: 31 });
+  assert.equal(r.detailed[0].userAnswer, '4.05');
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

@@ -12,7 +12,7 @@ import {
     PiArrowLeftBold, PiCaretUpBold, PiClipboardBold, PiClipboardTextBold, PiDatabaseBold, PiDotsSixVerticalBold,
     PiFloppyDiskBold, PiHeadphonesBold, PiImageBold, PiImagesBold, PiLaptopBold, PiListChecksBold, PiListNumbersBold,
     PiPlusBold, PiSpinnerGapBold, PiSquaresFourBold, PiArrowsLeftRightBold, PiTextAlignLeftBold, PiTextTBold,
-    PiToggleLeftBold, PiTrashBold, PiWarningCircleBold, PiXBold,
+    PiToggleLeftBold, PiTrashBold, PiWarningCircleBold, PiXBold, PiCalculatorBold, PiCursorClickBold,
 } from 'react-icons/pi';
 import { toast } from 'sonner';
 import { saveToBank, getBankQuestions, cleanQuestionForFirestore } from '../../utils/questionBankHelpers';
@@ -20,6 +20,10 @@ import MediaPreview from '../../components/MediaPreview';
 // The image editor is a large library, so it is only fetched when someone opens it.
 const ImageEditorModal = lazy(() => import('../../components/ImageEditorModal'));
 import { uploadQuestionMedia } from '../../utils/mediaUpload';
+import { validateQuestions } from '../../utils/questionValidation';
+import HotspotEditor from '../../components/teacher/HotspotEditor';
+import MathText from '../../components/MathText';
+import { hasMath } from '../../utils/mathText';
 
 const DRAFT_KEY = 'quizlike_create_quiz_draft';
 
@@ -29,6 +33,8 @@ const generateNewQuestion = (type) => {
         case 'MCQ': return { ...baseQuestion, mcqData: { options: [{ id: Date.now() + 1, text: '', media: null, localMediaFile: null, localCropData: null }, { id: Date.now() + 2, text: '', media: null, localMediaFile: null, localCropData: null }], correctOptions: [] } };
         case 'TRUE_FALSE': return { ...baseQuestion, trueFalseData: { correctAnswer: true } };
         case 'FILL_IN_THE_BLANK': return { ...baseQuestion, fillBlankData: { answers: [{ text: '' }], caseSensitive: false } };
+        case 'NUMERIC': return { ...baseQuestion, numericData: { answer: '', tolerance: 0, unit: '' } };
+        case 'HOTSPOT': return { ...baseQuestion, hotspotData: { regions: [] } };
         case 'PARAGRAPH': return { ...baseQuestion, paragraphData: { keywords: [{ text: '' }] } };
         case 'MATCH_THE_FOLLOWING': return { ...baseQuestion, points: 20, matchData: { pairs: [{ id: Date.now(), prompt: '', promptMedia: null, promptLocalMediaFile: null, promptLocalCropData: null, answer: '', answerMedia: null, answerLocalMediaFile: null, answerLocalCropData: null }] } };
         case 'CATEGORIZE': return { ...baseQuestion, points: 20, categorizeData: { categories: [{ id: Date.now(), name: 'Category 1' }], items: [{ id: Date.now() + 1, text: '', categoryId: null, media: null, localMediaFile: null, localCropData: null }] } };
@@ -44,6 +50,8 @@ const QUESTION_TYPES = [
     { value: 'MCQ', label: 'Multiple choice', Icon: PiListChecksBold },
     { value: 'TRUE_FALSE', label: 'True or false', Icon: PiToggleLeftBold },
     { value: 'FILL_IN_THE_BLANK', label: 'Fill in the blank', Icon: PiTextTBold },
+    { value: 'NUMERIC', label: 'Number', Icon: PiCalculatorBold },
+    { value: 'HOTSPOT', label: 'Click on the image', Icon: PiCursorClickBold },
     { value: 'PARAGRAPH', label: 'Paragraph', Icon: PiTextAlignLeftBold },
     { value: 'MATCH_THE_FOLLOWING', label: 'Match the following', Icon: PiArrowsLeftRightBold },
     { value: 'CATEGORIZE', label: 'Categorize', Icon: PiSquaresFourBold },
@@ -226,6 +234,8 @@ const CreateQuiz = () => {
     const handleQuestionTypeChange = (qIndex, newType) => {
         const old = questions[qIndex];
         const newQuestion = { ...generateNewQuestion(newType), id: old.id, questionText: old.questionText, points: old.points, timeLimit: old.timeLimit };
+        // The picture of a click on the image question is the question's own picture, so keep it.
+        if (newType === 'HOTSPOT') { newQuestion.media = old.media; newQuestion.localMediaFile = old.localMediaFile; }
         setQuestions(current => current.map((q, i) => i === qIndex ? newQuestion : q));
     };
 
@@ -505,6 +515,10 @@ const CreateQuiz = () => {
     const handlePublishQuiz = async () => {
         if (!quizTitle) { setError("Please provide a title for your quiz."); return; }
         if (!currentUser) { setError("You must be logged in to publish a quiz."); return; }
+        // Stop broken questions here, with a message that names the question, instead of
+        // letting a student meet a multiple choice question with no right answer.
+        const problems = validateQuestions(questions);
+        if (problems.length) { setError(problems.join(' ')); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
 
         setIsSubmitting(true);
         setError('');
@@ -719,6 +733,7 @@ const CreateQuiz = () => {
                                     <div className="question-main-content">
                                         <div className="question-text-and-media">
                                             <textarea value={q.questionText} onChange={(e) => handleQuestionChange(qIndex, 'questionText', e.target.value)} placeholder="Type your question or instruction here" aria-label={`Question ${qIndex + 1} text`} className="form-control question-textarea"/>
+                                            <p className="input-instruction math-hint">Tip: write maths between dollar signs, like $x^2 + 1$.{hasMath(q.questionText) && <span className="math-preview"> Preview: <MathText text={q.questionText} /></span>}</p>
                                             {q.type !== 'MATCH_THE_FOLLOWING' && q.type !== 'CATEGORIZE' && (
                                                 <div className="main-media-controls">
                                                     {(q.media || q.localMediaFile || q.visualData?.mainMedia || q.visualData?.localMainMediaFile || q.listeningData?.mainMedia || q.listeningData?.localMainMediaFile) ?
@@ -756,6 +771,8 @@ const CreateQuiz = () => {
                                         />) : (<button type="button" aria-label="Add media" className="add-media-btn-small" onClick={() => openUploadModal({ qIndex, field: 'mcqOptionMedia', oIndex })}><PiImagesBold/></button>)}<button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveMCQOption(qIndex, oIndex)} disabled={q.mcqData.options.length <= 2}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddMCQOption(qIndex)}><PiPlusBold/> Add option</button></div>}
                                         {q.type === 'TRUE_FALSE' && q.trueFalseData && <div className="options-container"><h4>Correct answer</h4><div className="option-item" style={{ gap: "1.5rem" }}><label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}><input type="radio" name={`tf-${q.id}`} checked={q.trueFalseData.correctAnswer === true} onChange={() => handleQuestionChange(qIndex, 'trueFalseData', { correctAnswer: true })} /> True</label><label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}><input type="radio" name={`tf-${q.id}`} checked={q.trueFalseData.correctAnswer === false} onChange={() => handleQuestionChange(qIndex, 'trueFalseData', { correctAnswer: false })} /> False</label></div></div>}
                                         {q.type === 'FILL_IN_THE_BLANK' && q.fillBlankData && <div className="options-container"><h4>Accepted answers (not case sensitive)</h4>{q.fillBlankData.answers.map((ans, ansIndex) => (<div key={ansIndex} className="option-item"><input type="text" value={ans.text} onChange={(e) => handleFillBlankAnswerChange(qIndex, ansIndex, e.target.value)} placeholder="Accepted answer" className="form-control" /><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveFillBlankAnswer(qIndex, ansIndex)} disabled={q.fillBlankData.answers.length <= 1}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddFillBlankAnswer(qIndex)}><PiPlusBold/> Add answer</button></div>}
+                                        {q.type === 'NUMERIC' && q.numericData && <div className="options-container"><h4>Right number</h4><div className="numeric-fields"><div className="form-group"><label htmlFor={`num-${q.id}`}>Answer</label><input id={`num-${q.id}`} type="text" inputMode="decimal" value={q.numericData.answer} onChange={(e) => handleQuestionChange(qIndex, 'numericData', { ...q.numericData, answer: e.target.value })} placeholder="9.8" className="form-control" /></div><div className="form-group"><label htmlFor={`tol-${q.id}`}>Allowed difference, plus or minus</label><input id={`tol-${q.id}`} type="text" inputMode="decimal" value={q.numericData.tolerance} onChange={(e) => handleQuestionChange(qIndex, 'numericData', { ...q.numericData, tolerance: e.target.value })} placeholder="0" className="form-control" /></div><div className="form-group"><label htmlFor={`unit-${q.id}`}>Unit, optional</label><input id={`unit-${q.id}`} type="text" value={q.numericData.unit} onChange={(e) => handleQuestionChange(qIndex, 'numericData', { ...q.numericData, unit: e.target.value })} placeholder="m/s" className="form-control" /></div></div><p className="input-instruction">A student may type a comma or a point for the decimal, and the unit after the number.{q.numericData.answer !== '' && Number.isFinite(Number(q.numericData.answer)) && <> Any answer from <strong>{Number(q.numericData.answer) - Math.max(0, Number(q.numericData.tolerance) || 0)}</strong> to <strong>{Number(q.numericData.answer) + Math.max(0, Number(q.numericData.tolerance) || 0)}</strong> is right.</>}</p></div>}
+                                        {q.type === 'HOTSPOT' && q.hotspotData && <div className="options-container"><h4>Right area</h4><HotspotEditor file={q.localMediaFile || q.media} regions={q.hotspotData.regions || []} onChange={(regions) => handleQuestionChange(qIndex, 'hotspotData', { ...q.hotspotData, regions })} /></div>}
                                         {q.type === 'PARAGRAPH' && q.paragraphData && <div className="options-container"><h4>Grading keywords (optional)</h4><p className="input-instruction">Keywords help you grade faster.</p>{q.paragraphData.keywords.map((key, keyIndex) => (<div key={keyIndex} className="option-item"><input type="text" value={key.text} onChange={(e) => handleParagraphKeywordChange(qIndex, keyIndex, e.target.value)} placeholder="Keyword for grading" className="form-control" /><button type="button" aria-label="Remove" className="remove-item-btn" onClick={() => handleRemoveParagraphKeyword(qIndex, keyIndex)}><PiXBold/></button></div>))}<button type="button" className="add-item-btn" onClick={() => handleAddParagraphKeyword(qIndex)}><PiPlusBold/> Add keyword</button></div>}
                                         {q.type === 'MATCH_THE_FOLLOWING' && q.matchData && <div className="match-following-container"><h4>Matching pairs</h4>{q.matchData.pairs.map((pair, pIndex) => (<div key={pair.id} className="match-pair-item"><PiDotsSixVerticalBold/><div className="match-column">{(pair.promptMedia || pair.promptLocalMediaFile) ? <MediaPreview
                                             file={pair.promptLocalMediaFile || pair.promptMedia}

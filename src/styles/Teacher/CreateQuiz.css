@@ -573,3 +573,8 @@ select.form-control { cursor: pointer; }
 }
 .bank-insert-actions button:hover { background-color: hsl(var(--muted)); }
 .bank-insert-actions button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+
+/* Number questions: three short fields in a row that wrap on a phone. */
+.numeric-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; }
+.math-hint { margin: 0.4rem 0 0; }
+.math-preview { color: hsl(var(--foreground)); }

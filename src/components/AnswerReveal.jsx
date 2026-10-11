@@ -1,6 +1,8 @@
 import React from 'react';
 import { PiCheckBold } from 'react-icons/pi';
 import MediaRenderer from './MediaRenderer';
+import HotspotPicker from './quiz/HotspotPicker';
+import MathText from './MathText';
 import { mediaKind, getSubQuestions } from '../utils/media';
 
 /**
@@ -43,7 +45,7 @@ export const CorrectAnswer = ({ q, centered = false, tone = 'primary' }) => {
             return (
               <div key={id} className={row}>
                 <MiniMedia media={opt?.media} />
-                <p className={`font-semibold ${tint}`}><PiCheckBold className="mr-1.5 inline h-3.5 w-3.5 align-[-1px]" aria-hidden />{opt?.text}</p>
+                <p className={`font-semibold ${tint}`}><PiCheckBold className="mr-1.5 inline h-3.5 w-3.5 align-[-1px]" aria-hidden /><MathText text={opt?.text} /></p>
               </div>
             );
           })}
@@ -117,6 +119,19 @@ export const CorrectAnswer = ({ q, centered = false, tone = 'primary' }) => {
           ))}
         </div>
       );
+    case 'NUMERIC': {
+      const { answer, tolerance, unit } = q.numericData || {};
+      return (
+        <p className={`font-semibold ${tint}`}>
+          <PiCheckBold className="mr-1.5 inline h-3.5 w-3.5 align-[-1px]" aria-hidden />
+          <span className="tabular">{answer}</span>{unit ? ` ${unit}` : ''}
+          {Number(tolerance) > 0 && <span className="ml-2 text-sm font-normal text-[hsl(var(--muted-foreground))]">within {tolerance}</span>}
+        </p>
+      );
+    }
+    case 'HOTSPOT':
+      // The picture with the right area outlined.
+      return <HotspotPicker media={q.media} regions={q.hotspotData?.regions || []} />;
     case 'PARAGRAPH':
       return <p className="text-sm italic text-[hsl(var(--muted-foreground))]">Open-ended, no auto-answer.</p>;
     default:
