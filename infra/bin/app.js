@@ -10,13 +10,13 @@ import { WebStack } from '../lib/web-stack.js';
  *   quizlike-web      S3 plus CloudFront static hosting (optional)
  *
  * `npx cdk synth` checks them offline. Nothing here deploys by itself.
- * Region: pass `-c region=...`, or set AWS_REGION. It defaults to us-east-1 (lowest prices).
+ * Region: pass `-c region=...`, or set AWS_REGION. It defaults to ap-south-1 (Mumbai, closest to the users).
  */
 const app = new App();
 const prefix = app.node.tryGetContext('prefix') || 'quizlike';
 const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
-  region: app.node.tryGetContext('region') || process.env.CDK_DEFAULT_REGION || 'us-east-1',
+  region: app.node.tryGetContext('region') || process.env.CDK_DEFAULT_REGION || 'ap-south-1',
 };
 const reserved = app.node.tryGetContext('reservedConcurrency');
 

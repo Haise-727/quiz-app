@@ -26,11 +26,17 @@ The app keeps using Firebase, ImageKit and Vercel until each piece is switched o
 
 Two layers, so a mistake cannot create expensive things.
 
-1. **You bootstrap once, with your own login.** This is the only step that needs wide rights.
-   Create the policy from `iam/cfn-exec-policy.json` (name it `quizlike-cfn-exec`), then:
+1. **You bootstrap once, with your own login.** This is the only step that needs wide rights,
+   so it uses a short lived sign in of yours, never the `deployer` key. (CloudShell can refuse
+   new or unverified accounts. This works from your own terminal instead.)
 
-       aws iam create-policy --policy-name quizlike-cfn-exec --policy-document file://iam/cfn-exec-policy.json
-       npx cdk bootstrap aws://ACCOUNT_ID/us-east-1 --cloudformation-execution-policies arn:aws:iam::ACCOUNT_ID:policy/quizlike-cfn-exec
+       aws login --profile admin          # opens the browser, sign in as your own admin user
+       cd infra
+       aws iam create-policy --profile admin --policy-name quizlike-cfn-exec --policy-document file://iam/cfn-exec-policy.json
+       npx cdk bootstrap aws://ACCOUNT_ID/ap-south-1 --profile admin --cloudformation-execution-policies arn:aws:iam::ACCOUNT_ID:policy/quizlike-cfn-exec
+
+   After that the `admin` session can expire and nothing is lost. Do not give `deployer` the
+   rights to do this itself: a user that can create roles can give itself admin.
 
    CDK's default would give deployments full administrator rights. This replaces that with the
    short list of cheap services, plus a deny list of the expensive ones.
@@ -41,7 +47,7 @@ Two layers, so a mistake cannot create expensive things.
        aws iam create-user --user-name deployer
        aws iam put-user-policy --user-name deployer --policy-name quizlike-deployer --policy-document file://iam/deployer-policy.json
        aws iam create-access-key --user-name deployer     # copy the two values
-       aws configure --profile quizlike                   # paste them there, region us-east-1
+       aws configure --profile quizlike                   # paste them there, region ap-south-1
 
    Never paste the secret into a chat or a file. Claude uses `--profile quizlike` and nothing else.
 
