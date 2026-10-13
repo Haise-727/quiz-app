@@ -9,7 +9,7 @@ import LevelDemo from '@/components/landing/LevelDemo';
 import LiveOption from '@/components/live/LiveOption';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { findActiveQuizByCode } from '@/utils/quizLookup';
+import { findActiveQuizByCode } from '@/api/quizzes';
 import { rise, stagger, shake } from '@/lib/motion';
 
 /** A block that eases in the first time it scrolls into view. */

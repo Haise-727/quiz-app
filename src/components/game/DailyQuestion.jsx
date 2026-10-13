@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import { PiCheckBold, PiCheckCircleFill, PiSpinnerGapBold, PiXCircleFill } from 'react-icons/pi';
-import { db } from '@/firebase';
+import { submitResult } from '@/api/results';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProgress } from '@/contexts/ProgressContext';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,7 @@ import { TINT } from '@/components/game/icons';
 import { changeAnswer, initialAnswer, isAnswered } from '@/utils/quizAttempt';
 import { normalizeResult, progressSummary, XP_RULES } from '@/utils/gamification';
 import { buildDailyResult, dailyCandidates, dailyWasRight, findDailyResult, gradeDaily, localDateString, pickDaily } from '@/utils/daily';
-import { getActiveQuizzes } from '@/utils/quizLookup';
+import { getActiveQuizzes } from '@/api/quizzes';
 import { pop, rise, springPop, stagger } from '@/lib/motion';
 
 const noop = () => {};
@@ -70,8 +69,8 @@ export default function DailyQuestion() {
     setSaving(true); setSaveError('');
     try {
       const right = gradeDaily(candidate.question, answer);
-      await addDoc(collection(db, 'quiz_results'), buildDailyResult({
-        userId: currentUser.uid, dateString: today, candidate, correct: right, completedAt: serverTimestamp(),
+      await submitResult(buildDailyResult({
+        userId: currentUser.uid, dateString: today, candidate, correct: right, completedAt: new Date(),
       }));
       // What this answer changed, worked out the same way the quiz reward screen does it.
       const mine = normalizeResult({ ...buildDailyResult({ userId: currentUser.uid, dateString: today, candidate, correct: right }), completedAt: new Date() });

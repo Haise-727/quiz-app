@@ -8,8 +8,8 @@
  *
  * Duplicate and clone are the same operation with different options, so there is one
  * function, copyQuiz(). The helpers around it are plain functions with no React in them.
- * The database is passed in as `db` instead of imported, so this file does not pull in
- * firebase.js and the pure helpers can be tried in plain Node.
+ * The database calls live in api/quizzes.js. This file imports only that, so the pure helpers
+ * here need no Firebase.
  *
  * Fields this file adds to a quiz document:
  *   folder          optional string, trimmed, at most 40 characters
@@ -21,7 +21,7 @@
  * so none of this needs a rule change. Note that allowCloning is a courtesy switch kept
  * in the app, not a lock: a quiz that is open to play can be read by anyone.
  */
-import { addDoc, collection, getDocs, limit, query, serverTimestamp, where } from 'firebase/firestore';
+import { createQuiz, isJoinCodeFree } from '@/api/quizzes';
 
 // ── Join codes ──────────────────────────────────────────────────────────────────────
 
@@ -44,14 +44,10 @@ export function makeJoinCode() {
  * a code could still repeat once that draft is opened. With 36 letters and digits over six
  * places that is about one in two billion, and joining only looks at open quizzes.
  */
-export async function uniqueJoinCode(db, ownerId, tries = 8) {
+export async function uniqueJoinCode(ownerId, tries = 8) {
   for (let i = 0; i < tries; i++) {
     const code = makeJoinCode();
-    const [open, mine] = await Promise.all([
-      getDocs(query(collection(db, 'quizzes'), where('code', '==', code), where('active', '==', true), limit(1))),
-      getDocs(query(collection(db, 'quizzes'), where('code', '==', code), where('createdBy', '==', ownerId), limit(1))),
-    ]);
-    if (open.empty && mine.empty) return code;
+    if (await isJoinCodeFree(code, ownerId)) return code;
   }
   throw new Error('We could not find a free join code. Please try again.');
 }
@@ -148,20 +144,19 @@ export function copyFields(source, { titleSuffix = '', keepFolder = false } = {}
  *                    refuses a quiz that is the teacher's own or has cloning switched off.
  * @returns {Promise<{ id: string, code: string, title: string }>}
  */
-export async function copyQuiz({ db, source, user, titleSuffix = '', keepFolder = false, clone = false }) {
+export async function copyQuiz({ source, user, titleSuffix = '', keepFolder = false, clone = false }) {
   if (!source || !user?.uid) throw new Error('There is nothing to copy.');
   if (clone) {
     if (source.createdBy === user.uid) throw new Error('This is already your quiz. Use Duplicate instead.');
     if (!cloningAllowed(source)) throw new Error('The author does not allow this quiz to be cloned.');
   }
 
-  const code = await uniqueJoinCode(db, user.uid);
+  const code = await uniqueJoinCode(user.uid);
   const data = {
     ...copyFields(source, { titleSuffix, keepFolder }),
     code,
     createdBy: user.uid,
     username: user.name || 'Teacher',
-    createdAt: serverTimestamp(),
     active: false,
   };
   if (clone) {
@@ -170,6 +165,6 @@ export async function copyQuiz({ db, source, user, titleSuffix = '', keepFolder 
     data.allowCloning = false;       // a duplicate of a quiz you locked stays locked
   }
 
-  const ref = await addDoc(collection(db, 'quizzes'), data);
-  return { id: ref.id, code, title: data.title };
+  const id = await createQuiz(data);
+  return { id, code, title: data.title };
 }

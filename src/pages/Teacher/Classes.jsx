@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback, useId } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -15,11 +13,11 @@ import CopyCodeButton from '@/components/teacher/CopyCodeButton';
 import { rise, spring, stagger } from '@/lib/motion';
 import {
   createClass, getTeacherClasses, updateClass, deleteClass,
-  addQuizToClass, removeQuizFromClass, getClassEnrollments,
-} from '../../utils/classHelpers';
-import {
-  setQuizDueDate, getDueStatus, formatDueDate, getCompletionCount,
-} from '../../utils/assignmentHelpers';
+  addQuizToClass, removeQuizFromClass, getClassEnrollments, setQuizDueDate,
+} from '../../api/classes';
+import { getDueStatus, formatDueDate } from '../../utils/assignmentHelpers';
+import { getCompletionCount } from '../../api/results';
+import { listMyQuizzesUnordered } from '../../api/quizzes';
 import {
   PiPlusBold, PiBookOpenBold, PiTrashBold, PiPencilSimpleBold, PiCheckBold, PiCaretDownBold,
   PiSpinnerGapBold, PiCalendarBlankBold, PiXBold, PiUsersBold,
@@ -71,12 +69,12 @@ const Classes = () => {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const [cls, qSnap] = await Promise.all([
+      const [cls, myQuizzes] = await Promise.all([
         getTeacherClasses(currentUser.uid),
-        getDocs(query(collection(db, 'quizzes'), where('createdBy', '==', currentUser.uid))),
+        listMyQuizzesUnordered(currentUser.uid),
       ]);
       setClasses(cls.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)));
-      setQuizzes(qSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setQuizzes(myQuizzes);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load classes.');

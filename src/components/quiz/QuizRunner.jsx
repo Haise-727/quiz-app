@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PiArrowLeftBold, PiArrowRightBold, PiCheckBold, PiWarningCircleBold } from 'react-icons/pi';
-import { db } from '@/firebase';
+import { getQuiz } from '@/api/quizzes';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import useQuizKeys from '@/hooks/useQuizKeys';
@@ -66,10 +65,9 @@ export default function QuizRunner({ quizId, mode, loadHistory, saveResult, reme
     (async () => {
       if (!quizId) { setError('No quiz was given.'); return; }
       try {
-        const snap = await getDoc(doc(db, 'quizzes', quizId));
+        const data = await getQuiz(quizId);
         if (cancelled) return;
-        if (!snap.exists()) { setError('We could not find that quiz.'); return; }
-        const data = snap.data();
+        if (!data) { setError('We could not find that quiz.'); return; }
         if (!(data.questions || []).length) { setError('This quiz has no questions yet.'); return; }
         const initial = initAnswers(data);
         answersRef.current = initial;
@@ -124,7 +122,7 @@ export default function QuizRunner({ quizId, mode, loadHistory, saveResult, reme
         teacherId: quiz.createdBy,
         // Seconds. The dashboard reads this, but nothing used to save it, so "time spent" was always 0.
         timeSpent: Math.round(spentRef.current.reduce((a, b) => a + (b || 0), 0)),
-        completedAt: serverTimestamp(),
+        completedAt: new Date(),     // the real, server stamped time is set when the result is saved
       };
 
       // What the player had before this attempt, so we can say what it earned.

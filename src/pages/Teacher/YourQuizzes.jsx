@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs, deleteDoc, deleteField, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -26,7 +24,8 @@ import {
   PiToggleLeftBold, PiToggleRightBold, PiClipboardTextBold, PiChartBarBold, PiMagnifyingGlassBold,
   PiBroadcastBold, PiSpinnerGapBold, PiCheckBold, PiCopyBold, PiFolderSimpleBold, PiLockSimpleBold, PiLockSimpleOpenBold,
 } from 'react-icons/pi';
-import { createLiveSession } from '../../utils/liveSession';
+import { createLiveSession } from '../../api/live';
+import { deleteQuiz as removeQuiz, listMyQuizzes, setQuizActive, setQuizAllowCloning, setQuizFolder } from '../../api/quizzes';
 import {
   FOLDER_MAX, cloningAllowed, copyQuiz, folderNames, groupByFolder, matchExistingFolder, normalizeFolder,
 } from '../../utils/quizCopy';
@@ -122,10 +121,7 @@ const YourQuizzes = () => {
   const fetchQuizzes = async (quiet = false) => {
     if (!quiet) setLoading(true);
     try {
-      const snap = await getDocs(
-        query(collection(db, 'quizzes'), where('createdBy', '==', currentUser.uid), orderBy('createdAt', 'desc'))
-      );
-      setQuizzes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setQuizzes(await listMyQuizzes(currentUser.uid));
     } catch (e) { toast.error('Error loading quizzes: ' + e.message); }
     finally { setLoading(false); }
   };
@@ -147,7 +143,7 @@ const YourQuizzes = () => {
   const handleToggle = async (quiz) => {
     const next = !quiz.active;
     try {
-      await updateDoc(doc(db, 'quizzes', quiz.id), { active: next });
+      await setQuizActive(quiz.id, next);
       setQuizzes(qs => qs.map(q => q.id === quiz.id ? { ...q, active: next } : q));
       toast.success(`Quiz ${next ? 'activated' : 'deactivated'}.`);
     } catch { toast.error('Error updating quiz status.'); }
@@ -157,7 +153,7 @@ const YourQuizzes = () => {
     if (!deleteQuiz) return;
     setDeleting(true);
     try {
-      await deleteDoc(doc(db, 'quizzes', deleteQuiz.id));
+      await removeQuiz(deleteQuiz.id);
       setQuizzes(qs => qs.filter(q => q.id !== deleteQuiz.id));
       setDeleteQuiz(null);
       toast.success('Quiz deleted.');
@@ -171,7 +167,7 @@ const YourQuizzes = () => {
     setDuplicatingId(quiz.id);
     try {
       const copy = await copyQuiz({
-        db, source: quiz, user: { uid: currentUser.uid, name: displayName || currentUser.displayName },
+        source: quiz, user: { uid: currentUser.uid, name: displayName || currentUser.displayName },
         titleSuffix: ' (copy)', keepFolder: true,
       });
       await fetchQuizzes(true);
@@ -192,7 +188,7 @@ const YourQuizzes = () => {
     const folder = matchExistingFolder(folderValue, folders);
     setSavingFolder(true);
     try {
-      await updateDoc(doc(db, 'quizzes', folderQuiz.id), { folder: folder ? folder : deleteField() });
+      await setQuizFolder(folderQuiz.id, folder);
       setQuizzes(qs => qs.map(q => {
         if (q.id !== folderQuiz.id) return q;
         const { folder: _old, ...rest } = q;
@@ -208,7 +204,7 @@ const YourQuizzes = () => {
   const handleToggleCloning = async (quiz) => {
     const next = !cloningAllowed(quiz);
     try {
-      await updateDoc(doc(db, 'quizzes', quiz.id), { allowCloning: next });
+      await setQuizAllowCloning(quiz.id, next);
       setQuizzes(qs => qs.map(q => q.id === quiz.id ? { ...q, allowCloning: next } : q));
       toast.success(next ? 'Other teachers can now clone this quiz.' : 'Other teachers can no longer clone this quiz.');
     } catch { toast.error('We could not update that setting.'); }

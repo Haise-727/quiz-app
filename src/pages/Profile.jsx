@@ -11,7 +11,7 @@ import XPBar from '@/components/game/XPBar';
 import StreakChip from '@/components/game/StreakChip';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { deleteMyAccount, downloadExport, exportMyData } from '@/utils/accountData';
+import { deleteMyAccount, downloadExport, exportMyData } from '@/api/account';
 import { deletionPlan, describePlan } from '@/utils/accountPlan';
 import { rise, stagger } from '@/lib/motion';
 

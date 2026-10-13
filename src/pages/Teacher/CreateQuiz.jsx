@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../firebase';
-import { collection, addDoc, updateDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageHeader from '@/components/layout/PageHeader';
@@ -15,7 +13,9 @@ import {
     PiToggleLeftBold, PiTrashBold, PiWarningCircleBold, PiXBold, PiCalculatorBold, PiCursorClickBold, PiFileArrowUpBold,
 } from 'react-icons/pi';
 import { toast } from 'sonner';
-import { saveToBank, getBankQuestions, cleanQuestionForFirestore } from '../../utils/questionBankHelpers';
+import { createQuiz, getQuiz, updateQuiz } from '../../api/quizzes';
+import { getUserProfile } from '../../api/users';
+import { saveToBank, getBankQuestions, cleanQuestionForFirestore } from '../../api/questionBank';
 import MediaPreview from '../../components/MediaPreview';
 // The image editor is a large library, so it is only fetched when someone opens it.
 const ImageEditorModal = lazy(() => import('../../components/ImageEditorModal'));
@@ -161,9 +161,8 @@ const CreateQuiz = () => {
     useEffect(() => {
         if (currentUser) {
             const fetchUserData = async () => {
-                const userDocRef = doc(db, 'users', currentUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                setUserDisplayName(userDocSnap.exists() ? userDocSnap.data().displayName || 'Teacher' : 'Teacher');
+                const profile = await getUserProfile(currentUser.uid);
+                setUserDisplayName(profile?.displayName || 'Teacher');
                 setLoading(false);
             };
             fetchUserData();
@@ -179,13 +178,12 @@ const CreateQuiz = () => {
         const fetchQuiz = async () => {
             setFetchingQuiz(true);
             try {
-                const snap = await getDoc(doc(db, 'quizzes', quizId));
-                if (!snap.exists()) {
+                const data = await getQuiz(quizId);
+                if (!data) {
                     toast.error('Quiz not found.');
                     navigate('/teacher/your-quizzes');
                     return;
                 }
-                const data = snap.data();
                 if (data.createdBy !== currentUser.uid) {
                     toast.error("You don't have permission to edit this quiz.");
                     navigate('/teacher/your-quizzes');
@@ -544,7 +542,7 @@ const CreateQuiz = () => {
             const totalPoints = questions.reduce((sum, q) => sum + (parseInt(q.points, 10) || 0), 0);
 
             if (isEditMode) {
-                await updateDoc(doc(db, 'quizzes', quizId), {
+                await updateQuiz(quizId, {
                     title: quizTitle,
                     description: quizDescription,
                     subject: quizSubject.trim(),
@@ -552,7 +550,6 @@ const CreateQuiz = () => {
                     quizType,
                     questions: questionsToSave,
                     totalPoints,
-                    updatedAt: serverTimestamp(),
                 });
                 toast.success('Quiz updated');
                 navigate('/teacher/your-quizzes');
@@ -568,13 +565,12 @@ const CreateQuiz = () => {
                 quizType,
                 createdBy: currentUser.uid,
                 username: userDisplayName,
-                createdAt: serverTimestamp(),
                 active: true,
                 questions: questionsToSave,
                 totalPoints,
             };
 
-            await addDoc(collection(db, "quizzes"), quizData);
+            await createQuiz(quizData);
             setGeneratedCode(quizData.code);
             setIsPublished(true);
             localStorage.removeItem(DRAFT_KEY);

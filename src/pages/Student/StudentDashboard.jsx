@@ -17,9 +17,9 @@ import WeakSpots from '@/components/game/WeakSpots';
 import LevelBadge from '@/components/game/LevelBadge';
 import StreakChip from '@/components/game/StreakChip';
 import XPBar from '@/components/game/XPBar';
-import { joinClassByCode, getStudentClasses } from '@/utils/classHelpers';
-import { formatDueDate, getDueStatus, getQuizzesByIds } from '@/utils/assignmentHelpers';
-import { findActiveQuizByCode, getReadableQuizzes } from '@/utils/quizLookup';
+import { joinClassByCode, getStudentClasses } from '@/api/classes';
+import { formatDueDate, getDueStatus } from '@/utils/assignmentHelpers';
+import { findActiveQuizByCode, getReadableQuizzes, getQuizzesByIds } from '@/api/quizzes';
 import { weakSpots } from '@/utils/weakSpots';
 import { pop, rise, stagger } from '@/lib/motion';
 

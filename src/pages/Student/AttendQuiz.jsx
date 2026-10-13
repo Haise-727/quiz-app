@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/firebase';
 import PageHeader from '@/components/layout/PageHeader';
 import JoinField from '@/components/game/JoinField';
 import QuizBrowser from '@/components/quiz/QuizBrowser';
-import { findActiveQuizByCode } from '@/utils/quizLookup';
+import { findActiveQuizByCode, listActiveQuizzes } from '@/api/quizzes';
 
 /** The student's way into a quiz: type a code, or pick one that is open. */
 export default function AttendQuiz() {
@@ -19,8 +17,7 @@ export default function AttendQuiz() {
   useEffect(() => {
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'quizzes'), where('active', '==', true)));
-        setQuizzes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setQuizzes(await listActiveQuizzes());
       } catch {
         setFailed(true);
       } finally {

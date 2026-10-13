@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { PiArrowRightBold, PiLockSimpleFill, PiPauseFill, PiSignOutBold, PiSkullBold, PiSpinnerGapBold } from 'react-icons/pi';
-import { db } from '@/firebase';
+import { getQuiz } from '@/api/quizzes';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/Logo';
@@ -26,7 +25,7 @@ import {
   alivePlayerIds, fiftyFiftyHide, generateGuestId, getMainMedia, getPlaySequence, hasLiveAnswer, isOut, isPaused,
   joinSession, leaveSession, listenToSession, ordinal, previousRanks, questionDeadline, rankPlayers, rankSuddenDeath,
   rankTeams, serverNow, setPresence, streakBonusPct, submitAnswer, TEAM_NAMES, toLiveAnswer, spendPowerUp, watchPresence,
-} from '@/utils/liveSession';
+} from '@/api/live';
 import { tileFor } from '@/components/live/tiles';
 import { playBadge, playClick, playComplete, playCorrect, playSelect, playWrong } from '@/utils/sounds';
 import { pop, rise, stagger } from '@/lib/motion';
@@ -136,7 +135,7 @@ export default function PlaySession() {
       if (!s) { toast.error('The host ended this game.'); navigate('/'); return; }
       setSession(s);
       setQuiz((current) => {
-        if (!current) getDoc(doc(db, 'quizzes', s.quizId)).then((snap) => { if (snap.exists()) setQuiz(snap.data()); });
+        if (!current) getQuiz(s.quizId).then((data) => { if (data) setQuiz(data); }).catch(() => {});
         return current;
       });
     });

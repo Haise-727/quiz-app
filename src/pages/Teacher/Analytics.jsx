@@ -1,9 +1,9 @@
 import { downloadCsv, safeFileName } from '../../utils/csv';
-import { getUserNames } from '../../utils/userNames';
+import { getUserNames } from '../../api/users';
+import { getQuiz } from '../../api/quizzes';
+import { listResultsForQuiz } from '../../api/results';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { PiCaretDownBold, PiCaretUpBold, PiDownloadSimpleBold, PiWarningCircleBold } from 'react-icons/pi';
@@ -49,22 +49,15 @@ const Analytics = () => {
     if (!currentUser) return;
     setLoading(true); setError('');
     try {
-      const quizSnap = await getDoc(doc(db, 'quizzes', quizId));
-      if (!quizSnap.exists() || quizSnap.data().createdBy !== currentUser.uid) {
+      const quizDoc = await getQuiz(quizId);
+      if (!quizDoc || quizDoc.createdBy !== currentUser.uid) {
         setError("Quiz not found or you don't have permission."); setLoading(false); return;
       }
-      setQuiz({ id: quizSnap.id, ...quizSnap.data() });
+      setQuiz(quizDoc);
 
-      // teacherId must be included in the query itself (not just checked in rules) -
-      // Firestore rejects list queries outright if the security rule can't be proven
-      // satisfied from the query's own where clauses, even though every matching doc
-      // does have the right teacherId.
-      const subsSnap = await getDocs(
-        query(collection(db, 'quiz_results'), where('quizId', '==', quizId), where('teacherId', '==', currentUser.uid))
-      );
-      const raw = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const raw = await listResultsForQuiz(quizId, currentUser.uid);
 
-      // Display names, read one profile at a time (see utils/userNames.js for why).
+      // Display names, read one profile at a time (see api/users.js for why).
       const names = await getUserNames(raw.map(s => s.userId));
 
       setSubs(raw.map(s => ({

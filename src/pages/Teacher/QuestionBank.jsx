@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getBankQuestions, deleteBankQuestion } from '../../utils/questionBankHelpers';
+import { getBankQuestions, deleteBankQuestion } from '../../api/questionBank';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { PiArrowRightBold, PiCheckBold, PiClockBold, PiMagnifyingGlassBold, PiStarBold, PiTrashBold } from 'react-icons/pi';

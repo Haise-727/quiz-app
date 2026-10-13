@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
@@ -10,8 +8,10 @@ import HotspotPicker from '../../components/quiz/HotspotPicker';
 import MediaRenderer from '../../components/MediaRenderer';
 import { mediaKind, getMainMedia, getSubQuestions } from '../../utils/media';
 import { Button } from '@/components/ui/button';
-import { createNotification } from '../../utils/notifications';
-import { getUserNames } from '../../utils/userNames';
+import { createNotification } from '../../api/notifications';
+import { getUserNames } from '../../api/users';
+import { getQuiz } from '../../api/quizzes';
+import { gradeResult, listResultsForQuiz } from '../../api/results';
 import PageHeader from '@/components/layout/PageHeader';
 import AnimatedNumber from '@/components/game/AnimatedNumber';
 import { rise, spring, stagger } from '@/lib/motion';
@@ -197,24 +197,15 @@ const Grading = () => {
     if (!currentUser) return;
     setLoading(true); setError('');
     try {
-      const quizSnap = await getDoc(doc(db, 'quizzes', quizId));
-      if (!quizSnap.exists() || quizSnap.data().createdBy !== currentUser.uid) {
+      const quizDoc = await getQuiz(quizId);
+      if (!quizDoc || quizDoc.createdBy !== currentUser.uid) {
         setError("Quiz not found or you don't have permission."); setLoading(false); return;
       }
-      setQuizDetails(quizSnap.data());
+      setQuizDetails(quizDoc);
 
-      // teacherId must be included in the query itself (not just checked in rules) -
-      // Firestore rejects list queries outright if the security rule can't be proven
-      // satisfied from the query's own where clauses, even though every matching doc
-      // does have the right teacherId.
-      const subsSnap = await getDocs(query(
-        collection(db, 'quiz_results'),
-        where('quizId', '==', quizId),
-        where('teacherId', '==', currentUser.uid),
-      ));
-      const subs = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const subs = await listResultsForQuiz(quizId, currentUser.uid);
 
-      // Display names, read one profile at a time (see utils/userNames.js for why).
+      // Display names, read one profile at a time (see api/users.js for why).
       const names = await getUserNames(subs.map(s => s.userId));
 
       const enriched = subs.map(s => ({
@@ -265,7 +256,7 @@ const Grading = () => {
       return { ...a, status: 'manually_graded', pointsAwarded: pts, isCorrect: maxPts > 0 && pts >= maxPts };
     });
     try {
-      await updateDoc(doc(db, 'quiz_results', selectedSub.id), {
+      await gradeResult(selectedSub.id, {
         score: total, finalScore: total, answers: updatedAnswers, status: 'completed',
       });
       toast.success('Grade saved');

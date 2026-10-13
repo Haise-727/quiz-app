@@ -1,5 +1,26 @@
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
+
+// -- Profiles (users/{uid}) ----------------------------------------------------------
+
+/** A person's profile ({ email, role, displayName, createdAt, lastActive }), or null if they have none yet. */
+export async function getUserProfile(uid) {
+  const snap = await getDoc(doc(db, 'users', uid));
+  return snap.exists() ? snap.data() : null;
+}
+
+/** Make a profile for a new person. Returns it. */
+export async function createUserProfile(uid, { email, role, displayName }) {
+  const now = new Date().toISOString();
+  const profile = { email, role, displayName, createdAt: now, lastActive: now };
+  await setDoc(doc(db, 'users', uid), profile);
+  return profile;
+}
+
+/** Change some profile fields (displayName, role, lastActive). */
+export async function updateUserProfile(uid, patch) {
+  await updateDoc(doc(db, 'users', uid), patch);
+}
 
 /**
  * Display names for a list of user ids, looked up one document at a time.

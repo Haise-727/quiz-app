@@ -1,14 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db, googleProvider } from '../firebase';
 import {
-  onAuthStateChanged,
-  signOut,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+  watchAuth, signInWithGoogle as googleSignIn, signInWithEmail as emailSignIn,
+  createEmailAccount, setAuthDisplayName, signOutUser,
+} from '@/api/auth';
+import { getUserProfile, createUserProfile as saveUserProfile, updateUserProfile } from '@/api/users';
 
 const AuthContext = createContext();
 
@@ -23,17 +18,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);         // true until first auth check completes
   const [roleLoaded, setRoleLoaded] = useState(false);  // true once Firestore doc has been read
 
-  // ── Firestore helpers ─────────────────────────────────────────────────────
+  // ── Profile helpers ─────────────────────────────────────────────────────
 
   async function fetchUserData(uid) {
     try {
-      const snap = await getDoc(doc(db, 'users', uid));
-      if (snap.exists()) {
-        const data = snap.data();
+      const data = await getUserProfile(uid);
+      if (data) {
         setUserRole(data.role ?? null);
         setDisplayName(data.displayName ?? null);
         // Fire-and-forget lastActive update
-        updateDoc(doc(db, 'users', uid), { lastActive: new Date().toISOString() }).catch(() => {});
+        updateUserProfile(uid, { lastActive: new Date().toISOString() }).catch(() => {});
         return data;
       }
       // Doc doesn't exist yet (new social user before role selection)
@@ -49,14 +43,7 @@ export function AuthProvider({ children }) {
   }
 
   async function createUserProfile(uid, email, role, name) {
-    const profile = {
-      email,
-      role,
-      displayName: name,
-      createdAt: new Date().toISOString(),
-      lastActive: new Date().toISOString(),
-    };
-    await setDoc(doc(db, 'users', uid), profile);
+    const profile = await saveUserProfile(uid, { email, role, displayName: name });
     setUserRole(role);
     setDisplayName(name);
     setRoleLoaded(true);
@@ -67,43 +54,41 @@ export function AuthProvider({ children }) {
 
   /** Google sign-in. Returns { user, isNewUser, existingRole } */
   async function signInWithGoogle() {
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    const snap = await getDoc(doc(db, 'users', user.uid));
+    const user = await googleSignIn();
+    const profile = await getUserProfile(user.uid);
     return {
       user,
-      isNewUser: !snap.exists(),
-      existingRole: snap.exists() ? snap.data().role : null,
+      isNewUser: !profile,
+      existingRole: profile ? profile.role : null,
     };
   }
 
   async function signInWithEmail(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+    return emailSignIn(email, password);
   }
 
   /** Email sign-up — requires role */
   async function signUpWithEmail(email, password, name, role) {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName: name || email.split('@')[0] });
+    const cred = await createEmailAccount(email, password, name);
     await createUserProfile(cred.user.uid, email, role, name || email.split('@')[0]);
     return cred;
   }
 
   async function updateDisplayName(name) {
     if (!currentUser) return;
-    await updateProfile(currentUser, { displayName: name });
-    await updateDoc(doc(db, 'users', currentUser.uid), { displayName: name });
+    await setAuthDisplayName(currentUser, name);
+    await updateUserProfile(currentUser.uid, { displayName: name });
     setDisplayName(name);
   }
 
   async function switchRole(newRole) {
     if (!currentUser) return;
-    await updateDoc(doc(db, 'users', currentUser.uid), { role: newRole });
+    await updateUserProfile(currentUser.uid, { role: newRole });
     setUserRole(newRole);
   }
 
   async function handleSignOut() {
-    await signOut(auth);
+    await signOutUser();
     setUserRole(null);
     setDisplayName(null);
     setCurrentUser(null);
@@ -113,7 +98,7 @@ export function AuthProvider({ children }) {
   // ── Auth state listener ───────────────────────────────────────────────────
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = watchAuth(async (user) => {
       setCurrentUser(user);
       if (user) {
         await fetchUserData(user.uid);   // sets userRole + roleLoaded
@@ -153,16 +138,5 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function handleAuthError(error) {
-  switch (error?.code) {
-    case 'auth/user-not-found':
-    case 'auth/wrong-password':
-    case 'auth/invalid-credential': return 'Incorrect email or password.';
-    case 'auth/email-already-in-use': return 'An account with this email already exists.';
-    case 'auth/weak-password': return 'Password must be at least 6 characters.';
-    case 'auth/invalid-email': return 'Please enter a valid email address.';
-    case 'auth/too-many-requests': return 'Too many attempts. Please try again later.';
-    case 'auth/popup-closed-by-user': return null; // user cancelled, no error message needed
-    default: return error?.message || 'Something went wrong. Please try again.';
-  }
-}
+// Kept here so existing imports keep working; the code lives with the other sign in code.
+export { handleAuthError } from '@/api/auth';

@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
-import { db } from '@/firebase';
+import { listMyResults } from '@/api/results';
 import { useAuth } from './AuthContext';
 import { badgeProgress, levelInfo, normalizeResult, statsFromResults } from '@/utils/gamification';
 
@@ -31,8 +30,7 @@ export function ProgressProvider({ children }) {
     if (!uid) return;
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'quiz_results'), where('userId', '==', uid), orderBy('completedAt', 'desc')));
-      setRaw(snap.docs.map((d) => d.data()));
+      setRaw(await listMyResults(uid));
     } catch (err) {
       console.error('Could not load progress:', err);
       setRaw((prev) => prev ?? []);       // keep what we had; an empty list is better than a broken page

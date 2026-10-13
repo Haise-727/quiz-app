@@ -169,7 +169,7 @@ properly.
 **Status: fixed in `firestore.rules`, in effect once the rules are published** (see
 "Publishing the new rules" below). A signed in user can still read ONE profile by its
 id, which is what a teacher needs to see a student's name, but cannot list them. Analytics,
-Grading and Insights now look names up one profile at a time (`src/utils/userNames.js`).
+Grading and Insights now look names up one profile at a time (`src/api/users.js`).
 The original finding follows.
 
 **Evidence.** A brand new account with no profile and no role listed all 31
@@ -373,7 +373,7 @@ To try any rule change safely first, run `npm run emulators` and `npm run dev:em
 ## Already changed
 
 - Rules for users, quizzes, results, notifications and live games, ready to publish and tested in the emulators (see above).
-- A way to download your data and delete your account, which removes personal data a person asked to remove (`src/utils/accountData.js`).
+- A way to download your data and delete your account, which removes personal data a person asked to remove (`src/api/account.js`).
 - The CSV export neutralises cells that start with `=`, `+`, `-`, `@`, a tab or a
   carriage return (`src/utils/csv.js`, with tests in `scripts/test-csv.mjs`).
 - Two unused dependencies and the packages only they needed were removed

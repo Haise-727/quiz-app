@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { serverNow } from '@/utils/liveSession';
+import { serverNow } from '@/api/live';
 import { playTick } from '@/utils/sounds';
 
 /**

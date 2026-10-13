@@ -3,7 +3,7 @@
  * answer is scored, what a streak or a power-up does, and how players are ranked.
  *
  * Nothing here touches Firebase or React, so scripts/test-live-scoring.mjs can run it
- * under plain Node. utils/liveSession.js re-exports everything, so pages keep importing
+ * under plain Node. api/live.js re-exports everything, so pages keep importing
  * from there. Like the quiz grading, this is what should move to a server so a
  * player's browser cannot award itself points (docs/security.md, finding 3).
  *

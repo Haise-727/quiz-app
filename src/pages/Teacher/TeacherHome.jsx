@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -18,7 +16,9 @@ import {
   PiToggleLeftBold, PiImageBold, PiHeadphonesBold, PiShuffleBold, PiTrashBold,
   PiSparkleBold, PiSpinnerGapBold, PiNotePencilBold, PiWrenchBold, PiCalculatorBold, PiCursorClickBold,
 } from 'react-icons/pi';
-import { clearInvalidQuizzes, seedTestQuiz, clearAllQuizResults } from '../../utils/devTools';
+import { listMyQuizzesUnordered } from '../../api/quizzes';
+import { listResultsForTeacher } from '../../api/results';
+import { clearInvalidQuizzes, seedTestQuiz, clearAllQuizResults } from '../../api/devTools';
 
 const QUIZ_TYPES = [
   { type: 'MCQ',                     icon: PiCheckSquareBold,     label: 'Multiple choice',         desc: 'Auto graded choices.' },
@@ -55,19 +55,18 @@ const TeacherHome = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [qSnap, sSnap] = await Promise.all([
-        getDocs(query(collection(db, 'quizzes'), where('createdBy', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'quiz_results'), where('teacherId', '==', currentUser.uid))),
+      const [quizzes, results] = await Promise.all([
+        listMyQuizzesUnordered(currentUser.uid),
+        listResultsForTeacher(currentUser.uid),
       ]);
-      const quizzes = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const uniqueStudents = new Set(
-        sSnap.docs.map(d => d.data().userId).filter(id => !id.startsWith('guest_'))
+        results.map(r => r.userId).filter(id => !id.startsWith('guest_'))
       );
       setStats({
         activeQuizzes:     quizzes.filter(q => q.active).length,
         totalQuizzes:      quizzes.length,
         totalStudents:     uniqueStudents.size,
-        completedSessions: sSnap.size,
+        completedSessions: results.length,
       });
       const activity = quizzes
         .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))

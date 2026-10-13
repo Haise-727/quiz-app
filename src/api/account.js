@@ -1,7 +1,7 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, query, where, writeBatch } from 'firebase/firestore';
 import { EmailAuthProvider, deleteUser, reauthenticateWithCredential, reauthenticateWithPopup } from 'firebase/auth';
 import { auth, db, googleProvider } from '@/firebase';
-import { deletionPlan, exportPlan, toPlain } from './accountPlan';
+import { deletionPlan, exportPlan, toPlain } from '@/utils/accountPlan';
 
 /**
  * Letting a person take their data with them and delete their account. What belongs to whom

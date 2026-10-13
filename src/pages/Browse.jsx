@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import { toast } from 'sonner';
-import { db } from '@/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import PublicNav from '@/components/layout/PublicNav';
 import PublicFooter from '@/components/layout/PublicFooter';
 import PageHeader from '@/components/layout/PageHeader';
 import QuizBrowser from '@/components/quiz/QuizBrowser';
 import { copyQuiz } from '@/utils/quizCopy';
+import { listActiveQuizzes } from '@/api/quizzes';
 
 export default function Browse() {
   const navigate = useNavigate();
@@ -21,8 +20,7 @@ export default function Browse() {
   useEffect(() => {
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'quizzes'), where('active', '==', true)));
-        setQuizzes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setQuizzes(await listActiveQuizzes());
       } catch {
         setFailed(true);   // a visitor can still join with a code, so this is not fatal
       } finally {
@@ -40,7 +38,7 @@ export default function Browse() {
     if (cloningId) return;
     setCloningId(quiz.id);
     try {
-      const copy = await copyQuiz({ db, source: quiz, user: { uid: currentUser.uid, name: displayName || currentUser.displayName }, clone: true });
+      const copy = await copyQuiz({ source: quiz, user: { uid: currentUser.uid, name: displayName || currentUser.displayName }, clone: true });
       toast.success('Cloned into your quizzes as a draft.', {
         action: { label: 'Open in editor', onClick: () => navigate(`/teacher/edit-quiz/${copy.id}`) },
       });

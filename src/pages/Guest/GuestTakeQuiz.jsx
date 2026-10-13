@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { addDoc, collection } from 'firebase/firestore';
-import { db } from '@/firebase';
+import { submitResult } from '@/api/results';
 import QuizRunner from '@/components/quiz/QuizRunner';
 import { loadGuestResults, saveGuestResult } from '@/utils/guestProgress';
 
@@ -19,13 +18,12 @@ export default function GuestTakeQuiz() {
   const guestId = useRef(generateGuestId());
 
   const saveResult = async (result, { name }) => {
-    const ref = await addDoc(collection(db, 'quiz_results'), {
+    return submitResult({
       ...result,
       userId: guestId.current,
       username: (name || '').trim() || 'Guest',
       isGuest: true,
     });
-    return ref.id;
   };
 
   // After a result is stored, remember a summary of it on this device for XP and streaks.

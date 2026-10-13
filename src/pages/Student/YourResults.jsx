@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PiArrowRightBold, PiClockBold, PiEyeBold } from 'react-icons/pi';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/firebase';
+import { getQuiz } from '@/api/quizzes';
+import { listMyResults } from '@/api/results';
 import MediaRenderer from '@/components/MediaRenderer';
 import HotspotPicker from '@/components/quiz/HotspotPicker';
 import MathText from '@/components/MathText';
@@ -247,15 +247,14 @@ export default function YourResults() {
     if (!currentUser) { navigate('/login'); return; }
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, 'quiz_results'), where('userId', '==', currentUser.uid), orderBy('completedAt', 'desc')));
+        const all = await listMyResults(currentUser.uid);
         // The daily question is saved in the same collection, but it is not a quiz attempt:
         // leave it out so it cannot change the counts, the average, the trend or the list.
-        setResults(snap.docs.filter((d) => d.data().kind !== 'daily').map((d) => {
-          const data = d.data();
+        setResults(all.filter((data) => data.kind !== 'daily').map((data) => {
           const display = data.status === 'completed' ? data.finalScore : data.score;
           const pct = data.maxScore > 0 ? Math.round((display / data.maxScore) * 100) : 0;
           const correct = (data.answers || []).filter((a) => a.pointsAwarded > 0).length;
-          return { id: d.id, ...data, displayScore: display, percentage: pct, correctCount: correct };
+          return { ...data, displayScore: display, percentage: pct, correctCount: correct };
         }));
       } catch { toast.error('We could not load your results.'); }
       finally { setLoading(false); }
@@ -265,8 +264,7 @@ export default function YourResults() {
   const openReview = async (result) => {
     setSelectedResult(result); setReviewLoading(true);
     try {
-      const snap = await getDoc(doc(db, 'quizzes', result.quizId));
-      setReviewQuiz(snap.exists() ? snap.data() : null);
+      setReviewQuiz(await getQuiz(result.quizId));
     } catch { setReviewQuiz(null); }
     finally { setReviewLoading(false); }
   };

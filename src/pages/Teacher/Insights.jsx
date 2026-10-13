@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import { PiArrowDownRightBold, PiArrowRightBold, PiArrowUpRightBold, PiPlusBold, PiWarningCircleBold } from 'react-icons/pi';
-import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import PageHeader from '@/components/layout/PageHeader';
 import AnimatedNumber from '@/components/game/AnimatedNumber';
 import Skeleton from '@/components/teacher/Skeleton';
 import { ease, rise, spring, stagger } from '@/lib/motion';
-import { getUserNames } from '../../utils/userNames';
+import { getUserNames } from '../../api/users';
+import { listResultsForTeacher } from '../../api/results';
+import { listMyQuizzesUnordered } from '../../api/quizzes';
 import { NEEDS_HELP_BELOW, mostMissed, studentRows, summarize, weeklyActivity } from '../../utils/insights';
 
 /**
@@ -77,15 +77,14 @@ export default function Insights() {
     if (!currentUser) return;
     setLoading(true); setError('');
     try {
-      const [resultsSnap, quizzesSnap] = await Promise.all([
-        getDocs(query(collection(db, 'quiz_results'), where('teacherId', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'quizzes'), where('createdBy', '==', currentUser.uid))),
+      const [rows, myQuizzes] = await Promise.all([
+        listResultsForTeacher(currentUser.uid),
+        listMyQuizzesUnordered(currentUser.uid),
       ]);
-      const rows = resultsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       // A signed in student's result carries no name, so look the names up (one profile at a time).
       const names = await getUserNames(rows.map((r) => r.userId));
       setResults(rows.map((r) => ({ ...r, userName: names[r.userId] || r.userName })));
-      setQuizzes(quizzesSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setQuizzes(myQuizzes);
     } catch (e) {
       console.error(e);
       setError('We could not load your insights. Check your connection and try again.');

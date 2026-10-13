@@ -1,7 +1,7 @@
 /**
  * What belongs to a person, written down once: which collections hold their data, which field
  * ties a document to them, and in what order it is removed. Pure and free of Firebase, so
- * scripts/test-account-plan.mjs can check it. utils/accountData.js carries it out.
+ * scripts/test-account-plan.mjs can check it. api/account.js carries it out.
  *
  * Deleting an account removes the person's own things and the things that only existed for
  * their quizzes. The profile document goes LAST among the data, and the sign in account after

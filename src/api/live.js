@@ -32,14 +32,14 @@ import { realtimeDb } from '../firebase';
 import {
   ref, set, get, update, remove, onValue, runTransaction, onDisconnect,
 } from 'firebase/database';
-import { isComprehension, getMainMedia, getSubQuestions } from './media';
+import { isComprehension, getMainMedia, getSubQuestions } from '@/utils/media';
 import {
   getPlayableQuestions, shuffledOrder, scoreAnswer, STARTING_POWERUPS, LEAD_IN_MS,
   claimSeat, assignTeam, assignAllTeams, resumeShift, isOut,
-} from './liveScoring';
+} from '@/utils/liveScoring';
 
-// Everything pure is re-exported, so `import { scoreAnswer } from '../utils/liveSession'` still works.
-export * from './liveScoring';
+// Everything pure is re-exported, so `import { scoreAnswer } from '@/api/live'` still works.
+export * from '@/utils/liveScoring';
 export { isComprehension, getMainMedia, getSubQuestions };
 
 // ── Server time ─────────────────────────────────────────────────────────────────────

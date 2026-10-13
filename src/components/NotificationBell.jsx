@@ -5,7 +5,7 @@ import {
   listenToNotifications,
   markAllNotificationsAsRead,
   markNotificationAsRead,
-} from '../utils/notifications';
+} from '../api/notifications';
 import { playNotification } from '../utils/sounds';
 import {
   DropdownMenu,

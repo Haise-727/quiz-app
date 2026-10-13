@@ -1,34 +1,13 @@
 /**
  * assignmentHelpers.js
- * Due-date assignment support, built directly on top of the existing
- * `classes/{classId}.quizIds` array — no new Firestore collection or
- * security rules required. Due dates live in a sibling map field:
+ * Due-date display helpers (pure, no database). The database calls are api/classes.js
+ * (setQuizDueDate) and api/results.js (getCompletionCount). Due dates live in a map field
+ * next to the class's quiz list:
  *
  *   classes/{classId}
  *     quizIds   : string[]
  *     dueDates  : { [quizId]: string (ISO date) | null }
  */
-
-import { db } from '../firebase';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
-
-/** Set or clear a quiz's due date within a class. Pass null/empty to clear. */
-export const setQuizDueDate = async (classId, quizId, dueDateISO) => {
-  await updateDoc(doc(db, 'classes', classId), { [`dueDates.${quizId}`]: dueDateISO || null });
-};
-
-/** Batch-fetch quiz docs for a list of quiz IDs (Firestore 'in' query, 30-item chunks). */
-export const getQuizzesByIds = async (quizIds) => {
-  const unique = [...new Set(quizIds)].filter(Boolean);
-  const result = {};
-  for (let i = 0; i < unique.length; i += 30) {
-    const batch = unique.slice(i, i + 30);
-    if (!batch.length) continue;
-    const snap = await getDocs(query(collection(db, 'quizzes'), where('__name__', 'in', batch)));
-    snap.forEach(d => { result[d.id] = { id: d.id, ...d.data() }; });
-  }
-  return result;
-};
 
 /** Due-date status for display: 'overdue' | 'due-soon' (<=2 days) | 'upcoming' | null (no due date set). */
 export const getDueStatus = (dueDateISO) => {
@@ -44,29 +23,4 @@ export const getDueStatus = (dueDateISO) => {
 export const formatDueDate = (dueDateISO) => {
   if (!dueDateISO) return null;
   return new Date(dueDateISO).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
-/**
- * Count how many of the given students have at least one submission for a quiz.
- * Used by the teacher's class view to show "X / Y completed".
- *
- * teacherId must be included in the query itself (not just checked in the
- * Firestore rule) - Firestore rejects list queries outright if the security
- * rule can't be proven satisfied from the query's own where clauses, even
- * though every matching doc does have the right teacherId.
- */
-export const getCompletionCount = async (quizId, studentIds, teacherId) => {
-  if (!studentIds.length) return 0;
-  let completed = new Set();
-  for (let i = 0; i < studentIds.length; i += 30) {
-    const batch = studentIds.slice(i, i + 30);
-    const snap = await getDocs(query(
-      collection(db, 'quiz_results'),
-      where('quizId', '==', quizId),
-      where('teacherId', '==', teacherId),
-      where('userId', 'in', batch),
-    ));
-    snap.forEach(d => completed.add(d.data().userId));
-  }
-  return completed.size;
 };

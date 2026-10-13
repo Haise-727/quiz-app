@@ -163,3 +163,10 @@ export const leaveClass = async ({ classId, studentId }) => {
   );
   await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
 };
+
+// -- Due dates ---------------------------------------------------------------------
+
+/** Set or clear a quiz's due date within a class. Pass null or empty to clear. Stored as classes/{id}.dueDates[quizId]. */
+export const setQuizDueDate = async (classId, quizId, dueDateISO) => {
+  await updateDoc(doc(db, 'classes', classId), { [`dueDates.${quizId}`]: dueDateISO || null });
+};

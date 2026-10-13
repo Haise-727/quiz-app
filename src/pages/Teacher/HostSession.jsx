@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
@@ -8,7 +7,7 @@ import {
   PiArrowRightBold, PiCheckBold, PiCopyBold, PiDownloadSimpleBold, PiEyeBold, PiLinkBold, PiPauseFill, PiPlayFill,
   PiSkullBold, PiSpinnerGapBold, PiTrophyBold, PiUsersBold, PiXBold,
 } from 'react-icons/pi';
-import { db } from '@/firebase';
+import { getQuiz } from '@/api/quizzes';
 import { Button } from '@/components/ui/button';
 import Logo from '@/components/Logo';
 import MediaRenderer from '@/components/MediaRenderer';
@@ -31,7 +30,7 @@ import {
   alivePlayerIds, deleteSession, endGame, getPlaySequence, isOut, isPaused, kickPlayer, listenToSession, nextQuestion,
   pauseGame, questionDeadline, rankPlayers, rankSuddenDeath, rankTeams, resumeGame, revealQuestion, serverNow,
   eliminatePlayers, setQuestionDeadline, showLeaderboard, startGame, suddenDeathOut, suddenDeathOver, TEAM_NAMES, updateSettings,
-} from '@/utils/liveSession';
+} from '@/api/live';
 import { playComplete } from '@/utils/sounds';
 import { pop, rise, stagger } from '@/lib/motion';
 
@@ -118,7 +117,7 @@ export default function HostSession() {
       setLoading(false);
       if (!s) return;
       setQuiz((current) => {
-        if (!current) getDoc(doc(db, 'quizzes', s.quizId)).then((snap) => { if (snap.exists()) setQuiz(snap.data()); });
+        if (!current) getQuiz(s.quizId).then((data) => { if (data) setQuiz(data); }).catch(() => {});
         return current;
       });
     });

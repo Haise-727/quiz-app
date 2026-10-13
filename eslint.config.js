@@ -35,6 +35,21 @@ export default [
     },
   },
   {
+    // The database and sign in SDK may only be imported inside src/api (and src/firebase.js, which
+    // sets it up). Everything else asks src/api for what it needs, so the backend can change
+    // without touching a page. See src/api/README.md.
+    files: ['src/**/*.{js,jsx}'],
+    ignores: ['src/api/**', 'src/firebase.js'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          { group: ['firebase', 'firebase/*'], message: 'Use src/api instead of importing Firebase directly.' },
+          { group: ['@/firebase', '**/firebase'], message: 'Use src/api instead of importing the Firebase setup directly.' },
+        ],
+      }],
+    },
+  },
+  {
     // Node scripts and config run in Node, not the browser.
     files: ['api/**/*.js', 'scripts/**/*.{js,mjs}', 'vite.config.js', 'eslint.config.js'],
     languageOptions: { globals: globals.node },

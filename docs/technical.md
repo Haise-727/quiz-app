@@ -146,7 +146,7 @@ slot when slots were stacked.
 
 State is in the Realtime Database under `sessions/{pin}`. The rules of a game
 are pure functions in `src/utils/liveScoring.js`, which is where they are
-tested. `src/utils/liveSession.js` only talks to the database.
+tested. `src/api/live.js` only talks to the database.
 
 ```
 sessions/{pin}
