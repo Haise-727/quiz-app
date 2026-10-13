@@ -49,6 +49,17 @@ export class SignerStack extends Stack {
     }));
 
     const url = fn.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.NONE });
+
+    // Since late 2025 a public Function URL needs TWO permissions: lambda:InvokeFunctionUrl (the CDK
+    // adds that one) and lambda:InvokeFunction limited to calls that arrive through the URL. With
+    // only the first, every request gets 403 Forbidden. The newer CloudFormation property is not
+    // in this CDK version's typings yet, so it is set with an override.
+    const viaUrl = new lambda.CfnPermission(this, 'InvokeViaFunctionUrl', {
+      functionName: fn.functionName,
+      action: 'lambda:InvokeFunction',
+      principal: '*',
+    });
+    viaUrl.addPropertyOverride('InvokedViaFunctionUrl', true);
     new CfnOutput(this, 'SignerUrl', { value: url.url, description: 'Put this in VITE_API_URL' });
   }
 }
