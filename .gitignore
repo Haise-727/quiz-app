@@ -44,3 +44,4 @@ GEMINI.md
 # AWS CDK
 infra/node_modules/
 infra/cdk.out/
+infra/.site-build/

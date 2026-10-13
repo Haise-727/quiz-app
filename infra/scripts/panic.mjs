@@ -6,7 +6,7 @@
 // What it does, in order:
 //   1. Sets every quizlike Lambda's reserved concurrency to 0, so none can run. This is instant
 //      and reversible. (Needs lambda:PutFunctionConcurrency, see the note below.)
-//   2. Deletes the quizlike-web and quizlike-signer stacks through the CDK deploy role.
+//   2. Deletes the quizlike-site, quizlike-web and quizlike-signer stacks through the CDK deploy role.
 //   3. Leaves quizlike-data alone (its tables are RETAIN, your data) and tells you so.
 //
 // It cannot touch anything outside the quizlike stacks, and it never reads or prints a secret.
@@ -36,7 +36,7 @@ for (const name of names) {
 }
 
 // 2. Delete stacks
-for (const stack of ['quizlike-web', 'quizlike-signer']) {
+for (const stack of ['quizlike-site', 'quizlike-web', 'quizlike-signer']) {
   say(`- Stack ${stack}: delete`);
   if (yes) {
     const r = run('npx', ['cdk', 'destroy', stack, '--force']);

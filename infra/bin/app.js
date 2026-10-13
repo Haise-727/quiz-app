@@ -2,12 +2,14 @@ import { App, Tags } from 'aws-cdk-lib';
 import { DataStack } from '../lib/data-stack.js';
 import { SignerStack } from '../lib/signer-stack.js';
 import { WebStack } from '../lib/web-stack.js';
+import { SiteStack } from '../lib/site-stack.js';
 
 /**
  * Three small stacks, deployed separately so each can be tried, kept or removed on its own:
  *   quizlike-signer   the ImageKit upload signer (Lambda Function URL)
  *   quizlike-data     DynamoDB tables (not used by the app until the data phase)
- *   quizlike-web      S3 plus CloudFront static hosting (optional)
+ *   quizlike-site     the website served by a Lambda Function URL (works without CloudFront)
+ *   quizlike-web      S3 plus CloudFront, only with `-c cloudfront=true` (needs AWS to verify the account)
  *
  * `npx cdk synth` checks them offline. Nothing here deploys by itself.
  * Region: pass `-c region=...`, or set AWS_REGION. It defaults to ap-south-1 (Mumbai, closest to the users).
@@ -26,6 +28,7 @@ new SignerStack(app, `${prefix}-signer`, {
   reservedConcurrency: reserved ? Number(reserved) : undefined,
 });
 new DataStack(app, `${prefix}-data`, { env, prefix });
-new WebStack(app, `${prefix}-web`, { env });
+if (app.node.tryGetContext('cloudfront') === 'true') new WebStack(app, `${prefix}-web`, { env });
+else new SiteStack(app, `${prefix}-site`, { env, prefix });
 
 Tags.of(app).add('app', 'quizlike');

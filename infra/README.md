@@ -10,7 +10,8 @@ Read `docs/aws-migration.md` first, especially the Free plan section.
 |---|---|---|
 | `quizlike-signer` | Lambda with a Function URL that signs ImageKit uploads (code in `backend/signer`) | inside the Lambda free allowance |
 | `quizlike-data` | 7 DynamoDB tables, provisioned 1 read and 1 write unit each (17 of the free 25) | inside the DynamoDB free allowance |
-| `quizlike-web` | private S3 bucket behind CloudFront, optional | inside the CloudFront free allowance, cents for S3 |
+| `quizlike-site` | the built website served by a Lambda Function URL (CloudFront needs account verification first) | inside the Lambda free allowance |
+| `quizlike-web` | private S3 bucket behind CloudFront, only with `-c cloudfront=true` | inside the CloudFront free allowance, cents for S3 |
 
 The app keeps using Firebase, ImageKit and Vercel until each piece is switched on.
 
@@ -65,7 +66,7 @@ SecureString with the default AWS key is free. Do not use Secrets Manager.
 ## Deploying and the emergency brake
 
     npx cdk deploy quizlike-signer   # the upload signer (done once, live)
-    npm run deploy:aws               # from the repo root: builds the app and deploys quizlike-web
+    npm run deploy:aws               # from the repo root: builds the app and deploys quizlike-site
     node infra/scripts/panic.mjs     # dry run of the emergency brake. Add --yes to do it
 
 `npm run deploy:aws` builds with `VITE_SIGNER_URL` from `.env.production` (not committed), so the
