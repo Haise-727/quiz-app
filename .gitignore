@@ -45,3 +45,4 @@ GEMINI.md
 infra/node_modules/
 infra/cdk.out/
 infra/.site-build/
+infra/.api-build/

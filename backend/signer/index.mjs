@@ -62,7 +62,9 @@ async function loadConfig(ssm) {
 }
 
 /** Lambda Function URL handler (payload format 2.0). */
-export async function handler(event, _context, deps = {}) {
+export async function handler(event, _context, injected) {
+  // The Lambda runtime passes a callback function as the third argument. Only a plain object is the test hook.
+  const deps = injected && typeof injected === 'object' ? injected : {};
   const origin = event?.headers?.origin || event?.headers?.Origin || '';
   const method = event?.requestContext?.http?.method || 'GET';
   if (method === 'OPTIONS') return { statusCode: 204, headers: corsHeaders(origin), body: '' };

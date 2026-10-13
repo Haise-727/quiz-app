@@ -1,5 +1,7 @@
 import { CfnOutput, CfnParameter, Duration, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as logs from 'aws-cdk-lib/aws-logs';
 
 /**
  * Sign in on AWS: a Cognito user pool with email and password plus "Sign in with Google".
@@ -32,12 +34,28 @@ export class AuthStack extends Stack {
         email: { required: true, mutable: true },
         fullname: { required: false, mutable: true },
       },
-      passwordPolicy: { minLength: 8, requireLowercase: true, requireDigits: true, requireUppercase: false, requireSymbols: false },
+      // Same rule as the sign up form today (at least 6 characters). Cognito's own minimum is 6.
+      passwordPolicy: { minLength: 6, requireLowercase: false, requireDigits: false, requireUppercase: false, requireSymbols: false },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       email: cognito.UserPoolEmail.withCognito(),
       mfa: cognito.Mfa.OFF,
       removalPolicy: RemovalPolicy.RETAIN,
     });
+    // Accept a new sign up straight away and mark its email as verified, so the sign up form needs no code step.
+    // This is how Firebase behaved too (it never checked the email). Tighten it later by deleting this trigger and
+    // adding a "type the code we emailed you" step to the sign up screen.
+    const preSignUp = new lambda.Function(this, 'PreSignUp', {
+      functionName: `${prefix}-pre-signup`,
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      handler: 'index.handler',
+      code: lambda.Code.fromInline('exports.handler = async (event) => { event.response.autoConfirmUser = true; if (event.request.userAttributes && event.request.userAttributes.email) event.response.autoVerifyEmail = true; return event; };'),
+      memorySize: 128,
+      timeout: Duration.seconds(3),
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+    pool.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, preSignUp);
+
     // The pool tier. Set with an override so it works on this CDK version; ESSENTIALS keeps the free 10,000 users.
     pool.node.defaultChild.addPropertyOverride('UserPoolTier', 'ESSENTIALS');
 
@@ -82,6 +100,8 @@ export class AuthStack extends Stack {
       refreshTokenValidity: Duration.days(30),
     });
     if (google) client.node.addDependency(google);
+    this.pool = pool;
+    this.client = client;
 
     const hosted = `https://${domain.domainName}.auth.${this.region}.amazoncognito.com`;
     new CfnOutput(this, 'UserPoolId', { value: pool.userPoolId });

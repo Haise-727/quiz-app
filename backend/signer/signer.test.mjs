@@ -46,3 +46,9 @@ test('missing settings give a 500 that says nothing secret', async () => {
   assert.equal(res.statusCode, 500);
   assert.equal(JSON.parse(res.body).success, false);
 });
+
+test('the runtime callback in the third argument is ignored', async () => {
+  const callback = function runtimeCallback() {};
+  const res = await handler(get('OPTIONS'), {}, callback);
+  assert.equal(res.statusCode, 204);
+});

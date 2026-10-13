@@ -7,7 +7,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
  * COST RULES (see docs/aws-migration.md):
  *  - PROVISIONED mode, never on demand. Provisioned capacity throttles when it is full; on
  *    demand bills for every request.
- *  - 1 read unit and 1 write unit per table and per index. The Always Free allowance is 25 + 25 in
+ *  - 1 to 2 read and write units per table and per index. The Always Free allowance is 25 + 25 in
  *    total across the whole account, so this stack refuses to build if it asks for more
  *    (see unitsUsed).
  *  - No autoscaling, no point in time recovery (billed), no streams, no global tables.
@@ -17,34 +17,40 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
 const T = (name, partitionKey, extra = {}) => ({ name, partitionKey, ...extra });
 
-/** Table definitions. `indexes` are global secondary indexes: [name, partitionKey, sortKey?]. */
+/**
+ * Table definitions. `units` is the read and write capacity of the table, and each index is
+ * [name, partitionKey, sortKey or null, units]. The tables and indexes here must match
+ * backend/api/config.mjs. The units add up to 24 of the free 25 (see unitsUsed). The busiest tables
+ * (quizzes and results) get 2 because a quiz is one big document and costs one unit per KB written.
+ */
 export const TABLES = [
-  T('users', 'uid'),
-  T('quizzes', 'quizId', { indexes: [
-    ['byOwner', 'createdBy', 'createdAt'],    // listMyQuizzes, listMyQuizzesUnordered
-    ['byCode', 'code'],                        // findActiveQuizByCode, isJoinCodeFree
+  T('users', 'uid', { units: 1 }),
+  T('quizzes', 'quizId', { units: 2, indexes: [
+    ['byOwner', 'createdBy', 'createdAt', 2],    // listMyQuizzes
+    ['byActive', 'activeKey', 'createdAt', 2],   // listActiveQuizzes (sparse: only active quizzes have activeKey)
+    ['byCode', 'code', null, 1],                 // findActiveQuizByCode, isJoinCodeFree
   ] }),
-  T('results', 'resultId', { indexes: [
-    ['byUser', 'userId', 'completedAt'],       // listMyResults
-    ['byQuiz', 'quizId', 'completedAt'],       // listResultsForQuiz (teacherId is checked on the server)
-    ['byTeacher', 'teacherId', 'completedAt'], // listResultsForTeacher
+  T('results', 'resultId', { units: 2, indexes: [
+    ['byUser', 'userId', 'completedAt', 2],      // listMyResults
+    ['byQuiz', 'quizId', 'completedAt', 2],      // listResultsForQuiz (teacherId is checked on the server)
+    ['byTeacher', 'teacherId', 'completedAt', 1],// listResultsForTeacher
   ] }),
-  T('classes', 'classId', { indexes: [
-    ['byTeacher', 'teacherId'],                // getTeacherClasses
-    ['byCode', 'code'],                        // joinClassByCode
+  T('classes', 'classId', { units: 1, indexes: [
+    ['byTeacher', 'teacherId', null, 1],         // getTeacherClasses
+    ['byCode', 'code', null, 1],                 // joinClassByCode
   ] }),
-  T('enrollments', 'enrollmentId', { indexes: [
-    ['byClass', 'classId'],                    // getClassEnrollments, deleteClass
-    ['byStudent', 'studentId'],                // getStudentClasses, leaveClass
+  T('enrollments', 'enrollmentId', { units: 1, indexes: [
+    ['byClass', 'classId', null, 1],             // getClassEnrollments, deleteClass
+    ['byStudent', 'studentId', null, 1],         // getStudentClasses, leaveClass
   ] }),
-  T('questionBank', 'itemId', { indexes: [['byTeacher', 'teacherId']] }),   // getBankQuestions
+  T('questionBank', 'itemId', { units: 1, indexes: [['byTeacher', 'teacherId', null, 1]] }),   // getBankQuestions
   // Notifications: all of one person's, newest first, is a single key lookup.
-  T('notifications', 'userId', { sortKey: 'createdAtId' }),
+  T('notifications', 'userId', { units: 1, sortKey: 'createdAtId' }),
 ];
 
 /** Read units (and the same number of write units) this stack asks for. Must stay at or below 25. */
 export function unitsUsed() {
-  return TABLES.reduce((n, t) => n + 1 + (t.indexes?.length || 0), 0);
+  return TABLES.reduce((n, t) => n + t.units + (t.indexes || []).reduce((m, ix) => m + ix[3], 0), 0);
 }
 
 export class DataStack extends Stack {
@@ -60,19 +66,19 @@ export class DataStack extends Stack {
         partitionKey: { name: t.partitionKey, type: dynamodb.AttributeType.STRING },
         sortKey: t.sortKey ? { name: t.sortKey, type: dynamodb.AttributeType.STRING } : undefined,
         billingMode: dynamodb.BillingMode.PROVISIONED,
-        readCapacity: 1,
-        writeCapacity: 1,
+        readCapacity: t.units,
+        writeCapacity: t.units,
         removalPolicy: RemovalPolicy.RETAIN,   // never lose the data to a stack delete by accident
         pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
       });
-      for (const [indexName, pk, sk] of t.indexes || []) {
+      for (const [indexName, pk, sk, units] of t.indexes || []) {
         table.addGlobalSecondaryIndex({
           indexName,
           partitionKey: { name: pk, type: dynamodb.AttributeType.STRING },
           sortKey: sk ? { name: sk, type: dynamodb.AttributeType.STRING } : undefined,
           projectionType: dynamodb.ProjectionType.ALL,
-          readCapacity: 1,
-          writeCapacity: 1,
+          readCapacity: units,
+          writeCapacity: units,
         });
       }
       this.tables[t.name] = table;
