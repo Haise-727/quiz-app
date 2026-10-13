@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "build:aws": "vite build",
+    "deploy:aws": "npm run build:aws && cd infra && npx cdk deploy quizlike-web --require-approval broadening",
     "emulators": "npx -y firebase-tools@13.35.1 emulators:start --only auth,firestore,database --project demo-quizlike",
     "dev:emulated": "vite --mode emulator --port 5174 --strictPort",
     "test": "node scripts/test-gamification.mjs && node scripts/test-quiz-attempt.mjs && node scripts/test-live-scoring.mjs && node scripts/test-csv.mjs && node scripts/test-math-text.mjs && node scripts/test-question-validation.mjs && node scripts/test-question-import.mjs && node scripts/test-account-plan.mjs && node scripts/test-insights.mjs && node scripts/test-daily.mjs && node scripts/test-weak-spots.mjs"

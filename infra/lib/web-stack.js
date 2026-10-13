@@ -2,6 +2,9 @@ import { Stack, RemovalPolicy, CfnOutput, Duration } from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Static hosting for the built React app: a private S3 bucket behind CloudFront.
@@ -51,6 +54,20 @@ export class WebStack extends Stack {
       },
       errorResponses: spaFallback,
     });
+
+    // Upload the built app (the dist folder, made by `npm run build:aws`) and clear the CDN cache.
+    // The CDK does this through its own roles, so the deployer user needs no S3 rights.
+    // If dist does not exist yet this is skipped, so `cdk synth` still works on a fresh checkout.
+    const dist = fileURLToPath(new URL('../../dist', import.meta.url));
+    if (existsSync(dist)) {
+      new s3deploy.BucketDeployment(this, 'DeploySite', {
+        sources: [s3deploy.Source.asset(dist)],
+        destinationBucket: bucket,
+        distribution,
+        distributionPaths: ['/*'],
+        memoryLimit: 256,
+      });
+    }
 
     new CfnOutput(this, 'SiteUrl', { value: `https://${distribution.distributionDomainName}` });
     new CfnOutput(this, 'BucketName', { value: bucket.bucketName });

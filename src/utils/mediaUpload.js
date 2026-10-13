@@ -24,10 +24,11 @@ const imagekit = new ImageKit({
 });
 
 async function fetchAuthParams() {
-  // Always relative: /api/auth is a serverless function in this same Vercel
-  // project, so it is served from whatever domain is currently loaded. In
-  // development vite.config.js proxies /api to the deployed app.
-  const response = await fetch('/api/auth');
+  // By default /api/auth is a serverless function in this same Vercel project, so it is
+  // served from whatever domain is currently loaded (in development vite.config.js proxies
+  // /api to the deployed app). The AWS build sets VITE_SIGNER_URL to the signer Lambda's
+  // address instead, because a static S3 site has no /api folder.
+  const response = await fetch(import.meta.env.VITE_SIGNER_URL || '/api/auth');
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     throw new Error(`Authentication server failed: ${errorBody.message || response.statusText}`);

@@ -61,3 +61,16 @@ Free Tier alerts on.
     aws ssm put-parameter --profile quizlike --name /quizlike/imagekit/url-endpoint --type SecureString --value "..."
 
 SecureString with the default AWS key is free. Do not use Secrets Manager.
+
+## Deploying and the emergency brake
+
+    npx cdk deploy quizlike-signer   # the upload signer (done once, live)
+    npm run deploy:aws               # from the repo root: builds the app and deploys quizlike-web
+    node infra/scripts/panic.mjs     # dry run of the emergency brake. Add --yes to do it
+
+`npm run deploy:aws` builds with `VITE_SIGNER_URL` from `.env.production` (not committed), so the
+AWS copy asks the signer Lambda for upload tokens. The Vercel build does not read that file, so
+Vercel keeps using `/api/auth`. After the first deploy, add the CloudFront address to Firebase
+Authentication, Settings, Authorized domains, or Google sign in will fail on the AWS copy.
+
+A public Function URL needs two permissions since late 2025. The signer stack sets both.
