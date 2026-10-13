@@ -3,11 +3,13 @@ import { DataStack } from '../lib/data-stack.js';
 import { SignerStack } from '../lib/signer-stack.js';
 import { WebStack } from '../lib/web-stack.js';
 import { SiteStack } from '../lib/site-stack.js';
+import { AuthStack } from '../lib/auth-stack.js';
 
 /**
  * Three small stacks, deployed separately so each can be tried, kept or removed on its own:
  *   quizlike-signer   the ImageKit upload signer (Lambda Function URL)
  *   quizlike-data     DynamoDB tables (not used by the app until the data phase)
+ *   quizlike-auth     Cognito sign in (email and Google). `-c google=true` adds Google (deploy with scripts/deploy-auth.mjs)
  *   quizlike-site     the website served by a Lambda Function URL (works without CloudFront)
  *   quizlike-web      S3 plus CloudFront, only with `-c cloudfront=true` (needs AWS to verify the account)
  *
@@ -30,5 +32,14 @@ new SignerStack(app, `${prefix}-signer`, {
 new DataStack(app, `${prefix}-data`, { env, prefix });
 if (app.node.tryGetContext('cloudfront') === 'true') new WebStack(app, `${prefix}-web`, { env });
 else new SiteStack(app, `${prefix}-site`, { env, prefix });
+
+// Where the app runs. Cognito only redirects back to these addresses.
+const appUrls = String(app.node.tryGetContext('appUrls') || [
+  'https://x4k7y52gk3xxakklrcman36uuu0vwdhj.lambda-url.ap-south-1.on.aws',
+  'https://quizlike.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+].join(',')).split(',');
+new AuthStack(app, `${prefix}-auth`, { env, prefix, appUrls, withGoogle: app.node.tryGetContext('google') === 'true' });
 
 Tags.of(app).add('app', 'quizlike');

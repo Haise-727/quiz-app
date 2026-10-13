@@ -40,6 +40,7 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json')))
       if (res.Properties.StreamSpecification) problems.push(`${file}: ${name} has a stream`);
     }
     if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier === 'PLUS') problems.push(`${file}: ${name} is the Cognito Plus tier`);
+    if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier !== 'ESSENTIALS' && res.Properties.UserPoolTier !== 'LITE') problems.push(`${file}: ${name} does not set a free tier (ESSENTIALS or LITE)`);
     if (res.Type === 'AWS::Lambda::Function' && res.Properties.MemorySize > 512) {
       problems.push(`${file}: ${name} has ${res.Properties.MemorySize} MB of memory`);
     }
