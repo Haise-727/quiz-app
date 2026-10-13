@@ -1,0 +1,58 @@
+// Reads the templates that `cdk synth` wrote and fails if anything could cost money by surprise.
+// Run it before every deploy:  npx cdk synth --quiet && node scripts/check-free.mjs
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const dir = fileURLToPath(new URL('../cdk.out/', import.meta.url));
+
+// Resource types the plan forbids (docs/aws-migration.md, "Things that cost money without warning").
+const FORBIDDEN = [
+  /^AWS::EC2::(NatGateway|Instance|EIP|VPC|Volume)$/,
+  /^AWS::ElasticLoadBalancing/,
+  /^AWS::RDS::/,
+  /^AWS::ElastiCache::/,
+  /^AWS::Route53::HostedZone$/,
+  /^AWS::SecretsManager::/,
+  /^AWS::KMS::Key$/,
+  /^AWS::WAFv2::/,
+  /^AWS::ApiGateway(V2)?::/,       // API Gateway is billed per request; Lambda Function URLs are not
+  /^AWS::Bedrock/,
+  /^AWS::SageMaker/,
+  /^AWS::Organizations::/,
+  /^AWS::SSO::/,
+  /^AWS::CloudWatch::Alarm$/,      // the first 10 alarms are free, but add them on purpose, not by accident
+];
+
+const problems = [];
+let tables = 0, read = 0, write = 0;
+
+for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json'))) {
+  const template = JSON.parse(readFileSync(dir + file, 'utf8'));
+  for (const [name, res] of Object.entries(template.Resources || {})) {
+    if (FORBIDDEN.some((re) => re.test(res.Type))) problems.push(`${file}: ${name} is a ${res.Type}`);
+
+    if (res.Type === 'AWS::DynamoDB::Table') {
+      tables++;
+      if (res.Properties.BillingMode === 'PAY_PER_REQUEST') problems.push(`${file}: ${name} is on demand`);
+      const units = (p) => { read += p?.ReadCapacityUnits || 0; write += p?.WriteCapacityUnits || 0; };
+      units(res.Properties.ProvisionedThroughput);
+      (res.Properties.GlobalSecondaryIndexes || []).forEach((g) => units(g.ProvisionedThroughput));
+      if (res.Properties.StreamSpecification) problems.push(`${file}: ${name} has a stream`);
+    }
+    if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier === 'PLUS') problems.push(`${file}: ${name} is the Cognito Plus tier`);
+    if (res.Type === 'AWS::Lambda::Function' && res.Properties.MemorySize > 512) {
+      problems.push(`${file}: ${name} has ${res.Properties.MemorySize} MB of memory`);
+    }
+    if (res.Type === 'AWS::Logs::LogGroup' && !res.Properties.RetentionInDays) {
+      problems.push(`${file}: ${name} keeps logs for ever`);
+    }
+  }
+}
+
+if (read > 25 || write > 25) problems.push(`DynamoDB asks for ${read} read and ${write} write units, the free limit is 25 each`);
+
+if (problems.length) {
+  console.error('NOT SAFE TO DEPLOY:\n - ' + problems.join('\n - '));
+  process.exit(1);
+}
+console.log(`ok: no forbidden resources. DynamoDB: ${tables} tables, ${read} read units, ${write} write units (limit 25 each).`);

@@ -1,9 +1,14 @@
 # Moving Quizlike to AWS
 
-> **Status: not under way.** The owner looked at this in October 2026 and decided not to
-> move. It is kept as a reference in case a server of our own is wanted later. The
-> Free plan section describes how AWS's free tier really works, which is worth knowing
-> before trying any AWS service.
+> **Status: step 0 is done, nothing is deployed.** The app now reaches its database only
+> through `src/api` (see `src/api/README.md`). The upload signer Lambda, the CDK stacks and the
+> IAM policies are written and checked offline (see `infra/README.md`). No AWS account has been
+> used yet. The Free plan section describes how AWS's free tier really works.
+>
+> **Scope chosen to protect the credits:** move only what is free or close to it (Lambda,
+> DynamoDB, Cognito, optional S3 and CloudFront). Keep the live game on the Realtime Database,
+> keep ImageKit, and keep Vercel as the host, because those are the parts that would spend
+> credits or add risk.
 
 ## The short answer
 

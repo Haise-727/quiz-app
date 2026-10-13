@@ -1,0 +1,64 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OnlyTheCheapServicesWeUse",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:*",
+        "dynamodb:*",
+        "s3:*",
+        "cloudfront:*",
+        "logs:*",
+        "ssm:*",
+        "cognito-idp:*",
+        "cloudformation:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "RolesOnlyForOurOwnStacks",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies"
+      ],
+      "Resource": "arn:aws:iam::*:role/quizlike-*"
+    },
+    {
+      "Sid": "NeverTheseEvenInsideAStack",
+      "Effect": "Deny",
+      "Action": [
+        "organizations:*",
+        "sso:*",
+        "ec2:RunInstances",
+        "ec2:CreateNatGateway",
+        "ec2:AllocateAddress",
+        "ec2:CreateVpc",
+        "elasticloadbalancing:*",
+        "rds:*",
+        "elasticache:*",
+        "route53:CreateHostedZone",
+        "secretsmanager:*",
+        "kms:CreateKey",
+        "wafv2:*",
+        "bedrock:*",
+        "sagemaker:*",
+        "apigateway:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

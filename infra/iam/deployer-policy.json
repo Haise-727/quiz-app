@@ -1,0 +1,103 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "UseTheCdkRolesOnly",
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::*:role/cdk-*"
+    },
+    {
+      "Sid": "StartAndLookAtStacks",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:Describe*",
+        "cloudformation:List*",
+        "cloudformation:GetTemplate",
+        "cloudformation:GetTemplateSummary",
+        "cloudformation:ValidateTemplate"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadTheBillSoClaudeCanWarnYou",
+      "Effect": "Allow",
+      "Action": [
+        "ce:GetCostAndUsage",
+        "ce:GetCostForecast",
+        "budgets:ViewBudget",
+        "freetier:GetFreeTierUsage",
+        "freetier:GetAccountPlanState",
+        "billing:GetBillingData",
+        "account:GetAccountInformation"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadLogsAndFunctions",
+      "Effect": "Allow",
+      "Action": [
+        "logs:Describe*",
+        "logs:GetLogEvents",
+        "logs:FilterLogEvents",
+        "lambda:GetAccountSettings",
+        "lambda:GetFunction",
+        "lambda:ListFunctions",
+        "dynamodb:DescribeTable",
+        "dynamodb:ListTables",
+        "dynamodb:DescribeLimits"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OnlyOurOwnSettings",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath",
+        "ssm:PutParameter",
+        "ssm:DescribeParameters"
+      ],
+      "Resource": "arn:aws:ssm:*:*:parameter/quizlike/*"
+    },
+    {
+      "Sid": "WhoAmI",
+      "Effect": "Allow",
+      "Action": "sts:GetCallerIdentity",
+      "Resource": "*"
+    },
+    {
+      "Sid": "NeverTheseEvenIfSomethingElseAllowsThem",
+      "Effect": "Deny",
+      "Action": [
+        "organizations:*",
+        "sso:*",
+        "sso-directory:*",
+        "controltower:*",
+        "ec2:RunInstances",
+        "ec2:CreateNatGateway",
+        "ec2:AllocateAddress",
+        "ec2:CreateVpc",
+        "elasticloadbalancing:*",
+        "rds:*",
+        "elasticache:*",
+        "route53:CreateHostedZone",
+        "route53domains:*",
+        "secretsmanager:*",
+        "kms:CreateKey",
+        "wafv2:*",
+        "bedrock:*",
+        "sagemaker:*",
+        "apigateway:*",
+        "iam:CreateUser",
+        "iam:CreateAccessKey",
+        "iam:AttachUserPolicy",
+        "iam:PutUserPolicy",
+        "account:CloseAccount",
+        "aws-portal:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
