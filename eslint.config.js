@@ -4,7 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'infra/node_modules', 'infra/cdk.out'] },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -51,7 +51,7 @@ export default [
   },
   {
     // Node scripts and config run in Node, not the browser.
-    files: ['api/**/*.js', 'scripts/**/*.{js,mjs}', 'vite.config.js', 'eslint.config.js'],
+    files: ['api/**/*.js', 'scripts/**/*.{js,mjs}', 'backend/**/*.{js,mjs}', 'infra/**/*.{js,mjs}', 'vite.config.js', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
 ]
