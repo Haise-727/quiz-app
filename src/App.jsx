@@ -8,6 +8,7 @@ import { useAuth } from './contexts/AuthContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import NotFound from './pages/NotFound';
+import AuthCallback from './pages/AuthCallback';
 
 const GuestTakeQuiz    = lazy(() => import('./pages/Guest/GuestTakeQuiz'));
 const Browse           = lazy(() => import('./pages/Browse'));
@@ -81,6 +82,7 @@ function App() {
         <Route path="/"                    element={<Landing />} />
         <Route path="/browse"              element={<Browse />} />
         <Route path="/login"               element={<Login />} />
+        <Route path="/auth/callback"       element={<AuthCallback />} />
         <Route path="/quiz/:quizId"        element={<GuestTakeQuiz />} />
         <Route path="/play"                element={<PlaySession />} />
         <Route path="/play/:pin"           element={<PlaySession />} />

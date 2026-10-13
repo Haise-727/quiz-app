@@ -74,7 +74,14 @@ const generatePin = () => Math.floor(100000 + Math.random() * 900000).toString()
 export const generateGuestId = () => `guest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 /** Teacher creates a new live session for a quiz. Returns the 6 digit PIN. */
+/**
+ * The live game runs on the Firebase Realtime Database, whose rules need a Firebase sign in. On the AWS version
+ * people sign in with Cognito instead, so a game cannot start or be joined there yet. Say so plainly.
+ */
+const NO_LIVE_ON_AWS = 'Live games are not available in the AWS version yet.';
+
 export async function createLiveSession(quiz, hostId, settings = {}) {
+  if (import.meta.env.VITE_BACKEND === 'aws') throw new Error(NO_LIVE_ON_AWS);
   const playableQuestions = getPlayableQuestions(quiz);
   if (!playableQuestions.length) {
     throw new Error('This quiz has no question types supported in live mode (Multiple Choice, True/False, Fill in the Blank, Match, Reorder, Categorize, Visual and Listening Comprehension).');
@@ -151,6 +158,7 @@ export function listenToSession(pin, callback) {
  * A seat is never deleted when a connection drops. It is only marked `connected: false`.
  */
 export async function joinSession(pin, playerId, name) {
+  if (import.meta.env.VITE_BACKEND === 'aws') throw new Error(NO_LIVE_ON_AWS);
   const snap = await get(ref(realtimeDb, `sessions/${pin}`));
   if (!snap.exists()) throw new Error('Game not found. Check the code and try again.');
   const session = snap.val();

@@ -1,86 +1,14 @@
-import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  deleteDoc,
-  query,
-  where,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { USE_AWS } from './backend';
+import * as fb from './firebase/questionBank';
+import * as aws from './aws/questionBank';
 
 /**
- * Clean a question object recursively to ensure it has no non-serializable objects (like File or Blob)
- * before saving to Firestore.
+ * Chooses the backend for this file's functions: AWS when the app was built with VITE_BACKEND=aws, Firebase otherwise.
+ * See api/README.md. The two files behind it have the same functions, and the page code never knows which one it got.
  */
-export const cleanQuestionForFirestore = (q) => {
-  if (!q) return null;
-  const clean = JSON.parse(JSON.stringify(q));
+const impl = USE_AWS ? aws : fb;
 
-  const cleanMediaNode = (node) => {
-    if (!node) return;
-    delete node.localMediaFile;
-    delete node.localCropData;
-    delete node.promptLocalMediaFile;
-    delete node.promptLocalCropData;
-    delete node.answerLocalMediaFile;
-    delete node.answerLocalCropData;
-  };
-
-  cleanMediaNode(clean);
-
-  if (clean.mcqData?.options) {
-    clean.mcqData.options.forEach(opt => cleanMediaNode(opt));
-  }
-  if (clean.matchData?.pairs) {
-    clean.matchData.pairs.forEach(pair => cleanMediaNode(pair));
-  }
-  if (clean.categorizeData?.items) {
-    clean.categorizeData.items.forEach(item => cleanMediaNode(item));
-  }
-  if (clean.reorderData?.items) {
-    clean.reorderData.items.forEach(item => cleanMediaNode(item));
-  }
-  if (clean.visualData) {
-    cleanMediaNode(clean.visualData);
-    if (clean.visualData.subQuestions) {
-      clean.visualData.subQuestions = clean.visualData.subQuestions.map(sq => cleanQuestionForFirestore(sq));
-    }
-  }
-  if (clean.listeningData) {
-    cleanMediaNode(clean.listeningData);
-    if (clean.listeningData.subQuestions) {
-      clean.listeningData.subQuestions = clean.listeningData.subQuestions.map(sq => cleanQuestionForFirestore(sq));
-    }
-  }
-
-  return clean;
-};
-
-/** Save a question to the user's question bank. */
-export const saveToBank = async (question, teacherId) => {
-  const cleaned = cleanQuestionForFirestore(question);
-  // Add metadata for search/sorting
-  const bankItem = {
-    ...cleaned,
-    teacherId,
-    savedAt: serverTimestamp(),
-  };
-  const ref = await addDoc(collection(db, 'question_bank'), bankItem);
-  return ref.id;
-};
-
-/** Fetch all bank questions for a teacher. */
-export const getBankQuestions = async (teacherId) => {
-  const snap = await getDocs(
-    query(collection(db, 'question_bank'), where('teacherId', '==', teacherId))
-  );
-  // The document id goes last: the saved question carries its own id, which must not hide it.
-  return snap.docs.map(d => ({ ...d.data(), id: d.id }));
-};
-
-/** Delete a bank question by its document ID. */
-export const deleteBankQuestion = async (id) => {
-  await deleteDoc(doc(db, 'question_bank', id));
-};
+export const saveToBank = (...args) => impl.saveToBank(...args);
+export const getBankQuestions = (...args) => impl.getBankQuestions(...args);
+export const deleteBankQuestion = (...args) => impl.deleteBankQuestion(...args);
+export { cleanQuestionForFirestore } from './firebase/questionBank';

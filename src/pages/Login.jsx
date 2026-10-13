@@ -83,6 +83,13 @@ export default function Login() {
   const goHome = (r) => navigate(r === 'teacher' ? '/teacher/home' : '/student/dashboard', { replace: true });
   const signup = tab === 'signup';
 
+  // Back from Google on the AWS version with a brand new account: there is no profile yet, so ask for the role.
+  // (The Firebase popup does this inside handleGoogle. Only the redirect needs this, hence the ?google=1 marker.)
+  const { roleLoaded } = useAuth();
+  useEffect(() => {
+    if (searchParams.get('google') === '1' && currentUser && roleLoaded && !userRole && !pendingGoogleUser) setPending(currentUser);
+  }, [searchParams, currentUser, roleLoaded, userRole, pendingGoogleUser]);
+
   // Someone who is already signed in has no use for this page.
   useEffect(() => {
     if (currentUser && userRole) navigate(userRole === 'teacher' ? '/teacher/home' : '/student/dashboard', { replace: true });
