@@ -33,7 +33,7 @@ export class ApiStack extends Stack {
   constructor(scope, id, props = {}) {
     super(scope, id, props);
     const prefix = props.prefix || 'quizlike';
-    const { userPoolId, clientId, tables } = props;
+    const { userPoolId, clientId, table } = props;
 
     const fn = new lambda.Function(this, 'ApiFunction', {
       functionName: `${prefix}-api`,
@@ -48,7 +48,7 @@ export class ApiStack extends Stack {
         REGION: this.region,
         POOL_ID: userPoolId,
         CLIENT_ID: clientId,
-        TABLE_PREFIX: `${prefix}-`,
+        TABLE_NAME: table.tableName,
         ALLOWED_ORIGINS: (props.allowedOrigins || ['*']).join(','),
         ...(props.migration ? { MIGRATION_ENABLED: 'true' } : {}),
       },
@@ -62,12 +62,12 @@ export class ApiStack extends Stack {
       }));
     }
 
-    // Only the quizlike tables and their indexes, and only the five calls the API makes.
-    const arns = Object.values(tables).flatMap((t) => [t.tableArn, `${t.tableArn}/index/*`]);
+    // Only the one quizlike table and its indexes, and only the four calls the API makes.
     fn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:DeleteItem', 'dynamodb:Query'],
-      resources: arns,
+      resources: [table.tableArn, `${table.tableArn}/index/*`],
     }));
+    this.fn = fn;
 
     const url = fn.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.NONE });
     // A public Function URL needs two permissions since late 2025 (see signer-stack.js).

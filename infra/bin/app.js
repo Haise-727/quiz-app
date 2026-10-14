@@ -41,15 +41,19 @@ const appUrls = String(app.node.tryGetContext('appUrls') || [
   'http://localhost:5173',
   'http://localhost:5174',
 ].join(',')).split(',');
-const data = new DataStack(app, `${prefix}-data`, { env, prefix });
+const data = new DataStack(app, `${prefix}-data`, {
+  env, prefix,
+  legacy: app.node.tryGetContext('legacyTables') === 'true',          // the seven old tables, only while copying them into the new one
+  allowOverlap: app.node.tryGetContext('allowOverlap') === 'true',
+});
 const auth = new AuthStack(app, `${prefix}-auth`, {
   env, prefix, appUrls, withGoogle: app.node.tryGetContext('google') === 'true',
-  usersTable: data.tables.users,
+  mainTable: data.main,
   migrateUsers: app.node.tryGetContext('migrateUsers') === 'true',      // see scripts/deploy-auth.mjs
   firebaseApiKey: app.node.tryGetContext('firebaseApiKey'),
 });
 new ApiStack(app, `${prefix}-api`, {
-  env, prefix, userPoolId: auth.pool.userPoolId, clientId: auth.client.userPoolClientId, tables: data.tables,
+  env, prefix, userPoolId: auth.pool.userPoolId, clientId: auth.client.userPoolClientId, table: data.main,
   migration: app.node.tryGetContext('migration') === 'true',     // opens the temporary import door, see backend/api/migration.mjs
 });
 

@@ -1,59 +1,56 @@
 /**
- * The real storage: DynamoDB. Four calls, the same four as memory-repo.mjs, which the tests use instead.
+ * The real storage: ONE DynamoDB table (quizlike-main) with three shared indexes, behind the four calls the service uses
+ * (get, put, remove, query). How documents are laid out in it is in single-table.mjs, which the tests run on an in memory
+ * store. This file is only the DynamoDB end of that.
  *
- * Every table is PROVISIONED at a tiny capacity (infra/lib/data-stack.js) so the free allowance cannot be
- * exceeded. When a table is full DynamoDB answers "throttled" instead of charging. The SDK retries a few times by
- * itself; if it still fails the handler returns 503 and the app can try again.
+ * The table is PROVISIONED at a tiny capacity (infra/lib/data-stack.js) so the free allowance cannot be exceeded. When it
+ * is full DynamoDB answers "throttled" instead of charging. The SDK retries a few times by itself; if it still fails the
+ * handler returns 503 and the app can try again.
  *
  * The AWS SDK for JavaScript v3 ships inside the Lambda Node runtime, so nothing is bundled here.
  */
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { COLLECTIONS } from './config.mjs';
+import { createSingleTableRepo } from './single-table.mjs';
 
-const byTable = Object.fromEntries(Object.values(COLLECTIONS).map((c) => [c.table, c]));
-
-export function createDynamoRepo({ prefix = 'quizlike-', client } = {}) {
+export function createDynamoStore({ tableName = 'quizlike-main', client } = {}) {
   const doc = DynamoDBDocumentClient.from(client || new DynamoDBClient({}), {
     marshallOptions: { removeUndefinedValues: true },
   });
-  const name = (table) => `${prefix}${table}`;
-  const keyFor = (table, key) => {
-    const def = byTable[table];
-    return def.sk ? { [def.pk]: key[def.pk], [def.sk]: key[def.sk] } : { [def.pk]: key[def.pk] };
-  };
-
   return {
-    async get(table, key) {
-      const out = await doc.send(new GetCommand({ TableName: name(table), Key: keyFor(table, key), ConsistentRead: false }));
+    async get(pk, sk) {
+      const out = await doc.send(new GetCommand({ TableName: tableName, Key: { pk, sk }, ConsistentRead: false }));
       return out.Item || null;
     },
-    async put(table, item) {
-      await doc.send(new PutCommand({ TableName: name(table), Item: item }));
+    async put(stored) {
+      await doc.send(new PutCommand({ TableName: tableName, Item: stored }));
     },
-    async remove(table, key) {
-      await doc.send(new DeleteCommand({ TableName: name(table), Key: keyFor(table, key) }));
+    async remove(pk, sk) {
+      await doc.send(new DeleteCommand({ TableName: tableName, Key: { pk, sk } }));
     },
     /** Reads pages until `limit` items or the end. Eventually consistent reads cost half. */
-    async query(table, { index, pkAttr, pkValue, skAttr, order = 'asc', limit = 500 }) {
+    async query({ index, keyName, keyValue, forward, limit }) {
       const items = [];
       let start;
       do {
         const out = await doc.send(new QueryCommand({
-          TableName: name(table),
+          TableName: tableName,
           IndexName: index || undefined,
-          KeyConditionExpression: '#p = :v',
-          ExpressionAttributeNames: { '#p': pkAttr },
-          ExpressionAttributeValues: { ':v': pkValue },
-          ScanIndexForward: order !== 'desc',
+          KeyConditionExpression: '#k = :v',
+          ExpressionAttributeNames: { '#k': keyName },
+          ExpressionAttributeValues: { ':v': keyValue },
+          ScanIndexForward: forward,
           ExclusiveStartKey: start,
           Limit: Math.min(limit - items.length, 500),
         }));
         items.push(...(out.Items || []));
         start = out.LastEvaluatedKey;
       } while (start && items.length < limit);
-      void skAttr;      // the sort order comes from the index's own sort key
       return items;
     },
   };
+}
+
+export function createDynamoRepo({ tableName = 'quizlike-main', client } = {}) {
+  return createSingleTableRepo(createDynamoStore({ tableName, client }));
 }

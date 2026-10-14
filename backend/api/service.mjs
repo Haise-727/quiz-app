@@ -167,6 +167,7 @@ export function createService(repo, { now = () => new Date().toISOString(), newI
         if (col === 'notifications') {
           if (typeof item.userId !== 'string' || !item.userId) throw bad('A notification needs a userId.');
           id = `${now()}#${newId()}`;
+          item.ttl = Math.floor(Date.parse(now()) / 1000) + 90 * 86400;   // DynamoDB deletes it by itself after 90 days (free)
         } else {
           id = newId();
         }

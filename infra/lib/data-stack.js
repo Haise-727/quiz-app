@@ -1,89 +1,110 @@
-import { Stack, RemovalPolicy } from 'aws-cdk-lib';
+import { Stack, RemovalPolicy, CfnOutput } from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
 /**
- * The database. One table per Firestore collection, so the move mirrors what exists today.
+ * The database: ONE table for everything (quizlike-main), with three shared indexes. How documents are laid out in it is
+ * in backend/api/single-table.mjs.
+ *
+ * Why one table: in DynamoDB's free allowance every table and every index costs at least 1 of the 25 read and 25 write
+ * units. Seven tables with twelve indexes used all 25. This one uses 9 and leaves 16 for other projects.
  *
  * COST RULES (see docs/aws-migration.md):
- *  - PROVISIONED mode, never on demand. Provisioned capacity throttles when it is full; on
- *    demand bills for every request.
- *  - 1 to 2 read and write units per table and per index. The Always Free allowance is 25 + 25 in
- *    total across the whole account, so this stack refuses to build if it asks for more
- *    (see unitsUsed).
- *  - No autoscaling, no point in time recovery (billed), no streams, no global tables.
+ *  - PROVISIONED mode, never on demand. Provisioned capacity throttles when it is full; on demand bills for every request.
+ *  - The Always Free allowance is 25 + 25 in total across the whole account, so this stack refuses to build if it asks for
+ *    more (see unitsUsed).
+ *  - No autoscaling, no point in time recovery (billed), no global tables.
+ *  - A stream is on (free) so a Lambda can react to new results; TTL is on (free) so old notifications delete themselves.
  *
- * Keys follow the questions the app asks (src/api/*). Each index names the function that needs it.
+ * The seven old tables are described below only so they can be copied into the new one and then deleted. They are built
+ * only when the stack is deployed with `-c legacyTables=true`, and during that window the units temporarily exceed 25
+ * (`-c allowOverlap=true`, a few cents an hour). Once the copy is checked, deploy without legacyTables and they are deleted.
  */
 
+/** The single table. Each shared index is [name, units]. */
+export const MAIN = { name: 'main', units: 3, indexes: [['g1', 2], ['g2', 2], ['g3', 2]] };
+
+/** The old per collection tables, kept only for the one time copy. [name, partitionKey, sortKey or null, units] for indexes. */
 const T = (name, partitionKey, extra = {}) => ({ name, partitionKey, ...extra });
-
-/**
- * Table definitions. `units` is the read and write capacity of the table, and each index is
- * [name, partitionKey, sortKey or null, units]. The tables and indexes here must match
- * backend/api/config.mjs. The units add up to 25 of the free 25 (see unitsUsed): no spare units, so any new table or index needs another one given up. The busiest tables
- * (quizzes and results) get 2 because a quiz is one big document and costs one unit per KB written.
- */
-export const TABLES = [
-  T('users', 'uid', { units: 1, indexes: [
-    ['byLegacyEmail', 'legacyEmail', null, 1],   // finds a profile copied from Firebase by its email (backend/api/identity.mjs). Sparse.
-  ] }),
-  T('quizzes', 'quizId', { units: 2, indexes: [
-    ['byOwner', 'createdBy', 'createdAt', 2],    // listMyQuizzes
-    ['byActive', 'activeKey', 'createdAt', 2],   // listActiveQuizzes (sparse: only active quizzes have activeKey)
-    ['byCode', 'code', null, 1],                 // findActiveQuizByCode, isJoinCodeFree
-  ] }),
-  T('results', 'resultId', { units: 2, indexes: [
-    ['byUser', 'userId', 'completedAt', 2],      // listMyResults
-    ['byQuiz', 'quizId', 'completedAt', 2],      // listResultsForQuiz (teacherId is checked on the server)
-    ['byTeacher', 'teacherId', 'completedAt', 1],// listResultsForTeacher
-  ] }),
-  T('classes', 'classId', { units: 1, indexes: [
-    ['byTeacher', 'teacherId', null, 1],         // getTeacherClasses
-    ['byCode', 'code', null, 1],                 // joinClassByCode
-  ] }),
-  T('enrollments', 'enrollmentId', { units: 1, indexes: [
-    ['byClass', 'classId', null, 1],             // getClassEnrollments, deleteClass
-    ['byStudent', 'studentId', null, 1],         // getStudentClasses, leaveClass
-  ] }),
-  T('questionBank', 'itemId', { units: 1, indexes: [['byTeacher', 'teacherId', null, 1]] }),   // getBankQuestions
-  // Notifications: all of one person's, newest first, is a single key lookup.
+export const LEGACY_TABLES = [
+  T('users', 'uid', { units: 1, indexes: [['byLegacyEmail', 'legacyEmail', null, 1]] }),
+  T('quizzes', 'quizId', { units: 2, indexes: [['byOwner', 'createdBy', 'createdAt', 2], ['byActive', 'activeKey', 'createdAt', 2], ['byCode', 'code', null, 1]] }),
+  T('results', 'resultId', { units: 2, indexes: [['byUser', 'userId', 'completedAt', 2], ['byQuiz', 'quizId', 'completedAt', 2], ['byTeacher', 'teacherId', 'completedAt', 1]] }),
+  T('classes', 'classId', { units: 1, indexes: [['byTeacher', 'teacherId', null, 1], ['byCode', 'code', null, 1]] }),
+  T('enrollments', 'enrollmentId', { units: 1, indexes: [['byClass', 'classId', null, 1], ['byStudent', 'studentId', null, 1]] }),
+  T('questionBank', 'itemId', { units: 1, indexes: [['byTeacher', 'teacherId', null, 1]] }),
   T('notifications', 'userId', { units: 1, sortKey: 'createdAtId' }),
 ];
 
-/** Read units (and the same number of write units) this stack asks for. Must stay at or below 25. */
-export function unitsUsed() {
-  return TABLES.reduce((n, t) => n + t.units + (t.indexes || []).reduce((m, ix) => m + ix[3], 0), 0);
+const sum = (units, indexes) => units + indexes.reduce((n, ix) => n + ix[ix.length - 1], 0);
+
+/** Read units (and the same number of write units) the stack asks for. Must stay at or below 25. */
+export function unitsUsed(legacy = false) {
+  return sum(MAIN.units, MAIN.indexes) + (legacy ? LEGACY_TABLES.reduce((n, t) => n + sum(t.units, t.indexes || []), 0) : 0);
 }
 
 export class DataStack extends Stack {
   constructor(scope, id, props = {}) {
     super(scope, id, props);
     const prefix = props.prefix || 'quizlike';
-    if (unitsUsed() > 25) throw new Error(`Data stack uses ${unitsUsed()} units, more than the free 25.`);
+    const legacy = !!props.legacy;
+    if (unitsUsed(legacy) > 25 && !props.allowOverlap) {
+      throw new Error(`Data stack uses ${unitsUsed(legacy)} units, more than the free 25. (During the copy only: -c allowOverlap=true.)`);
+    }
 
-    this.tables = {};
-    for (const t of TABLES) {
-      const table = new dynamodb.Table(this, `${t.name}Table`, {
-        tableName: `${prefix}-${t.name}`,
-        partitionKey: { name: t.partitionKey, type: dynamodb.AttributeType.STRING },
-        sortKey: t.sortKey ? { name: t.sortKey, type: dynamodb.AttributeType.STRING } : undefined,
-        billingMode: dynamodb.BillingMode.PROVISIONED,
-        readCapacity: t.units,
-        writeCapacity: t.units,
-        removalPolicy: RemovalPolicy.RETAIN,   // never lose the data to a stack delete by accident
-        pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
+    const S = dynamodb.AttributeType.STRING;
+    this.main = new dynamodb.Table(this, 'MainTable', {
+      tableName: `${prefix}-main`,
+      partitionKey: { name: 'pk', type: S },
+      sortKey: { name: 'sk', type: S },
+      billingMode: dynamodb.BillingMode.PROVISIONED,
+      readCapacity: MAIN.units,
+      writeCapacity: MAIN.units,
+      removalPolicy: RemovalPolicy.RETAIN,           // never lose the data to a stack delete by accident
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
+      timeToLiveAttribute: 'ttl',                    // notifications carry a ttl (90 days) and delete themselves
+      stream: dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+    });
+    for (const [name, units] of MAIN.indexes) {
+      this.main.addGlobalSecondaryIndex({
+        indexName: name,
+        partitionKey: { name: `${name}pk`, type: S },
+        sortKey: { name: `${name}sk`, type: S },
+        projectionType: dynamodb.ProjectionType.ALL,
+        readCapacity: units,
+        writeCapacity: units,
       });
-      for (const [indexName, pk, sk, units] of t.indexes || []) {
-        table.addGlobalSecondaryIndex({
-          indexName,
-          partitionKey: { name: pk, type: dynamodb.AttributeType.STRING },
-          sortKey: sk ? { name: sk, type: dynamodb.AttributeType.STRING } : undefined,
-          projectionType: dynamodb.ProjectionType.ALL,
-          readCapacity: units,
-          writeCapacity: units,
+    }
+    new CfnOutput(this, 'MainTableName', { value: this.main.tableName });
+
+    // The seven old tables, only while copying. DESTROY so that deploying without legacyTables deletes them.
+    this.tables = {};
+    if (legacy) {
+      for (const t of LEGACY_TABLES) {
+        const table = new dynamodb.Table(this, `${t.name}Table`, {
+          tableName: `${prefix}-${t.name}`,
+          partitionKey: { name: t.partitionKey, type: S },
+          sortKey: t.sortKey ? { name: t.sortKey, type: S } : undefined,
+          billingMode: dynamodb.BillingMode.PROVISIONED,
+          readCapacity: t.units,
+          writeCapacity: t.units,
+          removalPolicy: RemovalPolicy.DESTROY,
+          pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
         });
+        for (const [indexName, pk, sk, units] of t.indexes || []) {
+          table.addGlobalSecondaryIndex({
+            indexName,
+            partitionKey: { name: pk, type: S },
+            sortKey: sk ? { name: sk, type: S } : undefined,
+            projectionType: dynamodb.ProjectionType.ALL,
+            readCapacity: units,
+            writeCapacity: units,
+          });
+        }
+        this.tables[t.name] = table;
+        // The API and auth stacks still import these ARNs until they are redeployed against the new table. CloudFormation
+        // refuses to drop an export that is in use, so keep each one alive for now.
+        this.exportValue(table.tableArn);
       }
-      this.tables[t.name] = table;
     }
   }
 }

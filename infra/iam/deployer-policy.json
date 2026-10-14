@@ -112,6 +112,16 @@
       ]
     },
     {
+      "Sid": "CopyIntoTheNewTableOnly",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:DeleteItem"
+      ],
+      "Resource": "arn:aws:dynamodb:*:*:table/quizlike-main"
+    },
+    {
       "Sid": "TestOurOwnPiecesOnly",
       "Effect": "Allow",
       "Action": [

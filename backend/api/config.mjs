@@ -123,7 +123,7 @@ export const COLLECTIONS = {
 };
 
 /** Fields that exist only for the database, never shown to the app. */
-export const INTERNAL = ['activeKey', 'createdAtId', 'legacy', 'legacyEmail'];
+export const INTERNAL = ['activeKey', 'createdAtId', 'legacy', 'legacyEmail', 'ttl'];
 
 export const MAX_ITEM_BYTES = 350 * 1024;   // DynamoDB's limit is 400 KB per item. This leaves room for the keys.
 export const MAX_QUERY_ITEMS = 500;

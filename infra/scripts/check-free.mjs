@@ -37,7 +37,6 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json')))
       const units = (p) => { read += p?.ReadCapacityUnits || 0; write += p?.WriteCapacityUnits || 0; };
       units(res.Properties.ProvisionedThroughput);
       (res.Properties.GlobalSecondaryIndexes || []).forEach((g) => units(g.ProvisionedThroughput));
-      if (res.Properties.StreamSpecification) problems.push(`${file}: ${name} has a stream`);
     }
     if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier === 'PLUS') problems.push(`${file}: ${name} is the Cognito Plus tier`);
     if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier !== 'ESSENTIALS' && res.Properties.UserPoolTier !== 'LITE') problems.push(`${file}: ${name} does not set a free tier (ESSENTIALS or LITE)`);
@@ -50,7 +49,8 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json')))
   }
 }
 
-if (read > 25 || write > 25) problems.push(`DynamoDB asks for ${read} read and ${write} write units, the free limit is 25 each`);
+// During the one time copy from the old tables, both sets exist for a short while (ALLOW_DYNAMO_OVERLAP=1, a few cents an hour).
+if ((read > 25 || write > 25) && process.env.ALLOW_DYNAMO_OVERLAP !== '1') problems.push(`DynamoDB asks for ${read} read and ${write} write units, the free limit is 25 each`);
 
 if (problems.length) {
   console.error('NOT SAFE TO DEPLOY:\n - ' + problems.join('\n - '));

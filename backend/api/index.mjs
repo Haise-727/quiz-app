@@ -8,7 +8,7 @@
  * What each op does is in service.mjs, and who may do it is in config.mjs.
  *
  * Settings come from the environment (set by infra/lib/api-stack.js): REGION, POOL_ID, CLIENT_ID,
- * TABLE_PREFIX, ALLOWED_ORIGINS.
+ * TABLE_NAME, ALLOWED_ORIGINS.
  */
 import { verifyToken } from './authn.mjs';
 import { HttpError, createService } from './service.mjs';
@@ -65,7 +65,7 @@ export async function handler(event, _context, injected) {
     if (!repo) {
       if (!defaultRepo) {
         const { createDynamoRepo } = await import('./repo.mjs');   // loaded only on AWS, so tests need no SDK
-        defaultRepo = createDynamoRepo({ prefix: process.env.TABLE_PREFIX || 'quizlike-' });
+        defaultRepo = createDynamoRepo({ tableName: process.env.TABLE_NAME || 'quizlike-main' });
       }
       repo = defaultRepo;
     }
