@@ -34,6 +34,7 @@ export class SignerStack extends Stack {
       memorySize: 128,
       timeout: Duration.seconds(5),
       logRetention: logs.RetentionDays.ONE_WEEK,
+      tracing: lambda.Tracing.ACTIVE,
       reservedConcurrentExecutions: props.reservedConcurrency,
       environment: {
         SSM_PREFIX: ssmPrefix,
@@ -49,6 +50,7 @@ export class SignerStack extends Stack {
     }));
 
     const url = fn.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.NONE });
+    this.url = url.url;
 
     // Since late 2025 a public Function URL needs TWO permissions: lambda:InvokeFunctionUrl (the CDK
     // adds that one) and lambda:InvokeFunction limited to calls that arrive through the URL. With

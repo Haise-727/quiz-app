@@ -5,6 +5,7 @@ import { WebStack } from '../lib/web-stack.js';
 import { SiteStack } from '../lib/site-stack.js';
 import { AuthStack } from '../lib/auth-stack.js';
 import { ApiStack } from '../lib/api-stack.js';
+import { OpsStack } from '../lib/ops-stack.js';
 
 /**
  * Three small stacks, deployed separately so each can be tried, kept or removed on its own:
@@ -26,13 +27,14 @@ const env = {
 };
 const reserved = app.node.tryGetContext('reservedConcurrency');
 
-new SignerStack(app, `${prefix}-signer`, {
+const signer = new SignerStack(app, `${prefix}-signer`, {
   env, prefix,
   allowedOrigins: String(app.node.tryGetContext('origins') || '*').split(','),
   reservedConcurrency: reserved ? Number(reserved) : undefined,
 });
+// The website: a Lambda by default (CloudFront needs the account verified by AWS Support first; -c cloudfront=true switches to it).
 if (app.node.tryGetContext('cloudfront') === 'true') new WebStack(app, `${prefix}-web`, { env });
-else new SiteStack(app, `${prefix}-site`, { env, prefix });
+const site = app.node.tryGetContext('cloudfront') === 'true' ? null : new SiteStack(app, `${prefix}-site`, { env, prefix });
 
 // Where the app runs. Cognito only redirects back to these addresses.
 const appUrls = String(app.node.tryGetContext('appUrls') || [
@@ -52,9 +54,20 @@ const auth = new AuthStack(app, `${prefix}-auth`, {
   migrateUsers: app.node.tryGetContext('migrateUsers') === 'true',      // see scripts/deploy-auth.mjs
   firebaseApiKey: app.node.tryGetContext('firebaseApiKey'),
 });
-new ApiStack(app, `${prefix}-api`, {
+const api = new ApiStack(app, `${prefix}-api`, {
   env, prefix, userPoolId: auth.pool.userPoolId, clientId: auth.client.userPoolClientId, table: data.main,
   migration: app.node.tryGetContext('migration') === 'true',     // opens the temporary import door, see backend/api/migration.mjs
+});
+
+// Monitoring, audit and background triggers (see lib/ops-stack.js). The alerts go to this email.
+new OpsStack(app, `${prefix}-ops`, {
+  env, prefix, mainTable: data.main,
+  alertEmail: app.node.tryGetContext('alertEmail') || 'justaweebwithinternet@gmail.com',
+  healthTargets: [
+    ...(site ? [{ name: 'site', kind: 'site', url: site.url }] : []),
+    { name: 'signer', kind: 'signer', url: signer.url },
+    { name: 'api', kind: 'api', url: api.url },
+  ],
 });
 
 Tags.of(app).add('app', 'quizlike');

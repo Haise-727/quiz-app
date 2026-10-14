@@ -44,6 +44,7 @@ export class ApiStack extends Stack {
       memorySize: 256,
       timeout: Duration.seconds(15),
       logRetention: logs.RetentionDays.ONE_WEEK,
+      tracing: lambda.Tracing.ACTIVE,          // X-Ray: a map of the browser, this Lambda and DynamoDB (100,000 traces a month are free)
       environment: {
         REGION: this.region,
         POOL_ID: userPoolId,
@@ -70,6 +71,7 @@ export class ApiStack extends Stack {
     this.fn = fn;
 
     const url = fn.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.NONE });
+    this.url = url.url;
     // A public Function URL needs two permissions since late 2025 (see signer-stack.js).
     const viaUrl = new lambda.CfnPermission(this, 'InvokeViaFunctionUrl', {
       functionName: fn.functionName, action: 'lambda:InvokeFunction', principal: '*',

@@ -20,10 +20,10 @@ const FORBIDDEN = [
   /^AWS::SageMaker/,
   /^AWS::Organizations::/,
   /^AWS::SSO::/,
-  /^AWS::CloudWatch::Alarm$/,      // the first 10 alarms are free, but add them on purpose, not by accident
 ];
 
 const problems = [];
+let alarms = 0;
 let tables = 0, read = 0, write = 0;
 
 for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json'))) {
@@ -40,6 +40,8 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json')))
     }
     if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier === 'PLUS') problems.push(`${file}: ${name} is the Cognito Plus tier`);
     if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier !== 'ESSENTIALS' && res.Properties.UserPoolTier !== 'LITE') problems.push(`${file}: ${name} does not set a free tier (ESSENTIALS or LITE)`);
+    if (res.Type === 'AWS::CloudWatch::Alarm') alarms += 1;
+    if (res.Type === 'AWS::CloudTrail::Trail' && JSON.stringify(res.Properties.EventSelectors || []).includes('DataResources')) problems.push(`${file}: ${name} records data events, which are billed`);
     if (res.Type === 'AWS::Lambda::Function' && res.Properties.MemorySize > 512) {
       problems.push(`${file}: ${name} has ${res.Properties.MemorySize} MB of memory`);
     }
@@ -51,6 +53,8 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json')))
 
 // During the one time copy from the old tables, both sets exist for a short while (ALLOW_DYNAMO_OVERLAP=1, a few cents an hour).
 if ((read > 25 || write > 25) && process.env.ALLOW_DYNAMO_OVERLAP !== '1') problems.push(`DynamoDB asks for ${read} read and ${write} write units, the free limit is 25 each`);
+
+if (alarms > 10) problems.push(`${alarms} CloudWatch alarms; only 10 are free`);
 
 if (problems.length) {
   console.error('NOT SAFE TO DEPLOY:\n - ' + problems.join('\n - '));

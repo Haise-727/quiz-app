@@ -47,9 +47,11 @@ export class SiteStack extends Stack {
       memorySize: 256,                   // gzip of the biggest file needs a little more than 128
       timeout: Duration.seconds(10),
       logRetention: logs.RetentionDays.ONE_WEEK,
+      tracing: lambda.Tracing.ACTIVE,
     });
 
     const url = fn.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.NONE });
+    this.url = url.url;
 
     // A public Function URL needs two permissions since late 2025 (see signer-stack.js).
     const viaUrl = new lambda.CfnPermission(this, 'InvokeViaFunctionUrl', {
