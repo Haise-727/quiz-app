@@ -6,6 +6,8 @@ import { SiteStack } from '../lib/site-stack.js';
 import { AuthStack } from '../lib/auth-stack.js';
 import { ApiStack } from '../lib/api-stack.js';
 import { OpsStack } from '../lib/ops-stack.js';
+import { AnalyticsStack } from '../lib/analytics-stack.js';
+import { WorkflowsStack } from '../lib/workflows-stack.js';
 
 /**
  * Three small stacks, deployed separately so each can be tried, kept or removed on its own:
@@ -60,14 +62,21 @@ const api = new ApiStack(app, `${prefix}-api`, {
 });
 
 // Monitoring, audit and background triggers (see lib/ops-stack.js). The alerts go to this email.
-new OpsStack(app, `${prefix}-ops`, {
+const ops = new OpsStack(app, `${prefix}-ops`, {
   env, prefix, mainTable: data.main, gatewayApiId: api.httpApi.apiId,
   alertEmail: app.node.tryGetContext('alertEmail') || 'justaweebwithinternet@gmail.com',
+  sesFrom: app.node.tryGetContext('alertEmail') || 'justaweebwithinternet@gmail.com',     // the verified sender for emails
   healthTargets: [
     ...(site ? [{ name: 'site', kind: 'site', url: site.url }] : []),
     { name: 'signer', kind: 'signer', url: signer.url },
     { name: 'api', kind: 'api', url: api.gatewayUrl },   // through the gateway, like a visitor
   ],
 });
+
+// The weekly teacher summary (Step Functions + SES).
+new WorkflowsStack(app, `${prefix}-workflows`, { env, prefix, mainTable: data.main, topic: ops.topic, sesFrom: ops.sesFrom, senderArn: ops.senderArn });
+
+// Ask the audit log questions in SQL (Athena). Reads the CloudTrail files in place.
+new AnalyticsStack(app, `${prefix}-analytics`, { env, prefix, trailBucket: ops.trailBucket });
 
 Tags.of(app).add('app', 'quizlike');

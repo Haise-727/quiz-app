@@ -10,6 +10,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as ses from 'aws-cdk-lib/aws-ses';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
@@ -34,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 
 /** The ops Lambdas share one package: ops/*.mjs plus the two api files the stream trigger imports. */
-function packOps() {
+export function packOps() {
   const out = here('../.ops-build');
   rmSync(out, { recursive: true, force: true });
   mkdirSync(`${out}/ops`, { recursive: true });
@@ -72,6 +73,16 @@ export class OpsStack extends Stack {
       environment: { TABLE_NAME: props.mainTable.tableName },
     });
     streamFn.addToRolePolicy(new iam.PolicyStatement({ actions: ['dynamodb:GetItem', 'dynamodb:PutItem'], resources: [props.mainTable.tableArn] }));
+    // Email through SES, from one verified address. A new account is in the SES "sandbox": it can only send to addresses that are
+    // verified too, and anything else is quietly skipped (the inbox notification is the main channel). AWS emails this address
+    // once to confirm it: click the link.
+    if (props.sesFrom) {
+      const sender = new ses.EmailIdentity(this, 'Sender', { identity: ses.Identity.email(props.sesFrom) });
+      streamFn.addEnvironment('SES_FROM', props.sesFrom);
+      streamFn.addToRolePolicy(new iam.PolicyStatement({ actions: ['ses:SendEmail'], resources: [sender.emailIdentityArn] }));
+      this.sesFrom = props.sesFrom;
+      this.senderArn = sender.emailIdentityArn;
+    }
     streamFn.addEventSource(new sources.DynamoEventSource(props.mainTable, {
       startingPosition: lambda.StartingPosition.LATEST,
       batchSize: 10,
@@ -217,6 +228,9 @@ export class OpsStack extends Stack {
       new cloudwatch.GraphWidget({ title: 'Stream trouble: dead letter queue', width: 4, left: [dlq.metricApproximateNumberOfMessagesVisible()] }),
       new cloudwatch.GraphWidget({ title: 'Root use and security changes', width: 8, left: [q('RootUsage'), q('PolicyChanges')] }),
     );
+
+    this.trailBucket = trailBucket;       // the analytics stack reads the audit files in place
+    this.topic = topic;
 
     new CfnOutput(this, 'AlertsTopicArn', { value: topic.topicArn });
     new CfnOutput(this, 'DashboardName', { value: prefix });

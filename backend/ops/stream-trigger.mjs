@@ -12,6 +12,7 @@
  * retries just that record, and after the retries it goes to the dead letter queue (an alarm watches it).
  */
 import { toStored } from '../api/single-table.mjs';
+import { sendMail } from './mail.mjs';
 
 const NINETY_DAYS = 90 * 86400;
 
@@ -95,6 +96,11 @@ export async function handler(event, _context, injected) {
       stored.ttl = Math.floor(todo.eventMs / 1000) + NINETY_DAYS;
       await db.put(stored);
       sent += 1;
+      // The email is a bonus on top of the inbox notification: it never makes the record fail or be retried.
+      if (todo.kind !== 'welcome') {
+        const who = await db.get(`users#${note.userId}`, '#');
+        await sendMail({ to: who?.email, subject: todo.kind === 'graded' ? 'Your quiz has been graded' : 'A quiz needs marking', text: note.message }, deps.mail);
+      }
       console.log(`EVT notification kind=${todo.kind}`);
     } catch (err) {
       console.error('Could not process a record:', err?.name, err?.message);
