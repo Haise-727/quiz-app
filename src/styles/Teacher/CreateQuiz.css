@@ -578,3 +578,23 @@ select.form-control { cursor: pointer; }
 .numeric-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; }
 .math-hint { margin: 0.4rem 0 0; }
 .math-preview { color: hsl(var(--foreground)); }
+
+/* The image editor panel is always dark (#0F1117), so its text and buttons must not use the page theme colours:
+   in the light theme they came out dark on dark and the Save Changes button was invisible. These rules fix the
+   colours inside the panel only. */
+.image-editor-modal-content .image-editor-header h3 { color: #f7fafc; }
+.image-editor-modal-content .close-modal-btn-simple { color: #cbd5e0; }
+.image-editor-modal-content .close-modal-btn-simple:hover { color: #f7fafc; background: rgba(255, 255, 255, 0.1); }
+.image-editor-actions { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.image-editor-actions .cropper-actions-right { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.cropper-btn-delete, .cropper-btn-cancel, .cropper-btn-confirm {
+  display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.1rem; border-radius: 0.5rem;
+  font-size: 0.9rem; font-weight: 600; line-height: 1; cursor: pointer; border: 1px solid #4a5568; background: transparent; color: #e2e8f0;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.cropper-btn-cancel:hover { background: rgba(255, 255, 255, 0.08); }
+.cropper-btn-delete { color: #fc8181; border-color: rgba(252, 129, 129, 0.5); }
+.cropper-btn-delete:hover { background: rgba(252, 129, 129, 0.12); }
+.cropper-btn-confirm { background: #22c55e; border-color: #22c55e; color: #052e16; }
+.cropper-btn-confirm:hover { background: #4ade80; border-color: #4ade80; }
+.cropper-btn-delete:focus-visible, .cropper-btn-cancel:focus-visible, .cropper-btn-confirm:focus-visible { outline: 2px solid #f5af19; outline-offset: 2px; }
