@@ -75,3 +75,37 @@ Vercel keeps using `/api/auth`. After the first deploy, add the CloudFront addre
 Authentication, Settings, Authorized domains, or Google sign in will fail on the AWS copy.
 
 A public Function URL needs two permissions since late 2025. The signer stack sets both.
+
+## All the stacks (as of 14 October 2026)
+
+| Stack | What it is |
+|---|---|
+| `quizlike-signer`, `quizlike-site` | the ImageKit upload signer and the website, each a Lambda with a Function URL |
+| `quizlike-auth` | Cognito with Google, and the sign up and password move over triggers |
+| `quizlike-data` | ONE DynamoDB table (`quizlike-main`, 9 free units), plus the seven old tables idle on pay per request until deleted |
+| `quizlike-api` | the API Lambda behind an API Gateway HTTP API (25 requests a second, burst 50) |
+| `quizlike-ops` | alerts, 10 alarms, dashboard, CloudTrail, health check, cost check, stream trigger, dead letter queue, SES, Access Analyzer |
+| `quizlike-analytics` | Athena over the CloudTrail files, five saved queries |
+| `quizlike-workflows` | the weekly teacher summary in Step Functions |
+| `quizlike-pipeline` | CodePipeline and CodeBuild (connect GitHub once in the console) |
+
+## Deploying
+
+Always from this folder, with the `quizlike` profile, one stack at a time and with `--exclusively`:
+
+    npx cdk synth --quiet -c google=true -c legacyTables=true
+    node scripts/check-free.mjs                      # must say ok
+    npx cdk deploy quizlike-ops --exclusively -c google=true -c legacyTables=true
+
+`-c legacyTables=true` stays until the old tables are deleted (deploy without it and they go). The auth stack is only ever
+deployed with `node scripts/deploy-auth.mjs --migrate`, because it needs the Google values and the migration trigger.
+
+Safety limits that `check-free.mjs` enforces: at most 10 alarms (10 are free), no CloudTrail data events, only HTTP APIs with a rate
+limit, only provisioned DynamoDB (except the idle old tables), no Cognito Plus, no log group without retention.
+
+## Things only the owner can do once
+
+1. Click the two AWS emails: the alerts list (SNS) and the SES sender.
+2. Connect GitHub to the pipeline: console, Developer Tools, Settings, Connections, `quizlike-github`, Update pending connection. Then push.
+3. Delete the five old prototype alarms (MyAlarm and cloudquiz-*), which use up free alarm slots.
+4. Use an IAM user, not the root account, for the console. The root alarm will fire each time root is used.

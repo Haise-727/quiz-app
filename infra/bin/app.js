@@ -8,6 +8,7 @@ import { ApiStack } from '../lib/api-stack.js';
 import { OpsStack } from '../lib/ops-stack.js';
 import { AnalyticsStack } from '../lib/analytics-stack.js';
 import { WorkflowsStack } from '../lib/workflows-stack.js';
+import { PipelineStack } from '../lib/pipeline-stack.js';
 
 /**
  * Three small stacks, deployed separately so each can be tried, kept or removed on its own:
@@ -75,6 +76,9 @@ const ops = new OpsStack(app, `${prefix}-ops`, {
 
 // The weekly teacher summary (Step Functions + SES).
 new WorkflowsStack(app, `${prefix}-workflows`, { env, prefix, mainTable: data.main, topic: ops.topic, sesFrom: ops.sesFrom, senderArn: ops.senderArn });
+
+// Build and deploy the website on every push (CodePipeline + CodeBuild). Needs GitHub connected once in the console.
+new PipelineStack(app, `${prefix}-pipeline`, { env, prefix });
 
 // Ask the audit log questions in SQL (Athena). Reads the CloudTrail files in place.
 new AnalyticsStack(app, `${prefix}-analytics`, { env, prefix, trailBucket: ops.trailBucket });
