@@ -156,10 +156,12 @@ export class OpsStack extends Stack {
     }));
     add('a4', new cloudwatch.Alarm(this, 'ApiSlow', { ...base, evaluationPeriods: 2, alarmName: fn('api-slow'), alarmDescription: 'The API is slow: p95 over 5 seconds.', metric: lm('api', 'Duration', 'p95'), threshold: 5000, comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD }));
     add('a5', new cloudwatch.Alarm(this, 'OtherLambdaErrors', {
-      ...base, alarmName: fn('other-lambda-errors'), alarmDescription: 'An error in the site, signer, stream trigger, health check, cost check or sign up trigger.',
+      // The sign up and migration triggers are left out on purpose: they raise an error each time they refuse someone (an old
+      // account's email, a wrong password), and that is the trigger working, not failing.
+      ...base, alarmName: fn('other-lambda-errors'), alarmDescription: 'An error in the site, signer, stream trigger, health check or cost check.',
       metric: new cloudwatch.MathExpression({
-        expression: 'a + b + c + d + e + f', period: Duration.minutes(5),
-        usingMetrics: { a: lm('site', 'Errors'), b: lm('signer', 'Errors'), c: lm('stream-trigger', 'Errors'), d: lm('health-check', 'Errors'), e: lm('cost-check', 'Errors'), f: lm('pre-signup', 'Errors') },
+        expression: 'a + b + c + d + e', period: Duration.minutes(5),
+        usingMetrics: { a: lm('site', 'Errors'), b: lm('signer', 'Errors'), c: lm('stream-trigger', 'Errors'), d: lm('health-check', 'Errors'), e: lm('cost-check', 'Errors') },
       }),
       threshold: 1, comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
     }));

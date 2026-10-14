@@ -17,7 +17,7 @@ const out = mkdtempSync(join(tmpdir(), 'aws-client-'));
 const entry = join(out, 'entry.js');
 writeFileSync(entry, ['quizzes', 'results', 'classes', 'notifications', 'questionBank', 'users', 'devTools', 'account', 'auth']
   .map((m) => `export * as ${m} from ${JSON.stringify(join(root, 'src/api/aws', m + '.js').replace(/\\/g, '/'))};`).join('\n')
-  + `\nexport * as session from ${JSON.stringify(join(root, 'src/api/aws/session.js').replace(/\\/g, '/'))};\n`);
+  + ['session', 'http'].map((m) => `\nexport * as ${m} from ${JSON.stringify(join(root, 'src/api/aws', m + '.js').replace(/\\/g, '/'))};`).join('') + '\n');
 await build({
   entryPoints: [entry], outfile: join(out, 'client.mjs'), bundle: true, format: 'esm', platform: 'node', logLevel: 'error',
   alias: { '@': join(root, 'src') },
@@ -208,11 +208,12 @@ await ok('classes: create, join by code, due dates, quiz list, leave, delete', a
   assert.equal((await c.classes.getStudentClasses('student1')).length, 0);
 });
 
-await ok('notifications: sent by a teacher, read and marked by the student', async () => {
+await ok('notifications: created by the server, read and marked by the student; the page call does nothing', async () => {
   signInAs('teacher1');
-  await c.notifications.createNotification('student1', 'Graded', 'grade_released', { quizId });
-  await c.notifications.createNotification('student1', 'Another', 'grading', null);
-  await c.notifications.createNotification(null, 'ignored', 'x');
+  // On AWS the stream trigger creates these. Here a signed in teacher writes them straight through the API, as the trigger's role would.
+  await c.http.rpc('create', { col: 'notifications', data: { userId: 'student1', message: 'Graded', type: 'grade_released', data: { quizId }, read: false } });
+  await c.http.rpc('create', { col: 'notifications', data: { userId: 'student1', message: 'Another', type: 'grading', data: null, read: false } });
+  await c.notifications.createNotification('student1', 'Should not be added', 'x');   // the page call is a no-op on AWS
   signInAs('student1');
   const seen = await new Promise((resolveList) => { const stop = c.notifications.listenToNotifications('student1', (l) => { stop(); resolveList(l); }); });
   assert.deepEqual(seen.map((n) => n.message), ['Another', 'Graded']);

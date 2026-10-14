@@ -32,7 +32,7 @@ if (process.argv.includes('--migrate')) {
   migrateArgs = ['-c', 'migrateUsers=true', '-c', `firebaseApiKey=${match[1].trim()}`];
 }
 
-const args = ['cdk', 'deploy', 'quizlike-auth', '-c', 'google=true', ...migrateArgs, '--require-approval', 'never',
+const args = ['cdk', 'deploy', 'quizlike-auth', '-c', 'google=true', '-c', 'legacyTables=true', ...migrateArgs, '--require-approval', 'never',
   '--parameters', `quizlike-auth:GoogleClientId=${id}`, '--parameters', `quizlike-auth:GoogleClientSecret=${secret}`];
 const r = spawnSync('npx', args, { env, shell, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
 const clean = (s) => String(s || '').split(secret).join('***').split('\n').filter((l) => /✅|❌|FAILED|rror|GoogleRedirectUri|HostedDomain|ClientId|UserPoolId/.test(l)).join('\n');

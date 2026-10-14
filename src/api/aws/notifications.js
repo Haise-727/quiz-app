@@ -8,10 +8,12 @@ import { reviveAll, rpc } from './http';
 
 const POLL_MS = 20_000;
 
-export const createNotification = async (userId, message, type, data = null) => {
-  if (!userId) return;
-  await rpc('create', { col: 'notifications', data: { userId, message, type, data, read: false } });
-};
+/**
+ * On AWS the SERVER sends these. A Lambda reads the database change stream (backend/ops/stream-trigger.mjs) and writes
+ * "needs marking" and "graded" notifications itself. The pages still call this, as they did on Firebase, so it does nothing
+ * here: doing it twice would send every notification twice.
+ */
+export const createNotification = async () => {};
 
 /** Calls `callback(list)` now and every 20 seconds, newest first. Returns a function that stops it. */
 export const listenToNotifications = (userId, callback) => {

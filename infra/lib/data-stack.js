@@ -91,7 +91,7 @@ export class DataStack extends Stack {
           removalPolicy: RemovalPolicy.DESTROY,
           pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
         });
-        for (const [indexName, pk, sk, units] of t.indexes || []) {
+        for (const [indexName, pk, sk] of t.indexes || []) {
           table.addGlobalSecondaryIndex({
             indexName,
             partitionKey: { name: pk, type: S },
