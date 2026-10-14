@@ -51,7 +51,10 @@ export async function verifyToken(token, { region, poolId, clientId, fetchFn, no
     if (claims.token_use !== 'id' || claims.aud !== clientId) return null;
     if (!claims.exp || claims.exp * 1000 <= nowMs) return null;
     if (!claims.sub) return null;
-    return { uid: claims.sub, email: claims.email || null, name: claims.name || null, authTime: claims.auth_time || claims.iat || 0 };
+    // email_verified is true for Google (Google checked it) and for accounts moved over from Firebase (Firebase checked the
+    // password). It is false for plain new sign ups, which are not verified. Account matching trusts only the true ones.
+    const emailVerified = claims.email_verified === true || claims.email_verified === 'true';
+    return { uid: claims.sub, sub: claims.sub, email: claims.email || null, emailVerified, name: claims.name || null, authTime: claims.auth_time || claims.iat || 0 };
   } catch {
     return null;
   }

@@ -2,6 +2,8 @@ import { CfnOutput, CfnParameter, Duration, RemovalPolicy, SecretValue, Stack } 
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Sign in on AWS: a Cognito user pool with email and password plus "Sign in with Google".
@@ -44,17 +46,40 @@ export class AuthStack extends Stack {
     // Accept a new sign up straight away and mark its email as verified, so the sign up form needs no code step.
     // This is how Firebase behaved too (it never checked the email). Tighten it later by deleting this trigger and
     // adding a "type the code we emailed you" step to the sign up screen.
+    const triggerCode = lambda.Code.fromAsset(fileURLToPath(new URL('../../backend/auth-triggers', import.meta.url)));
     const preSignUp = new lambda.Function(this, 'PreSignUp', {
       functionName: `${prefix}-pre-signup`,
       runtime: lambda.Runtime.NODEJS_22_X,
       architecture: lambda.Architecture.ARM_64,
-      handler: 'index.handler',
-      code: lambda.Code.fromInline('exports.handler = async (event) => { event.response.autoConfirmUser = true; if (event.request.userAttributes && event.request.userAttributes.email) event.response.autoVerifyEmail = true; return event; };'),
+      handler: 'pre-signup.handler',
+      code: triggerCode,
       memorySize: 128,
-      timeout: Duration.seconds(3),
+      timeout: Duration.seconds(5),
       logRetention: logs.RetentionDays.ONE_WEEK,
+      environment: { TABLE_PREFIX: `${prefix}-` },
     });
+    // It may only look an email up in the users table's legacy email index, nothing else.
+    if (props.usersTable) {
+      preSignUp.addToRolePolicy(new iam.PolicyStatement({ actions: ['dynamodb:Query'], resources: [`${props.usersTable.tableArn}/index/byLegacyEmail`] }));
+    }
     pool.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, preSignUp);
+
+    // Moves a Firebase account over the first time its owner signs in (backend/auth-triggers/migrate-user.mjs).
+    // Off until the old data has been copied across, so nobody is moved before their quizzes are there.
+    if (props.migrateUsers) {
+      const migrate = new lambda.Function(this, 'MigrateUser', {
+        functionName: `${prefix}-migrate-user`,
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        handler: 'migrate-user.handler',
+        code: triggerCode,
+        memorySize: 128,
+        timeout: Duration.seconds(10),
+        logRetention: logs.RetentionDays.ONE_WEEK,
+        environment: { FIREBASE_API_KEY: props.firebaseApiKey || '', FIREBASE_REFERER: props.firebaseReferer || 'https://quizlike.vercel.app/' },
+      });
+      pool.addTrigger(cognito.UserPoolOperation.USER_MIGRATION, migrate);
+    }
 
     // The pool tier. Set with an override so it works on this CDK version; ESSENTIALS keeps the free 10,000 users.
     pool.node.defaultChild.addPropertyOverride('UserPoolTier', 'ESSENTIALS');

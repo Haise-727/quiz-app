@@ -41,8 +41,13 @@ const appUrls = String(app.node.tryGetContext('appUrls') || [
   'http://localhost:5173',
   'http://localhost:5174',
 ].join(',')).split(',');
-const auth = new AuthStack(app, `${prefix}-auth`, { env, prefix, appUrls, withGoogle: app.node.tryGetContext('google') === 'true' });
 const data = new DataStack(app, `${prefix}-data`, { env, prefix });
+const auth = new AuthStack(app, `${prefix}-auth`, {
+  env, prefix, appUrls, withGoogle: app.node.tryGetContext('google') === 'true',
+  usersTable: data.tables.users,
+  migrateUsers: app.node.tryGetContext('migrateUsers') === 'true',      // see scripts/deploy-auth.mjs
+  firebaseApiKey: app.node.tryGetContext('firebaseApiKey'),
+});
 new ApiStack(app, `${prefix}-api`, { env, prefix, userPoolId: auth.pool.userPoolId, clientId: auth.client.userPoolClientId, tables: data.tables });
 
 Tags.of(app).add('app', 'quizlike');

@@ -61,7 +61,9 @@ export function userFromSession(session) {
   const google = Array.isArray(claims.identities) && claims.identities.some((i) => /google/i.test(i.providerName || ''));
   const email = claims.email || null;
   return {
-    uid: claims.sub,
+    // The id the DATA uses. Normally the Cognito id, but a person moved over from Firebase keeps their old id so
+    // their quizzes and results stay theirs. The API says which (the `me` call) and the answer is kept in the session.
+    uid: session.uid || claims.sub,
     email,
     displayName: claims.name || (email ? email.split('@')[0] : null),
     emailVerified: true,
@@ -98,8 +100,14 @@ export async function cognito(target, body) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const name = String(json.__type || '').split('#').pop();
-    const err = new Error(json.message || 'Sign in failed.');
+    // A trigger that refuses (an old email, a wrong old password) comes back as "<Trigger> failed with error <our sentence>."
+    const said = String(json.message || '').replace(/^.*? failed with error /, '').replace(/\.$/, '');
+    const err = new Error(name === 'UserLambdaValidationException' && said ? `${said}.` : (json.message || 'Sign in failed.'));
     err.code = CODES[name] || `cognito/${name || res.status}`;
+    if (name === 'UserLambdaValidationException') {
+      if (/Incorrect email or password/.test(said)) err.code = 'auth/invalid-credential';
+      else if (/already has a Quizlike account/.test(said)) err.code = 'auth/email-already-in-use';
+    }
     throw err;
   }
   return json;

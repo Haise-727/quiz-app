@@ -45,7 +45,7 @@ const fakeToken = (claims) => `${b64({ alg: 'none' })}.${b64(claims)}.sig`;
 const callerOf = (header) => {
   if (!header?.startsWith('Bearer ')) return null;
   const c = JSON.parse(Buffer.from(header.slice(7).split('.')[1], 'base64url').toString());
-  return { uid: c.sub, email: c.email, name: c.name };
+  return { uid: c.sub, sub: c.sub, email: c.email, emailVerified: c.email_verified === true, name: c.name };
 };
 globalThis.fetch = async (url, init) => {
   assert.equal(url, 'http://api.test/');
@@ -74,6 +74,21 @@ await ok('sign in gives the app a user in the shape it expects', async () => {
   assert.ok(user.metadata.creationTime);
   signInAs('g1', 'Gus', { identities: [{ providerName: 'Google' }] });
   assert.deepEqual(c.auth.getCurrentUser().providerData, [{ providerId: 'google.com' }]);
+});
+
+await ok('a person moved over from Firebase keeps their old id and their data', async () => {
+  await repo.put('users', { uid: 'fb-uid-9', email: 'Old@School.com', role: 'teacher', displayName: 'Olly', legacy: true, legacyEmail: 'old@school.com' });
+  await repo.put('quizzes', { quizId: 'old-quiz', createdBy: 'fb-uid-9', createdAt: '2026-01-01T00:00:00.000Z', title: 'From Firebase', active: false, totalPoints: 1, questions: [] });
+  signInAs('cognito-sub-77', 'Olly', { email: 'old@school.com', email_verified: true });
+  const seen = await new Promise((resolveUser) => { const stop = c.auth.watchAuth((u) => { if (u && u.uid === 'fb-uid-9') { stop(); resolveUser(u); } }); });
+  assert.equal(seen.uid, 'fb-uid-9', 'the app is told the old id');
+  assert.equal((await c.users.getUserProfile('fb-uid-9')).role, 'teacher');
+  assert.deepEqual((await c.quizzes.listMyQuizzes('fb-uid-9')).map((q) => q.title), ['From Firebase']);
+  signInAs('plain-sub', 'Pat', { email: 'old@school.com' });          // same email, but never verified
+  const other = await new Promise((resolveUser) => { const stop = c.auth.watchAuth((u) => { if (u) { stop(); resolveUser(u); } }); });
+  assert.equal(other.uid, 'plain-sub', 'an unverified email gets no old data');
+  assert.equal((await c.quizzes.listMyQuizzes('fb-uid-9')).length, 0, 'and cannot see the old quizzes');
+  signOut();
 });
 
 await ok('profiles: create, read, change, and names for others', async () => {

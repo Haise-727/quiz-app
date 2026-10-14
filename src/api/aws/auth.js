@@ -1,5 +1,6 @@
+import { rpc } from './http';
 import {
-  COGNITO_CLIENT_ID, clearSession, cognito, currentSession, getIdToken, onSessionChange,
+  COGNITO_CLIENT_ID, clearSession, cognito, currentSession, getIdToken, onSessionChange, saveSession,
   finishGoogleSignIn as finishHostedSignIn, passwordSignIn, startGoogleSignIn, userFromSession,
 } from './session';
 
@@ -14,7 +15,16 @@ export function watchAuth(callback) {
   let stopped = false;
   const emit = async () => {
     await getIdToken();                       // refreshes an expired token, or clears a dead session
-    if (!stopped) callback(userFromSession(currentSession()));
+    let session = currentSession();
+    if (session && !session.uid) {
+      // Ask the API which id the data uses for this person. A person moved over from Firebase gets their old id back.
+      try {
+        const me = await rpc('me');
+        saveSession({ ...currentSession(), uid: me.uid });   // tells the listeners, which run this again with the id set
+        return;
+      } catch { session = currentSession(); /* offline: carry on with the Cognito id this time */ }
+    }
+    if (!stopped) callback(userFromSession(session));
   };
   emit();
   const off = onSessionChange(emit);

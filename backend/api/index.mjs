@@ -2,7 +2,7 @@
  * The Quizlike API: one Lambda behind a Function URL (no API Gateway, so no per request charge).
  *
  * Every call is  POST /  with a JSON body  { "op": "get" | "create" | "update" | "remove" | "removeMany" |
- * "query" | "getMany" | "names" | "completionCount", ...arguments }  and, when signed in, the header
+ * "query" | "getMany" | "names" | "completionCount" | "me", ...arguments }  and, when signed in, the header
  *   Authorization: Bearer <Cognito ID token>
  * The answer is  { "ok": true, "data": ... }  or  { "ok": false, "error": "..." }  with a matching status.
  * What each op does is in service.mjs, and who may do it is in config.mjs.
@@ -12,9 +12,10 @@
  */
 import { verifyToken } from './authn.mjs';
 import { HttpError, createService } from './service.mjs';
+import { resolveCaller } from './identity.mjs';
 
 const MAX_BODY = 1_000_000;
-const OPS = new Set(['get', 'create', 'update', 'remove', 'removeMany', 'query', 'getMany', 'names', 'completionCount']);
+const OPS = new Set(['get', 'create', 'update', 'remove', 'removeMany', 'query', 'getMany', 'names', 'completionCount', 'me']);
 
 function cors(event) {
   const allowed = (process.env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim());
@@ -55,7 +56,7 @@ export async function handler(event, _context, injected) {
 
     const header = event.headers?.authorization || event.headers?.Authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-    const caller = deps.caller !== undefined ? deps.caller : await verifyToken(token, {
+    const verified = deps.caller !== undefined ? deps.caller : await verifyToken(token, {
       region: process.env.REGION, poolId: process.env.POOL_ID, clientId: process.env.CLIENT_ID,
     });
 
@@ -67,6 +68,8 @@ export async function handler(event, _context, injected) {
       }
       repo = defaultRepo;
     }
+    // Someone who used the Firebase version is recognised by their verified email and keeps their old id (identity.mjs).
+    const caller = await resolveCaller(repo, verified);
     const service = createService(repo, deps.clock || {});
     const { op, ...args } = body;
     const data = await service[op](args, caller);

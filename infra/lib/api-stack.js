@@ -2,7 +2,7 @@ import { CfnOutput, Duration, Stack } from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { cpSync, mkdirSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -21,7 +21,11 @@ function packApi() {
   const out = here('../.api-build');
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
-  for (const f of ['index.mjs', 'service.mjs', 'config.mjs', 'authn.mjs', 'repo.mjs']) cpSync(here(`../../backend/api/${f}`), `${out}/${f}`);
+  // Every module in backend/api except the tests and the in memory stand in. Listing files by hand once left one out and
+  // crashed the whole API, so it is done by rule.
+  for (const f of readdirSync(here('../../backend/api'))) {
+    if (f.endsWith('.mjs') && !f.endsWith('.test.mjs') && f !== 'memory-repo.mjs') cpSync(here(`../../backend/api/${f}`), `${out}/${f}`);
+  }
   return out;
 }
 

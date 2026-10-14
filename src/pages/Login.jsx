@@ -77,8 +77,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [pendingGoogleUser, setPending] = useState(null);
   const [roleLoading, setRoleLoading] = useState(false);
+  const [roleError, setRoleError] = useState('');
 
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, createUserProfile, currentUser, userRole } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, createUserProfile, fetchUserData, currentUser, userRole } = useAuth();
   const navigate = useNavigate();
   const goHome = (r) => navigate(r === 'teacher' ? '/teacher/home' : '/student/dashboard', { replace: true });
   const signup = tab === 'signup';
@@ -116,14 +117,18 @@ export default function Login() {
   // A new Google account has no role yet, so ask before creating the profile.
   const handleRoleSelect = async (selectedRole) => {
     if (!pendingGoogleUser) return;
-    setRoleLoading(true);
+    setRoleLoading(true); setRoleError('');
     try {
       await createUserProfile(pendingGoogleUser.uid, pendingGoogleUser.email, selectedRole, pendingGoogleUser.displayName || pendingGoogleUser.email.split('@')[0]);
       toast.success('Account created. Welcome to Quizlike.');
       goHome(selectedRole);
-    } catch {
-      setError('We could not set up your account. Please try again.');
-      setPending(null);
+    } catch (err) {
+      // "You already have a profile": the account was set up before. Load it, and the effect above sends them home.
+      if (err?.status === 409) {
+        try { await fetchUserData(pendingGoogleUser.uid); return; } catch { /* fall through to the message */ }
+      }
+      // Keep the question on screen and say what went wrong, instead of silently asking again.
+      setRoleError(err?.message || 'We could not set up your account. Please try again.');
     } finally {
       setRoleLoading(false);
     }
@@ -244,6 +249,7 @@ export default function Login() {
               <div className="mt-6">
                 <RolePicker value="" onChange={handleRoleSelect} disabled={roleLoading} />
               </div>
+              {roleError && <p role="alert" className="mt-4 rounded-lg bg-[hsl(var(--tint-red))] px-3 py-2 text-sm text-[hsl(var(--tint-red-fg))]">{roleError}</p>}
               {roleLoading && <p className="mt-4 flex items-center gap-2 text-sm text-[hsl(var(--muted-foreground))]"><PiSpinnerGapBold className="animate-spin" /> Setting up your account</p>}
             </motion.div>
           </motion.div>

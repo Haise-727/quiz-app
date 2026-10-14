@@ -22,7 +22,10 @@ const never = () => false;
 
 export const COLLECTIONS = {
   users: {
-    table: 'users', pk: 'uid', indexes: {}, stamps: [], frozen: [],
+    table: 'users', pk: 'uid',
+    // byLegacyEmail is sparse: only profiles copied over from Firebase carry legacyEmail (see identity.mjs).
+    indexes: { byLegacyEmail: { pk: 'legacyEmail' } },
+    stamps: [], frozen: [],
     // Anyone signed in may read one profile by its id (a teacher needs a student's name), but never list them.
     // A person other than the owner only ever gets the display name back (see service.js, publicView).
     rules: {
@@ -120,7 +123,7 @@ export const COLLECTIONS = {
 };
 
 /** Fields that exist only for the database, never shown to the app. */
-export const INTERNAL = ['activeKey', 'createdAtId'];
+export const INTERNAL = ['activeKey', 'createdAtId', 'legacy', 'legacyEmail'];
 
 export const MAX_ITEM_BYTES = 350 * 1024;   // DynamoDB's limit is 400 KB per item. This leaves room for the keys.
 export const MAX_QUERY_ITEMS = 500;

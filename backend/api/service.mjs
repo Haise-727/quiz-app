@@ -159,6 +159,8 @@ export function createService(repo, { now = () => new Date().toISOString(), newI
         id = caller.uid;
         if (!ROLES.has(item.role)) throw bad('Role must be teacher or student.');
         if (!d.rules.canCreate(item, caller, id)) throw forbidden();
+        // A profile that already exists (above all one copied from Firebase) is never overwritten by a sign up.
+        if (await repo.get(d.table, { [d.pk]: id })) throw new HttpError(409, 'You already have a profile.');
       } else {
         if (!(await d.rules.canCreate(item, caller, null))) throw caller ? forbidden() : unauthorized();
         if (col === 'quiz_results') await checkNewResult(item, caller, ctx);
@@ -280,6 +282,12 @@ export function createService(repo, { now = () => new Date().toISOString(), newI
         if (item && (await d.rules.canRead(item, caller, ctx))) found[id] = present(col, d, item, caller);
       }
       return found;
+    },
+
+    /** Who the data thinks you are. The app uses this id for everything, so a moved over account finds its old data. */
+    async me(_args, caller) {
+      if (!caller) throw unauthorized();
+      return { uid: caller.uid, legacy: caller.legacy === true };
     },
 
     /** Display names for a list of user ids. Guests have no profile, and a missing one is left out. */

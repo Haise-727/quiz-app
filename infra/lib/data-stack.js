@@ -20,11 +20,13 @@ const T = (name, partitionKey, extra = {}) => ({ name, partitionKey, ...extra })
 /**
  * Table definitions. `units` is the read and write capacity of the table, and each index is
  * [name, partitionKey, sortKey or null, units]. The tables and indexes here must match
- * backend/api/config.mjs. The units add up to 24 of the free 25 (see unitsUsed). The busiest tables
+ * backend/api/config.mjs. The units add up to 25 of the free 25 (see unitsUsed): no spare units, so any new table or index needs another one given up. The busiest tables
  * (quizzes and results) get 2 because a quiz is one big document and costs one unit per KB written.
  */
 export const TABLES = [
-  T('users', 'uid', { units: 1 }),
+  T('users', 'uid', { units: 1, indexes: [
+    ['byLegacyEmail', 'legacyEmail', null, 1],   // finds a profile copied from Firebase by its email (backend/api/identity.mjs). Sparse.
+  ] }),
   T('quizzes', 'quizId', { units: 2, indexes: [
     ['byOwner', 'createdBy', 'createdAt', 2],    // listMyQuizzes
     ['byActive', 'activeKey', 'createdAt', 2],   // listActiveQuizzes (sparse: only active quizzes have activeKey)
