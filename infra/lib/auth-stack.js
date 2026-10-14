@@ -58,9 +58,9 @@ export class AuthStack extends Stack {
       logRetention: logs.RetentionDays.ONE_WEEK,
       environment: { TABLE_NAME: props.mainTable ? props.mainTable.tableName : `${prefix}-main` },
     });
-    // It may only look an email up in the shared index that holds users by legacy email, nothing else.
+    // It may only look an email up in the shared index that holds users by legacy email (gsi3), nothing else.
     if (props.mainTable) {
-      preSignUp.addToRolePolicy(new iam.PolicyStatement({ actions: ['dynamodb:Query'], resources: [`${props.mainTable.tableArn}/index/g3`] }));
+      preSignUp.addToRolePolicy(new iam.PolicyStatement({ actions: ['dynamodb:Query'], resources: [`${props.mainTable.tableArn}/index/gsi3`] }));
     }
     pool.addTrigger(cognito.UserPoolOperation.PRE_SIGN_UP, preSignUp);
 

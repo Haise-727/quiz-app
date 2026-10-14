@@ -33,7 +33,9 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json')))
 
     if (res.Type === 'AWS::DynamoDB::Table') {
       tables++;
-      if (res.Properties.BillingMode === 'PAY_PER_REQUEST') problems.push(`${file}: ${name} is on demand`);
+      // The seven old tables wait idle on pay per request until they are deleted (nothing reads them). Any other table must be provisioned.
+      const idleLegacy = /^quizlike-(users|quizzes|results|classes|enrollments|questionBank|notifications)$/.test(res.Properties.TableName || '');
+      if (res.Properties.BillingMode === 'PAY_PER_REQUEST' && !idleLegacy) problems.push(`${file}: ${name} is on demand`);
       const units = (p) => { read += p?.ReadCapacityUnits || 0; write += p?.WriteCapacityUnits || 0; };
       units(res.Properties.ProvisionedThroughput);
       (res.Properties.GlobalSecondaryIndexes || []).forEach((g) => units(g.ProvisionedThroughput));

@@ -46,7 +46,6 @@ const appUrls = String(app.node.tryGetContext('appUrls') || [
 const data = new DataStack(app, `${prefix}-data`, {
   env, prefix,
   legacy: app.node.tryGetContext('legacyTables') === 'true',          // the seven old tables, only while copying them into the new one
-  allowOverlap: app.node.tryGetContext('allowOverlap') === 'true',
 });
 const auth = new AuthStack(app, `${prefix}-auth`, {
   env, prefix, appUrls, withGoogle: app.node.tryGetContext('google') === 'true',

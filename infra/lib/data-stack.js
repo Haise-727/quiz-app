@@ -16,12 +16,13 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
  *  - A stream is on (free) so a Lambda can react to new results; TTL is on (free) so old notifications delete themselves.
  *
  * The seven old tables are described below only so they can be copied into the new one and then deleted. They are built
- * only when the stack is deployed with `-c legacyTables=true`, and during that window the units temporarily exceed 25
- * (`-c allowOverlap=true`, a few cents an hour). Once the copy is checked, deploy without legacyTables and they are deleted.
+ * only when the stack is deployed with `-c legacyTables=true`, switched to pay per request so that while they sit unused they
+ * take no free capacity units and cost nothing. They stay until the owner confirms the copy; then deploy without
+ * legacyTables and they are deleted.
  */
 
 /** The single table. Each shared index is [name, units]. */
-export const MAIN = { name: 'main', units: 3, indexes: [['g1', 2], ['g2', 2], ['g3', 2]] };
+export const MAIN = { name: 'main', units: 3, indexes: [['gsi1', 2], ['gsi2', 2], ['gsi3', 2]] };
 
 /** The old per collection tables, kept only for the one time copy. [name, partitionKey, sortKey or null, units] for indexes. */
 const T = (name, partitionKey, extra = {}) => ({ name, partitionKey, ...extra });
@@ -37,9 +38,13 @@ export const LEGACY_TABLES = [
 
 const sum = (units, indexes) => units + indexes.reduce((n, ix) => n + ix[ix.length - 1], 0);
 
-/** Read units (and the same number of write units) the stack asks for. Must stay at or below 25. */
-export function unitsUsed(legacy = false) {
-  return sum(MAIN.units, MAIN.indexes) + (legacy ? LEGACY_TABLES.reduce((n, t) => n + sum(t.units, t.indexes || []), 0) : 0);
+/**
+ * Read units (and the same number of write units) the stack asks for. Must stay at or below 25. The old tables are kept
+ * idle on PAY PER REQUEST billing while they wait to be deleted: they use none of the free provisioned units and cost
+ * nothing when nobody reads them, so they add nothing here.
+ */
+export function unitsUsed() {
+  return sum(MAIN.units, MAIN.indexes);
 }
 
 export class DataStack extends Stack {
@@ -47,9 +52,7 @@ export class DataStack extends Stack {
     super(scope, id, props);
     const prefix = props.prefix || 'quizlike';
     const legacy = !!props.legacy;
-    if (unitsUsed(legacy) > 25 && !props.allowOverlap) {
-      throw new Error(`Data stack uses ${unitsUsed(legacy)} units, more than the free 25. (During the copy only: -c allowOverlap=true.)`);
-    }
+    if (unitsUsed() > 25) throw new Error(`Data stack uses ${unitsUsed()} units, more than the free 25.`);
 
     const S = dynamodb.AttributeType.STRING;
     this.main = new dynamodb.Table(this, 'MainTable', {
@@ -84,9 +87,7 @@ export class DataStack extends Stack {
           tableName: `${prefix}-${t.name}`,
           partitionKey: { name: t.partitionKey, type: S },
           sortKey: t.sortKey ? { name: t.sortKey, type: S } : undefined,
-          billingMode: dynamodb.BillingMode.PROVISIONED,
-          readCapacity: t.units,
-          writeCapacity: t.units,
+          billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,   // idle, so free; see unitsUsed
           removalPolicy: RemovalPolicy.DESTROY,
           pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
         });
@@ -96,8 +97,6 @@ export class DataStack extends Stack {
             partitionKey: { name: pk, type: S },
             sortKey: sk ? { name: sk, type: S } : undefined,
             projectionType: dynamodb.ProjectionType.ALL,
-            readCapacity: units,
-            writeCapacity: units,
           });
         }
         this.tables[t.name] = table;

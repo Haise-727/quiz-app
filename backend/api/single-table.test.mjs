@@ -19,21 +19,21 @@ test('an item goes in and comes out unchanged, with no storage fields leaking', 
   const quiz = { quizId: 'q1', createdBy: 'u1', createdAt: '2026-01-01T00:00:00.000Z', code: 'ABC123', title: 'T', active: true, activeKey: 'Y', questions: [{ id: 1 }] };
   const stored = toStored('quizzes', quiz);
   assert.equal(stored.pk, 'quizzes#q1');
-  assert.equal(stored.g1pk, 'quizzes#byOwner#u1');
-  assert.equal(stored.g2pk, 'quizzes#byActive#Y');
-  assert.equal(stored.g3pk, 'quizzes#byCode#ABC123');
+  assert.equal(stored.gsi1pk, 'quizzes#byOwner#u1');
+  assert.equal(stored.gsi2pk, 'quizzes#byActive#Y');
+  assert.equal(stored.gsi3pk, 'quizzes#byCode#ABC123');
   assert.deepEqual(fromStored(stored), quiz);
   assert.deepEqual(storedKey('notifications', { userId: 'u1', createdAtId: '2026#x' }), { pk: 'notifications#u1', sk: '2026#x' });
 });
 
 test('a document missing an index key is left out of that index, as in the real tables', () => {
   const noCode = toStored('quizzes', { quizId: 'q2', createdBy: 'u1', createdAt: '2026-01-01T00:00:00.000Z', title: 'x' });
-  assert.equal(noCode.g3pk, undefined);
-  assert.equal(noCode.g2pk, undefined, 'not active, so not in the open list');
-  assert.ok(noCode.g1pk);
+  assert.equal(noCode.gsi3pk, undefined);
+  assert.equal(noCode.gsi2pk, undefined, 'not active, so not in the open list');
+  assert.ok(noCode.gsi1pk);
   const noDate = toStored('quizzes', { quizId: 'q3', createdBy: 'u1', code: 'X' });
-  assert.equal(noDate.g1pk, undefined, 'a sorted index needs its sort value');
-  assert.ok(noDate.g3pk);
+  assert.equal(noDate.gsi1pk, undefined, 'a sorted index needs its sort value');
+  assert.ok(noDate.gsi3pk);
 });
 
 test('the whole service works on the single table: the same story as on seven tables', async () => {

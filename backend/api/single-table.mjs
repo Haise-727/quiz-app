@@ -8,23 +8,23 @@
  * How a document is stored (the logical table name is kept as a prefix, so nothing collides):
  *   pk  "<table>#<id>"                 for notifications "<table>#<userId>"
  *   sk  "#"                            for notifications its createdAtId
- *   gNpk / gNsk                        one of three shared indexes (g1, g2, g3), filled per logical index below
+ *   gNpk / gNsk                        one of three shared indexes (gsi1, gsi2, gsi3), filled per logical index below
  *   _t  the logical table name         so a full read can be split back into collections
  * The document's own fields are stored unchanged next to these, and the extra fields are removed on the way out.
  */
 import { COLLECTIONS } from './config.mjs';
 
-export const MAIN_SLOTS = ['g1', 'g2', 'g3'];
+export const MAIN_SLOTS = ['gsi1', 'gsi2', 'gsi3'];
 const INTERNAL = ['pk', 'sk', '_t', ...MAIN_SLOTS.flatMap((g) => [`${g}pk`, `${g}sk`])];
 
 /** Which shared index carries which logical index. Each logical table uses each slot at most once. */
 export const SLOTS = {
-  users: { byLegacyEmail: 'g3' },
-  quizzes: { byOwner: 'g1', byActive: 'g2', byCode: 'g3' },
-  results: { byUser: 'g1', byQuiz: 'g2', byTeacher: 'g3' },
-  classes: { byTeacher: 'g1', byCode: 'g3' },
-  enrollments: { byClass: 'g1', byStudent: 'g2' },
-  questionBank: { byTeacher: 'g1' },
+  users: { byLegacyEmail: 'gsi3' },
+  quizzes: { byOwner: 'gsi1', byActive: 'gsi2', byCode: 'gsi3' },
+  results: { byUser: 'gsi1', byQuiz: 'gsi2', byTeacher: 'gsi3' },
+  classes: { byTeacher: 'gsi1', byCode: 'gsi3' },
+  enrollments: { byClass: 'gsi1', byStudent: 'gsi2' },
+  questionBank: { byTeacher: 'gsi1' },
   notifications: {},
 };
 
@@ -66,7 +66,7 @@ export function fromStored(stored) {
 /**
  * The repo the service uses, over a low level store with these calls:
  *   get(pk, sk) -> stored | null      put(stored)      remove(pk, sk)
- *   query({ index: 'g1' | null, keyName, keyValue, forward, limit }) -> stored[] in sort order
+ *   query({ index: 'gsi1' | null, keyName, keyValue, forward, limit }) -> stored[] in sort order
  */
 export function createSingleTableRepo(store) {
   return {

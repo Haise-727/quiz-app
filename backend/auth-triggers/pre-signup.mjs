@@ -18,8 +18,8 @@ async function legacyEmailTaken(email, deps) {
   doc ||= DynamoDBDocumentClient.from(new DynamoDBClient({}));
   const out = await doc.send(new QueryCommand({
     TableName: process.env.TABLE_NAME || 'quizlike-main',
-    IndexName: 'g3',                                    // the shared index that holds users by legacy email (single-table.mjs)
-    KeyConditionExpression: 'g3pk = :e',
+    IndexName: 'gsi3',                                    // the shared index that holds users by legacy email (single-table.mjs)
+    KeyConditionExpression: 'gsi3pk = :e',
     ExpressionAttributeValues: { ':e': `users#byLegacyEmail#${email}` },
     Limit: 1,
   }));
