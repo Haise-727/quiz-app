@@ -13,6 +13,7 @@
 import { verifyToken } from './authn.mjs';
 import { HttpError, createService } from './service.mjs';
 import { resolveCaller } from './identity.mjs';
+import { MIGRATION_OPS, handleMigration } from './migration.mjs';
 
 const MAX_BODY = 1_000_000;
 const OPS = new Set(['get', 'create', 'update', 'remove', 'removeMany', 'query', 'getMany', 'names', 'completionCount', 'me']);
@@ -52,7 +53,7 @@ export async function handler(event, _context, injected) {
     if (raw.length > MAX_BODY) return reply(event, 413, { ok: false, error: 'Too big.' });
     let body;
     try { body = JSON.parse(raw || '{}'); } catch { return reply(event, 400, { ok: false, error: 'Send JSON.' }); }
-    if (!body || typeof body !== 'object' || !OPS.has(body.op)) return reply(event, 400, { ok: false, error: 'Unknown op.' });
+    if (!body || typeof body !== 'object' || !(OPS.has(body.op) || MIGRATION_OPS.has(body.op))) return reply(event, 400, { ok: false, error: 'Unknown op.' });
 
     const header = event.headers?.authorization || event.headers?.Authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
@@ -68,6 +69,12 @@ export async function handler(event, _context, injected) {
       }
       repo = defaultRepo;
     }
+    // The temporary migration door (migration.mjs). Closed, or with a wrong token, it answers exactly like an unknown op.
+    if (MIGRATION_OPS.has(body.op)) {
+      const done = await handleMigration(repo, body, deps);
+      return done ? reply(event, 200, { ok: true, data: done }) : reply(event, 400, { ok: false, error: 'Unknown op.' });
+    }
+
     // Someone who used the Firebase version is recognised by their verified email and keeps their old id (identity.mjs).
     const caller = await resolveCaller(repo, verified);
     const service = createService(repo, deps.clock || {});

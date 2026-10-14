@@ -279,3 +279,17 @@ CI and CD with no stored keys, a serverless API and least privilege IAM.
 4. One AWS account only. Separate development and production accounts need AWS
    Organizations, which ends the Free plan at once. Use two CDK stacks with
    different name prefixes in the same account instead.
+
+## Moving the Firebase data and accounts (done 14 October 2026)
+
+All Firestore data was copied to DynamoDB and old accounts are recognised on AWS. How it works, in plain words:
+
+- `scripts/migrate/migrate.mjs` reads Firestore with a read only service account key (`ai-docs/firebase-admin.json`, never committed)
+  and writes DynamoDB through a temporary import door on the API. Run it without options for a dry run that only counts.
+- The door exists only when the API is deployed with `-c migration=true` and needs the token in SSM at
+  `/quizlike/migration/token`. It was opened, used, and closed. Open it again only to repeat the copy.
+- Every document kept its Firebase id. A person keeps their old user id in the data. The API recognises them by a verified
+  email (`backend/api/identity.mjs`).
+- Password accounts move over the first time their owner signs in on AWS (`backend/auth-triggers/migrate-user.mjs`, turned on
+  with `node infra/scripts/deploy-auth.mjs --migrate`). Google accounts sign in with Google and match by email.
+- It is a one time copy. Changes made on the Firebase build afterwards are not copied.

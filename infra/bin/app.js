@@ -48,6 +48,9 @@ const auth = new AuthStack(app, `${prefix}-auth`, {
   migrateUsers: app.node.tryGetContext('migrateUsers') === 'true',      // see scripts/deploy-auth.mjs
   firebaseApiKey: app.node.tryGetContext('firebaseApiKey'),
 });
-new ApiStack(app, `${prefix}-api`, { env, prefix, userPoolId: auth.pool.userPoolId, clientId: auth.client.userPoolClientId, tables: data.tables });
+new ApiStack(app, `${prefix}-api`, {
+  env, prefix, userPoolId: auth.pool.userPoolId, clientId: auth.client.userPoolClientId, tables: data.tables,
+  migration: app.node.tryGetContext('migration') === 'true',     // opens the temporary import door, see backend/api/migration.mjs
+});
 
 Tags.of(app).add('app', 'quizlike');

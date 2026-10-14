@@ -50,8 +50,17 @@ export class ApiStack extends Stack {
         CLIENT_ID: clientId,
         TABLE_PREFIX: `${prefix}-`,
         ALLOWED_ORIGINS: (props.allowedOrigins || ['*']).join(','),
+        ...(props.migration ? { MIGRATION_ENABLED: 'true' } : {}),
       },
     });
+
+    // The migration door (backend/api/migration.mjs) reads its secret token from SSM. Only while it is open.
+    if (props.migration) {
+      fn.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/quizlike/migration/token`],
+      }));
+    }
 
     // Only the quizlike tables and their indexes, and only the five calls the API makes.
     const arns = Object.values(tables).flatMap((t) => [t.tableArn, `${t.tableArn}/index/*`]);
