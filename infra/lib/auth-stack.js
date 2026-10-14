@@ -1,4 +1,4 @@
-import { CfnOutput, CfnParameter, Duration, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib';
+import { CfnOutput, CfnParameter, CfnResource, Duration, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
@@ -88,6 +88,11 @@ export class AuthStack extends Stack {
       cognitoDomain: { domainPrefix: props.domainPrefix || `${prefix}-${this.account}` },
     });
 
+    // Managed login (version 2) instead of the classic hosted page. The classic page throws away the `prompt` hint, so Google
+    // never showed its account picker and silently reused whichever account was already signed in. Managed login passes
+    // `prompt=select_account` on to Google. Nobody sees Cognito's own page: the app sends people straight to Google.
+    domain.node.defaultChild.addPropertyOverride('ManagedLoginVersion', 2);
+
     const supported = [cognito.UserPoolClientIdentityProvider.COGNITO];
     let google;
     if (withGoogle) {
@@ -125,6 +130,12 @@ export class AuthStack extends Stack {
       refreshTokenValidity: Duration.days(30),
     });
     if (google) client.node.addDependency(google);
+    // Managed login needs a branding record per app client. The Cognito provided look is fine, it is never shown.
+    const branding = new CfnResource(this, 'ManagedLoginBranding', {
+      type: 'AWS::Cognito::ManagedLoginBranding',
+      properties: { UserPoolId: pool.userPoolId, ClientId: client.userPoolClientId, UseCognitoProvidedValues: true },
+    });
+    branding.node.addDependency(domain);
     this.pool = pool;
     this.client = client;
 

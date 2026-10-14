@@ -53,7 +53,11 @@ export async function verifyToken(token, { region, poolId, clientId, fetchFn, no
     if (!claims.sub) return null;
     // email_verified is true for Google (Google checked it) and for accounts moved over from Firebase (Firebase checked the
     // password). It is false for plain new sign ups, which are not verified. Account matching trusts only the true ones.
-    const emailVerified = claims.email_verified === true || claims.email_verified === 'true';
+    // Cognito does not mark a Google user's email verified by itself, so a sign in through Google counts as verified
+    // here: Google only gives an email it has checked, and Google is the only provider this pool accepts. A plain sign up
+    // cannot become verified: Cognito refuses to let an account edit email_verified (tested).
+    const viaGoogle = Array.isArray(claims.identities) && claims.identities.some((i) => /^google$/i.test(String(i?.providerName || '')));
+    const emailVerified = viaGoogle || claims.email_verified === true || claims.email_verified === 'true';
     return { uid: claims.sub, sub: claims.sub, email: claims.email || null, emailVerified, name: claims.name || null, authTime: claims.auth_time || claims.iat || 0 };
   } catch {
     return null;

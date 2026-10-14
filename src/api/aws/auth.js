@@ -13,15 +13,19 @@ import {
 /** Call `callback(user | null)` now and every time the signed in person changes. Returns an unsubscribe function. */
 export function watchAuth(callback) {
   let stopped = false;
+  let checkedThisLoad = false;     // the id the data uses can change (an old account gets matched), so ask once per page load
   const emit = async () => {
     await getIdToken();                       // refreshes an expired token, or clears a dead session
     let session = currentSession();
-    if (session && !session.uid) {
+    if (session && (!session.uid || !checkedThisLoad)) {
+      checkedThisLoad = true;
       // Ask the API which id the data uses for this person. A person moved over from Firebase gets their old id back.
       try {
         const me = await rpc('me');
-        saveSession({ ...currentSession(), uid: me.uid });   // tells the listeners, which run this again with the id set
-        return;
+        if (me.uid !== session.uid) {
+          saveSession({ ...currentSession(), uid: me.uid });   // tells the listeners, which run this again with the right id
+          return;
+        }
       } catch { session = currentSession(); /* offline: carry on with the Cognito id this time */ }
     }
     if (!stopped) callback(userFromSession(session));

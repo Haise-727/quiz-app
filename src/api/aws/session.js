@@ -178,6 +178,7 @@ export async function startGoogleSignIn() {
   const url = `${COGNITO_DOMAIN}/oauth2/authorize?${new URLSearchParams({
     identity_provider: 'Google', response_type: 'code', client_id: COGNITO_CLIENT_ID,
     redirect_uri: callbackUrl(), scope: 'openid email profile', state,
+    prompt: 'select_account',         // always let the person pick the Google account, as the Firebase version did
     code_challenge: challenge, code_challenge_method: 'S256',
   })}`;
   window.location.assign(url);

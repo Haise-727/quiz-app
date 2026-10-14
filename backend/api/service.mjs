@@ -287,6 +287,7 @@ export function createService(repo, { now = () => new Date().toISOString(), newI
     /** Who the data thinks you are. The app uses this id for everything, so a moved over account finds its old data. */
     async me(_args, caller) {
       if (!caller) throw unauthorized();
+      console.log(JSON.stringify({ evt: 'me', verified: !!caller.emailVerified, legacy: caller.legacy === true }));   // no personal data, only whether matching could run
       return { uid: caller.uid, legacy: caller.legacy === true };
     },
 
