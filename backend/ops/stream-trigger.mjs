@@ -3,6 +3,7 @@
  *
  *  - A student hands in a quiz that needs marking (a new result with status "pending"): notify the teacher.
  *  - The teacher finishes marking it (status changes from "pending" to "completed"): notify the student.
+ *  - Someone creates their profile for the first time (a new user record): welcome them.
  *
  * This used to happen in the browser, one request after another. Now it is done by the server the moment the result is
  * written, so it also works when the page is closed, and a failed notification can be retried instead of being lost.
@@ -19,6 +20,13 @@ export function notificationFor(kind, result, eventMs, { studentName } = {}) {
   const iso = new Date(eventMs).toISOString();
   const title = result.quizTitle || 'a quiz';
   const base = { createdAt: iso, read: false, data: { quizId: result.quizId, resultId: result.resultId } };
+  if (kind === 'welcome') {
+    const name = String(result.displayName || '').trim().split(/\s+/)[0];
+    return {
+      createdAt: iso, read: false, data: null, userId: result.uid, type: 'welcome', createdAtId: `${iso}#${result.uid}:welcome`,
+      message: `Welcome to Quizlike${name ? `, ${name}` : ''}. ${result.role === 'teacher' ? 'Create your first quiz and share its code.' : 'Join a quiz with a code from your teacher.'}`,
+    };
+  }
   if (kind === 'needs_marking') {
     return {
       ...base, userId: result.teacherId, type: 'grading', createdAtId: `${iso}#${result.resultId}:needs_marking`,
@@ -35,9 +43,14 @@ export function notificationFor(kind, result, eventMs, { studentName } = {}) {
 export function decide(record, { unmarshall }) {
   if (record.eventName !== 'INSERT' && record.eventName !== 'MODIFY') return null;
   const next = record.dynamodb?.NewImage ? unmarshall(record.dynamodb.NewImage) : null;
-  if (!next || next._t !== 'results') return null;
+  if (!next) return null;
   const prev = record.dynamodb?.OldImage ? unmarshall(record.dynamodb.OldImage) : null;
   const eventMs = (record.dynamodb?.ApproximateCreationDateTime || Date.now() / 1000) * 1000;
+  if (next._t === 'users') {
+    // Only a brand new profile, not a copied over one (those carry `legacy`) and not an edit.
+    return record.eventName === 'INSERT' && next.uid && !next.legacy ? { kind: 'welcome', result: next, eventMs } : null;
+  }
+  if (next._t !== 'results') return null;
 
   if (record.eventName === 'INSERT' && next.status === 'pending' && next.teacherId && next.kind !== 'daily') {
     return { kind: 'needs_marking', result: next, eventMs };

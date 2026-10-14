@@ -68,6 +68,19 @@ test('a record that fails is reported for retry and does not stop the others', a
   assert.equal(out.sent, 1);
 });
 
+test('a brand new profile gets a welcome, a copied over or edited one does not', async () => {
+  const db = fakeDb();
+  const user = { _t: 'users', uid: 'u9', role: 'teacher', displayName: 'Tess Teacher' };
+  const out = await stream({ Records: [rec('INSERT', user)] }, {}, { unmarshall, db });
+  assert.equal(out.sent, 1);
+  const [n] = await db.store.query({ index: null, keyName: 'pk', keyValue: 'notifications#u9', forward: true, limit: 5 });
+  assert.equal(n.message, 'Welcome to Quizlike, Tess. Create your first quiz and share its code.');
+  assert.equal(n.type, 'welcome');
+  assert.equal(decide(rec('INSERT', { ...user, legacy: true }), { unmarshall }), null, 'moved over from Firebase');
+  assert.equal(decide(rec('MODIFY', user, user), { unmarshall }), null, 'an edit');
+  assert.match(notificationFor('welcome', { uid: 's', role: 'student', displayName: '' }, 0).message, /^Welcome to Quizlike\. Join a quiz/);
+});
+
 test('notification text helper covers a missing student name and title', () => {
   assert.match(notificationFor('needs_marking', { resultId: 'r', teacherId: 't' }, 0).message, /^A student has submitted "a quiz"/);
 });

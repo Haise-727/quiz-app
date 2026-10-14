@@ -1,4 +1,5 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import * as accessanalyzer from 'aws-cdk-lib/aws-accessanalyzer';
 import * as cloudtrail from 'aws-cdk-lib/aws-cloudtrail';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cwactions from 'aws-cdk-lib/aws-cloudwatch-actions';
@@ -123,6 +124,12 @@ export class OpsStack extends Stack {
       includeGlobalServiceEvents: true,                           // so IAM and sign in events are in it
       managementEvents: cloudtrail.ReadWriteType.ALL,             // management events only: never data events
     });
+
+    // ── A free security watcher ────────────────────────────────────────────
+    // IAM Access Analyzer: reports anything in the account shared outside it (a public bucket, a role others can assume).
+    new accessanalyzer.CfnAnalyzer(this, 'Analyzer', { analyzerName: `${prefix}-analyzer`, type: 'ACCOUNT' });
+    // (Cost Anomaly Detection is already on: AWS created its default service monitor, and only one is allowed. The daily
+    // cost check above is our own second line of defence.)
 
     // ── Metric filters: log lines and audit events become graphs and alarms ─────────────
     const apiLogs = logs.LogGroup.fromLogGroupName(this, 'ApiLogs', `/aws/lambda/${prefix}-api`);
