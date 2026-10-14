@@ -201,6 +201,10 @@ export class OpsStack extends Stack {
     );
     dash.addWidgets(
       new cloudwatch.GraphWidget({
+        title: 'API gateway: requests, client errors, server errors', width: w,
+        left: ['Count', '4xx', '5xx'].map((m) => new cloudwatch.Metric({ namespace: 'AWS/ApiGateway', metricName: m, dimensionsMap: { ApiId: props.gatewayApiId }, statistic: 'Sum', period: Duration.minutes(5) })),
+      }),
+      new cloudwatch.GraphWidget({
         title: 'Database capacity used and refused', width: w,
         left: [tbl('ConsumedReadCapacityUnits'), tbl('ConsumedWriteCapacityUnits')], right: [tbl('ReadThrottleEvents'), tbl('WriteThrottleEvents')],
       }),

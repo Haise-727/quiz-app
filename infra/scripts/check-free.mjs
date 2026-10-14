@@ -15,7 +15,7 @@ const FORBIDDEN = [
   /^AWS::SecretsManager::/,
   /^AWS::KMS::Key$/,
   /^AWS::WAFv2::/,
-  /^AWS::ApiGateway(V2)?::/,       // API Gateway is billed per request; Lambda Function URLs are not
+  /^AWS::ApiGateway::/,            // REST APIs are billed per request and cost more; only the cheap HTTP API (ApiGatewayV2) is allowed below
   /^AWS::Bedrock/,
   /^AWS::SageMaker/,
   /^AWS::Organizations::/,
@@ -40,6 +40,8 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.template.json')))
       units(res.Properties.ProvisionedThroughput);
       (res.Properties.GlobalSecondaryIndexes || []).forEach((g) => units(g.ProvisionedThroughput));
     }
+    if (res.Type === 'AWS::ApiGatewayV2::Api' && res.Properties.ProtocolType !== 'HTTP') problems.push(`${file}: ${name} is a ${res.Properties.ProtocolType} API (a WebSocket API is billed per message and per minute)`);
+    if (res.Type === 'AWS::ApiGatewayV2::Stage' && !res.Properties.DefaultRouteSettings?.ThrottlingRateLimit) problems.push(`${file}: ${name} has no rate limit`);
     if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier === 'PLUS') problems.push(`${file}: ${name} is the Cognito Plus tier`);
     if (res.Type === 'AWS::Cognito::UserPool' && res.Properties.UserPoolTier !== 'ESSENTIALS' && res.Properties.UserPoolTier !== 'LITE') problems.push(`${file}: ${name} does not set a free tier (ESSENTIALS or LITE)`);
     if (res.Type === 'AWS::CloudWatch::Alarm') alarms += 1;

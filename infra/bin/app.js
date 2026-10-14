@@ -55,17 +55,18 @@ const auth = new AuthStack(app, `${prefix}-auth`, {
 });
 const api = new ApiStack(app, `${prefix}-api`, {
   env, prefix, userPoolId: auth.pool.userPoolId, clientId: auth.client.userPoolClientId, table: data.main,
+  directUrl: app.node.tryGetContext('directApiUrl') !== 'false',     // the unthrottled Lambda address, retired once the app uses the gateway
   migration: app.node.tryGetContext('migration') === 'true',     // opens the temporary import door, see backend/api/migration.mjs
 });
 
 // Monitoring, audit and background triggers (see lib/ops-stack.js). The alerts go to this email.
 new OpsStack(app, `${prefix}-ops`, {
-  env, prefix, mainTable: data.main,
+  env, prefix, mainTable: data.main, gatewayApiId: api.httpApi.apiId,
   alertEmail: app.node.tryGetContext('alertEmail') || 'justaweebwithinternet@gmail.com',
   healthTargets: [
     ...(site ? [{ name: 'site', kind: 'site', url: site.url }] : []),
     { name: 'signer', kind: 'signer', url: signer.url },
-    { name: 'api', kind: 'api', url: api.url },
+    { name: 'api', kind: 'api', url: api.gatewayUrl },   // through the gateway, like a visitor
   ],
 });
 
